@@ -1,7 +1,77 @@
 import React, { useState } from 'react';
+import { API_BASE } from '../constants';
 
 const Auth = ({ onLogin }) => {
   const [view, setView] = useState('login');
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [signupForm, setSignupForm] = useState({ fullName: '', email: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await fetch(`${API_BASE}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: loginForm.email.trim(),
+          passwordHash: loginForm.password,
+        }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || 'Login failed');
+      }
+
+      const data = await response.json();
+      setSuccess('Logged in successfully');
+      onLogin?.(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await fetch(`${API_BASE}/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: signupForm.fullName.trim(),
+          email: signupForm.email.trim(),
+          passwordHash: signupForm.password,
+          role: 'CLIENT',
+        }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || 'Signup failed');
+      }
+
+      const data = await response.json();
+      setSuccess('Account created successfully');
+      onLogin?.(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] flex flex-col items-center justify-center p-6">
@@ -14,16 +84,15 @@ const Auth = ({ onLogin }) => {
       </div>
 
       <div className="w-full max-w-2xl">
-        {/* Tab Switcher */}
         {view !== 'forgot' && (
           <div className="bg-[#e5e7eb] p-2 rounded-2xl flex mb-6 shadow-sm">
-            <button 
+            <button
               onClick={() => setView('login')}
               className={`flex-1 py-4 text-xl font-bold rounded-xl transition-all ${view === 'login' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500'}`}
             >
               Log in
             </button>
-            <button 
+            <button
               onClick={() => setView('signup')}
               className={`flex-1 py-4 text-xl font-bold rounded-xl transition-all ${view === 'signup' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500'}`}
             >
@@ -33,8 +102,19 @@ const Auth = ({ onLogin }) => {
         )}
 
         <div className="bg-white rounded-[40px] shadow-2xl border border-gray-100 p-12">
+          {error && (
+            <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-700 font-bold border border-red-200">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="mb-6 p-4 rounded-xl bg-green-50 text-green-700 font-bold border border-green-200">
+              {success}
+            </div>
+          )}
+
           {view === 'login' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <form onSubmit={handleLogin} className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div>
                 <h3 className="text-2xl font-black text-gray-900 mb-2">Sign in to your account</h3>
                 <p className="text-gray-500 font-bold text-lg">Enter your credentials to access the portal</p>
@@ -42,15 +122,29 @@ const Auth = ({ onLogin }) => {
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-xl font-bold text-gray-900 mb-3">User name</label>
-                  <input type="text" className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none" placeholder="Enter your username" />
+                  <label className="block text-xl font-bold text-gray-900 mb-3">Email</label>
+                  <input
+                    type="email"
+                    className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none"
+                    placeholder="Enter your email"
+                    value={loginForm.email}
+                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                    required
+                  />
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-3">
                     <label className="text-xl font-bold text-gray-900">Password</label>
-                    <button onClick={() => setView('forgot')} className="text-blue-500 font-bold text-lg hover:underline">Forgot password ?</button>
+                    <button type="button" onClick={() => setView('forgot')} className="text-blue-500 font-bold text-lg hover:underline">Forgot password ?</button>
                   </div>
-                  <input type="password" title="password" className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none" placeholder="Enter your password" />
+                  <input
+                    type="password"
+                    className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none"
+                    placeholder="Enter your password"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    required
+                  />
                 </div>
               </div>
 
@@ -60,22 +154,23 @@ const Auth = ({ onLogin }) => {
               </div>
 
               <div className="pt-4 space-y-6 text-center">
-                <button 
-                  onClick={onLogin}
-                  className="w-full py-6 bg-[#7c3aed] text-white text-2xl font-black rounded-3xl hover:bg-[#6d28d9] transition-all shadow-2xl shadow-purple-300 active:scale-[0.98]"
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-6 bg-[#7c3aed] text-white text-2xl font-black rounded-3xl hover:bg-[#6d28d9] transition-all shadow-2xl shadow-purple-300 active:scale-[0.98] disabled:opacity-60"
                 >
-                  Log in
+                  {loading ? 'Signing in...' : 'Log in'}
                 </button>
                 <div className="text-xl font-black text-gray-900 py-2">OR</div>
-                <button className="w-full py-6 bg-[#7c3aed] text-white text-2xl font-black rounded-3xl hover:bg-[#6d28d9] transition-all shadow-2xl shadow-purple-300 active:scale-[0.98]">
+                <button type="button" className="w-full py-6 bg-[#7c3aed] text-white text-2xl font-black rounded-3xl hover:bg-[#6d28d9] transition-all shadow-2xl shadow-purple-300 active:scale-[0.98]">
                    Log in with Google
                 </button>
               </div>
-            </div>
+            </form>
           )}
 
           {view === 'signup' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <form onSubmit={handleSignup} className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div>
                 <h3 className="text-2xl font-black text-gray-900 mb-2">Create an account</h3>
                 <p className="text-gray-500 font-bold text-lg">Enter your information to get started</p>
@@ -84,25 +179,47 @@ const Auth = ({ onLogin }) => {
               <div className="space-y-6">
                 <div>
                   <label className="block text-xl font-bold text-gray-900 mb-3">Full name</label>
-                  <input type="text" className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none" placeholder="Enter your fullname" />
+                  <input
+                    type="text"
+                    className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none"
+                    placeholder="Enter your full name"
+                    value={signupForm.fullName}
+                    onChange={(e) => setSignupForm({ ...signupForm, fullName: e.target.value })}
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-xl font-bold text-gray-900 mb-3">Email</label>
-                  <input type="email" className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none" placeholder="Enter your email" />
+                  <input
+                    type="email"
+                    className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none"
+                    placeholder="Enter your email"
+                    value={signupForm.email}
+                    onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="block text-xl font-bold text-gray-900 mb-3">User name</label>
-                  <input type="text" className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none" placeholder="Enter your username" />
+                  <label className="block text-xl font-bold text-gray-900 mb-3">Password</label>
+                  <input
+                    type="password"
+                    className="w-full px-6 py-5 bg-[#e5e7eb]/40 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-200 text-lg font-bold outline-none"
+                    placeholder="Create a password"
+                    value={signupForm.password}
+                    onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+                    required
+                  />
                 </div>
               </div>
 
-              <button 
-                onClick={onLogin}
-                className="w-full mt-6 py-6 bg-[#7c3aed] text-white text-2xl font-black rounded-3xl hover:bg-[#6d28d9] transition-all shadow-2xl shadow-purple-300"
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-6 py-6 bg-[#7c3aed] text-white text-2xl font-black rounded-3xl hover:bg-[#6d28d9] transition-all shadow-2xl shadow-purple-300 disabled:opacity-60"
               >
-                Sign up
+                {loading ? 'Creating account...' : 'Sign up'}
               </button>
-            </div>
+            </form>
           )}
 
           {view === 'forgot' && (

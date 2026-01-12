@@ -1,6 +1,9 @@
 
 import React from 'react';
 
+// API base used by frontend to talk to Spring Boot backend
+export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080/api/v1/clients';
+
 const COLORS = {
   sidebar: '#111827',
   headerGradient: 'bg-gradient-to-r from-[#7c3aed] to-[#c084fc]',
