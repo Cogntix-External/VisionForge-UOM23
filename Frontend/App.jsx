@@ -11,13 +11,14 @@ import Auth from './pages/Auth';
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
   const [activePage, setActivePage] = useState('dashboard');
   const [showNotifications, setShowNotifications] = useState(false);
   // 'expanded' = with nav (text), 'collapsed' = without nav (icons only)
   const [sidebarMode, setSidebarMode] = useState('collapsed');
 
   if (!isLoggedIn) {
-    return <Auth onLogin={() => setIsLoggedIn(true)} />;
+    return <Auth onLogin={(loggedInUser) => { setUser(loggedInUser); setIsLoggedIn(true); }} />;
   }
 
   const renderPage = () => {
