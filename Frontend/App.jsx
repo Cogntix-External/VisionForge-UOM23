@@ -12,7 +12,6 @@ import Auth from "./pages/Auth";
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
-  const [activePage, setActivePage] = useState('dashboard');
   const [activePage, setActivePage] = useState("dashboard");
   const [showNotifications, setShowNotifications] = useState(false);
   // 'expanded' = with nav (text), 'collapsed' = without nav (icons only)
@@ -24,7 +23,14 @@ const App = () => {
   };
 
   if (!isLoggedIn) {
-    return <Auth onLogin={(loggedInUser) => { setUser(loggedInUser); setIsLoggedIn(true); }} />;
+    return (
+      <Auth
+        onLogin={(loggedInUser) => {
+          setUser(loggedInUser);
+          setIsLoggedIn(true);
+        }}
+      />
+    );
   }
 
   const renderPage = () => {
@@ -36,7 +42,7 @@ const App = () => {
       case "documents":
         return <Documents />;
       case "change-requests":
-return <ChangeRequests />;
+        return <ChangeRequests />;
       case "kanban":
         return <Kanban />;
       case "settings":
