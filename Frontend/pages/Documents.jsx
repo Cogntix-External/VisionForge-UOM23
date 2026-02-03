@@ -308,12 +308,6 @@ const Documents = () => {
     setDocs([newDoc, ...docs]);
   };
 
-  const handleDeleteDocument = (docId) => {
-    if (window.confirm("Are you sure you want to delete this document?")) {
-      setDocs(docs.filter((doc) => doc.id !== docId));
-    }
-  };
-
   return (
     <div className="space-y-8 -mt-6 relative z-10 px-4 pb-10">
       <div className="flex items-center gap-6">

@@ -73,15 +73,6 @@ const Projects = () => {
   const [activeFilter, setActiveFilter] = useState("All Projects");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [projects, setProjects] = useState(MOCK_PROJECTS);
-
-  const handleDeleteProject = (projectId) => {
-    if (window.confirm("Are you sure you want to delete this project?")) {
-      setProjects(projects.filter((p) => p.id !== projectId));
-      if (selectedProject?.id === projectId) {
-        setSelectedProject(null);
-      }
-    }
-  };
   const filters = [
     "All Projects",
     "Status: In Development",
@@ -189,9 +180,6 @@ const Projects = () => {
               <th className="px-12 py-10 text-center text-2xl font-black text-gray-800">
                 View
               </th>
-              <th className="px-12 py-10 text-center text-2xl font-black text-gray-800">
-                Action
-              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
@@ -229,21 +217,12 @@ const Projects = () => {
                       view
                     </button>
                   </td>
-                  <td className="px-12 py-12 whitespace-nowrap text-center">
-                    <button
-                      onClick={() => handleDeleteProject(project.id)}
-                      className="px-8 py-3 bg-red-100 text-red-700 text-xl font-black rounded-[24px] hover:bg-red-200 transition-all shadow-sm active:scale-95"
-                      aria-label={`Delete ${project.name}`}
-                    >
-                      🗑️ Delete
-                    </button>
-                  </td>
                 </tr>
               ))
             ) : (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={5}
                   className="px-12 py-32 text-center text-2xl font-bold text-gray-400"
                 >
                   No projects found matching your criteria.
