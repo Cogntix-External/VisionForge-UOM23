@@ -6,6 +6,7 @@ import Projects from "./pages/Projects";
 import Documents from "./pages/Documents";
 import ChangeRequests from "./pages/ChangeRequests";
 import Kanban from "./pages/Kanban";
+import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 
@@ -45,6 +46,8 @@ const App = () => {
         return <ChangeRequests />;
       case "kanban":
         return <Kanban />;
+      case "notifications":
+        return <Notifications />;
       case "settings":
         return <Settings />;
       default:
@@ -80,6 +83,11 @@ const App = () => {
         return {
           title: "Kanban",
           subtitle: "Visual progress of your change requests and tasks.",
+        };
+      case "notifications":
+        return {
+          title: "Notifications",
+          subtitle: "View and manage all your notifications",
         };
       case "settings":
         return {

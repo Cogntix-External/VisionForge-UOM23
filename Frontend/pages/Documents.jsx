@@ -1,40 +1,312 @@
-import React, { useState } from 'react';
-import { Icons } from '../constants';
+import React, { useState } from "react";
+import { Icons } from "../constants";
 
 const MOCK_DOCS = [
-  { id: '1', projectName: 'NexaFlow', title: 'PRD', version: '3.0', startDate: '15/01/2024' },
-  { id: '2', projectName: 'SmartCore', title: 'CR', version: '2.5', startDate: 'Mar 3, 2025' },
-  { id: '3', projectName: 'AppNest', title: 'CR', version: '1.0', startDate: 'Jan 14, 2025' },
-  { id: '4', projectName: 'SecureGate', title: 'CR', version: '1.5', startDate: 'Aug 28, 2025' },
-  { id: '5', projectName: 'AIFlow', title: 'PRD', version: '2.0', startDate: 'Jan 15, 2025' },
+  {
+    id: "1",
+    projectName: "NexaFlow",
+    title: "PRD",
+    version: "3.0",
+    startDate: "15/01/2024",
+    size: "2.4 MB",
+    format: "PDF",
+    description: "Product Requirements Document",
+  },
+  {
+    id: "2",
+    projectName: "SmartCore",
+    title: "CR",
+    version: "2.5",
+    startDate: "Mar 3, 2025",
+    size: "1.8 MB",
+    format: "PDF",
+    description: "Change Request Document",
+  },
+  {
+    id: "3",
+    projectName: "AppNest",
+    title: "CR",
+    version: "1.0",
+    startDate: "Jan 14, 2025",
+    size: "1.2 MB",
+    format: "PDF",
+    description: "Change Request Document",
+  },
+  {
+    id: "4",
+    projectName: "SecureGate",
+    title: "CR",
+    version: "1.5",
+    startDate: "Aug 28, 2025",
+    size: "3.1 MB",
+    format: "PDF",
+    description: "Change Request Document",
+  },
+  {
+    id: "5",
+    projectName: "AIFlow",
+    title: "PRD",
+    version: "2.0",
+    startDate: "Jan 15, 2025",
+    size: "2.8 MB",
+    format: "PDF",
+    description: "Product Requirements Document",
+  },
 ];
 
+// Accessible Modal Components
+const ViewerModal = ({ doc, onClose }) => {
+  if (!doc) return null;
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="viewer-title"
+    >
+      <div
+        className="bg-white rounded-2xl w-full max-w-[90vw] lg:max-w-4xl max-h-[80vh] overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 p-6 flex justify-between items-center">
+          <div>
+            <h2 id="viewer-title" className="text-white font-bold text-2xl">
+              {doc.title}
+            </h2>
+            <p className="text-purple-100 text-sm mt-1">
+              {doc.projectName} • v{doc.version}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-white hover:bg-white/20 p-2 rounded-lg transition"
+            aria-label="Close viewer"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-8">
+          <div className="bg-gray-100 rounded-xl h-96 flex items-center justify-center mb-6">
+            <div className="text-center">
+              <div className="text-6xl mb-4">📄</div>
+              <p className="text-gray-600 font-medium">Document Preview</p>
+              <p className="text-gray-500 text-sm mt-2">
+                {doc.format} Document • {doc.size}
+              </p>
+            </div>
+          </div>
+          <div className="space-y-4 text-gray-700">
+            <p>
+              <strong>Description:</strong> {doc.description}
+            </p>
+            <p>
+              <strong>Version:</strong> {doc.version}
+            </p>
+            <p>
+              <strong>Last Updated:</strong> {doc.startDate}
+            </p>
+            <p>
+              <strong>Document Size:</strong> {doc.size}
+            </p>
+          </div>
+          <div className="flex gap-4 mt-8">
+            <button
+              onClick={() => downloadDocument(doc)}
+              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-xl hover:shadow-lg transition flex items-center justify-center gap-2"
+              aria-label={`Download ${doc.title} document`}
+            >
+              ⬇️ Download PDF
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 transition"
+              aria-label="Close"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AddDocumentModal = ({ onClose, onAdd }) => {
+  const [formData, setFormData] = useState({
+    projectName: "",
+    title: "PRD",
+    version: "1.0",
+    description: "",
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onAdd(formData);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-doc-title"
+    >
+      <div
+        className="bg-white rounded-2xl w-full max-w-[90vw] lg:max-w-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6">
+          <h2 id="add-doc-title" className="text-white font-bold text-2xl">
+            Add New Document
+          </h2>
+        </div>
+        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">
+              Project Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.projectName}
+              onChange={(e) =>
+                setFormData({ ...formData, projectName: e.target.value })
+              }
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
+              placeholder="e.g., SmartCore"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className="block text-gray-700 font-bold mb-2">
+                Document Type *
+              </label>
+              <select
+                value={formData.title}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
+              >
+                <option>PRD</option>
+                <option>CR</option>
+                <option>Design</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-gray-700 font-bold mb-2">
+                Version *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.version}
+                onChange={(e) =>
+                  setFormData({ ...formData, version: e.target.value })
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
+                placeholder="1.0"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-gray-700 font-bold mb-2">
+              Description
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none min-h-24"
+              placeholder="Document description..."
+            />
+          </div>
+          <div className="flex gap-4">
+            <button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-xl hover:shadow-lg transition"
+              aria-label="Submit new document"
+            >
+              Add Document
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 transition"
+              aria-label="Cancel"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const downloadDocument = (doc) => {
+  const element = document.createElement("a");
+  element.setAttribute(
+    "href",
+    `data:text/plain;charset=utf-8,${encodeURIComponent(`${doc.title} - ${doc.projectName} v${doc.version}`)}`,
+  );
+  element.setAttribute(
+    "download",
+    `${doc.projectName}_${doc.title}_v${doc.version}.pdf`,
+  );
+  element.style.display = "none";
+  document.body.appendChild(element);
+  element.click();
+  document.body.removeChild(element);
+};
+
 const Documents = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState('All Documents');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeFilter, setActiveFilter] = useState("All Documents");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [docs, setDocs] = useState(MOCK_DOCS);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const filterOptions = [
-    'All Documents',
-    'Type: PRD',
-    'Type: CR',
-    'Version: v3.0+',
-    'Recent Uploads'
+    "All Documents",
+    "Type: PRD",
+    "Type: CR",
+    "Version: v3.0+",
+    "Recent Uploads",
   ];
 
-  const filteredDocs = MOCK_DOCS.filter(doc => {
-    const matchesSearch = doc.projectName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          doc.title.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredDocs = docs.filter((doc) => {
+    const matchesSearch =
+      doc.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.title.toLowerCase().includes(searchTerm.toLowerCase());
     let matchesFilter = true;
 
-    if (activeFilter === 'Type: PRD') matchesFilter = doc.title === 'PRD';
-    else if (activeFilter === 'Type: CR') matchesFilter = doc.title === 'CR';
-    else if (activeFilter === 'Version: v3.0+') matchesFilter = parseFloat(doc.version) >= 3.0;
-    else if (activeFilter === 'Recent Uploads') matchesFilter = doc.startDate.includes('2025') || doc.startDate.includes('Mar');
+    if (activeFilter === "Type: PRD") matchesFilter = doc.title === "PRD";
+    else if (activeFilter === "Type: CR") matchesFilter = doc.title === "CR";
+    else if (activeFilter === "Version: v3.0+")
+      matchesFilter = parseFloat(doc.version) >= 3.0;
+    else if (activeFilter === "Recent Uploads")
+      matchesFilter =
+        doc.startDate.includes("2025") || doc.startDate.includes("Mar");
 
     return matchesSearch && matchesFilter;
   });
+
+  const handleAddDocument = (formData) => {
+    const newDoc = {
+      id: (docs.length + 1).toString(),
+      ...formData,
+      startDate: new Date().toLocaleDateString(),
+      size: "1.5 MB",
+      format: "PDF",
+    };
+    setDocs([newDoc, ...docs]);
+  };
 
   return (
     <div className="space-y-8 -mt-6 relative z-10 px-4 pb-10">
@@ -52,84 +324,91 @@ const Documents = () => {
           />
         </div>
 
-        <div className="relative">
-          <button 
-            onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-            className="flex items-center space-x-4 px-8 py-4 bg-[#e5e7eb]/60 text-gray-900 font-bold rounded-2xl hover:bg-gray-200 transition-all shadow-sm min-w-[220px] justify-between"
-          >
-            <div className="flex items-center space-x-3">
-              <Icons.Filter />
-              <span>{activeFilter}</span>
-            </div>
-            <svg className={`w-5 h-5 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {showFilterDropdown && (
-            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 py-3 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-              {filterOptions.map((option) => (
-                <button
-                  key={option}
-                  onClick={() => {
-                    setActiveFilter(option);
-                    setShowFilterDropdown(false);
-                  }}
-                  className={`w-full text-left px-6 py-3 text-lg font-bold hover:bg-gray-50 transition-colors ${activeFilter === option ? 'text-[#7c3aed] bg-purple-50' : 'text-gray-600'}`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-2xl hover:shadow-lg transition-all shadow-sm whitespace-nowrap"
+          aria-label="Add new document"
+        >
+          <span className="text-2xl">+</span>
+          <span>Add Document</span>
+        </button>
       </div>
 
-      <div className="bg-white rounded-[32px] shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden relative min-h-[400px]">
+      <div className="bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-hidden">
         <table className="min-w-full">
           <thead className="bg-[#f9fafb]">
             <tr>
-              <th className="px-10 py-8 text-left text-xl font-medium text-gray-900">Project name</th>
-              <th className="px-10 py-8 text-left text-xl font-medium text-gray-900">Title</th>
-              <th className="px-10 py-8 text-left text-xl font-medium text-gray-900 text-center">Version</th>
-              <th className="px-10 py-8 text-left text-xl font-medium text-gray-900">Start Date</th>
-              <th className="px-10 py-8 text-center text-xl font-medium text-gray-900">View</th>
-              <th className="px-10 py-8 text-center text-xl font-medium text-gray-900">Download</th>
+              <th className="px-10 py-8 text-left text-xl font-medium text-gray-900">
+                Project name
+              </th>
+              <th className="px-10 py-8 text-left text-xl font-medium text-gray-900">
+                Title
+              </th>
+              <th className="px-10 py-8 text-left text-xl font-medium text-gray-900 text-center">
+                Version
+              </th>
+              <th className="px-10 py-8 text-left text-xl font-medium text-gray-900">
+                Date
+              </th>
+              <th className="px-10 py-8 text-center text-xl font-medium text-gray-900">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-50">
-            {filteredDocs.length > 0 ? filteredDocs.map((doc) => (
-              <tr key={doc.id} className="hover:bg-gray-50/50 transition-colors group">
-                <td className="px-10 py-10 whitespace-nowrap">
-                  <span className="text-gray-600 text-lg font-medium">{doc.projectName}</span>
-                </td>
-                <td className="px-10 py-10 whitespace-nowrap">
-                  <span className="text-gray-900 text-lg font-bold">{doc.title}</span>
-                </td>
-                <td className="px-10 py-10 whitespace-nowrap text-center">
-                  <span className="text-gray-500 text-lg font-medium">{doc.version}</span>
-                </td>
-                <td className="px-10 py-10 whitespace-nowrap">
-                  <span className="text-gray-900 text-lg font-bold">{doc.startDate}</span>
-                </td>
-                <td className="px-10 py-10 whitespace-nowrap text-center">
-                  <button 
-                    onClick={() => setSelectedDoc(doc)}
-                    className="px-10 py-2.5 bg-[#4ade80] text-white text-lg font-bold rounded-full hover:bg-green-500 transition-all shadow-sm"
-                  >
-                    view
-                  </button>
-                </td>
-                <td className="px-10 py-10 whitespace-nowrap text-center">
-                  <button className="px-10 py-2.5 bg-[#dbeafe] text-[#1e40af] text-lg font-bold rounded-full border-[2.5px] border-[#1e40af]/30 hover:border-[#1e40af] hover:bg-[#bfdbfe] transition-all shadow-sm">
-                    Download
-                  </button>
-                </td>
-              </tr>
-            )) : (
+            {filteredDocs.length > 0 ? (
+              filteredDocs.map((doc) => (
+                <tr
+                  key={doc.id}
+                  className="hover:bg-gray-50/50 transition-colors"
+                >
+                  <td className="px-10 py-10 whitespace-nowrap">
+                    <span className="text-gray-600 text-lg font-medium">
+                      {doc.projectName}
+                    </span>
+                  </td>
+                  <td className="px-10 py-10 whitespace-nowrap">
+                    <span className="text-gray-900 text-lg font-bold">
+                      {doc.title}
+                    </span>
+                  </td>
+                  <td className="px-10 py-8 whitespace-nowrap text-center">
+                    <span className="text-gray-500 text-lg font-medium">
+                      {doc.version}
+                    </span>
+                  </td>
+                  <td className="px-10 py-10 whitespace-nowrap">
+                    <span className="text-gray-900 text-lg font-bold">
+                      {doc.startDate}
+                    </span>
+                  </td>
+                  <td className="px-10 py-10 whitespace-nowrap text-center">
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={() => setSelectedDoc(doc)}
+                        className="px-6 py-2 bg-green-100 text-green-700 font-bold rounded-lg hover:bg-green-200 transition"
+                        aria-label={`View ${doc.title}`}
+                      >
+                        👁️ View
+                      </button>
+                      <button
+                        onClick={() => downloadDocument(doc)}
+                        className="px-6 py-2 bg-blue-100 text-blue-700 font-bold rounded-lg hover:bg-blue-200 transition"
+                        aria-label={`Download ${doc.title}`}
+                      >
+                        ⬇️ Download
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
               <tr>
-                <td colSpan={6} className="px-10 py-32 text-center text-2xl font-bold text-gray-400">
-                  No documents found matching your filters.
+                <td
+                  colSpan={5}
+                  className="px-10 py-20 text-center text-xl font-bold text-gray-400"
+                >
+                  No documents found
                 </td>
               </tr>
             )}
@@ -138,54 +417,13 @@ const Documents = () => {
       </div>
 
       {selectedDoc && (
-        <div 
-          onClick={() => setSelectedDoc(null)}
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 cursor-pointer"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white w-full max-w-3xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in duration-300 relative cursor-default"
-          >
-            <button onClick={() => setSelectedDoc(null)} className="absolute top-8 right-8 p-3 hover:bg-gray-100 rounded-full transition-all">
-              <svg className="w-8 h-8 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l18 18" /></svg>
-            </button>
-            <div className="p-12">
-               <h3 className="text-3xl font-black text-gray-900 mb-2">{selectedDoc.projectName} - {selectedDoc.title}</h3>
-               <p className="text-xl font-bold text-gray-500 mb-10">A Change request for implementing new authentication system</p>
-               
-               <div className="bg-[#e5e7eb]/80 rounded-[32px] p-10 flex justify-between items-center mb-10 border border-gray-200 shadow-sm">
-                  <div className="text-center flex-1 border-r border-gray-300">
-                    <p className="text-lg font-black text-gray-900">Version</p>
-                    <p className="text-xl font-bold text-gray-700">{selectedDoc.version}</p>
-                  </div>
-                  <div className="text-center flex-1 border-r border-gray-300 px-6">
-                    <p className="text-lg font-black text-gray-900">Start date</p>
-                    <p className="text-xl font-bold text-gray-700">{selectedDoc.startDate}</p>
-                  </div>
-                  <div className="text-center flex-1 px-6">
-                    <p className="text-lg font-black text-gray-900">Project</p>
-                    <p className="text-xl font-bold text-gray-700">{selectedDoc.projectName}</p>
-                  </div>
-               </div>
-
-               <div className="space-y-6 text-xl text-gray-900 leading-relaxed font-medium">
-                 <p>This change request outlines the requirements for implementing new OAuth 2.0 based authentication system. The current basic authentication needs to be replaced with a more secure and flexible solution.</p>
-                 <div>
-                   <p className="font-bold mb-2">Key Requirements:</p>
-                   <ul className="list-decimal list-inside space-y-2">
-                     <li>OAuth 2.0 implementation</li>
-                     <li>Support for Google and Microsoft providers</li>
-                     <li>JWT token management</li>
-                     <li>Refresh token handling</li>
-                     <li>Session management improvements</li>
-                   </ul>
-                 </div>
-                 <p>Timeline: 6 weeks</p>
-                 <p>Priority: High</p>
-               </div>
-            </div>
-          </div>
-        </div>
+        <ViewerModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+      )}
+      {showAddModal && (
+        <AddDocumentModal
+          onClose={() => setShowAddModal(false)}
+          onAdd={handleAddDocument}
+        />
       )}
     </div>
   );
