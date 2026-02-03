@@ -103,6 +103,7 @@ const App = () => {
           setSidebarMode(sidebarMode === "expanded" ? "collapsed" : "expanded")
         }
         onLogout={handleLogout}
+        user={user}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">

@@ -1,21 +1,28 @@
 package com.visionforge.crms.controller;
 
-import com.visionforge.crms.model.User;
-import com.visionforge.crms.service.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
+
+import com.visionforge.crms.model.User;
+import com.visionforge.crms.service.ClientService;
+import com.visionforge.crms.security.JwtUtil; // 1. Import JwtUtil
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/clients")
-@CrossOrigin(origins = "*") // Critical for connecting to Frontend later
+@CrossOrigin(origins = "*") 
 public class ClientController {
 
     @Autowired
     private ClientService clientService;
 
-    // 1. REGISTER Endpoint (POST /api/v1/clients/signup)
+    @Autowired
+    private JwtUtil jwtUtil; // 2. Inject the Token Generator
+
+    // 1. REGISTER Endpoint (Unchanged)
     @PostMapping("/signup")
     public ResponseEntity<?> register(@RequestBody User user) {
         try {
@@ -26,14 +33,22 @@ public class ClientController {
         }
     }
 
-    // 2. LOGIN Endpoint (POST /api/v1/clients/login)
+    // 2. LOGIN Endpoint (UPDATED with JWT)
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody User loginRequest) {
-        // We expect the frontend to send a User object with email & passwordHash
+        // Authenticate the user using the service
         User user = clientService.loginClient(loginRequest.getEmail(), loginRequest.getPasswordHash());
         
         if (user != null) {
-            return ResponseEntity.ok(user);
+            // LOGIN SUCCESS: Generate a secure Token (Key Card)
+            String token = jwtUtil.generateToken(user.getEmail());
+            
+            // Create a response map to send both the Token and User data
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("user", user);
+            
+            return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.status(401).body("Invalid Email or Password");
         }

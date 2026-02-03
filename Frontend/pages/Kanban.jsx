@@ -1,4 +1,4 @@
-import React from 'react';
+  import React from 'react';
 
 const MOCK_TASKS = [
   { id: '1', crId: 'CR-001', title: 'Implement JWT Auth', column: 'In Progress', priority: 'High' },

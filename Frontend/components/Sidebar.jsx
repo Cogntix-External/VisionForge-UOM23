@@ -2,8 +2,10 @@ import React from "react";
 import { Icons } from "../constants";
 import CRMSLogo from "../assets/CRMSLogo";
 
-const Sidebar = ({ activePage, onNavigate, mode, onToggleMode, onLogout }) => {
+const Sidebar = ({ activePage, onNavigate, mode, onToggleMode, onLogout, user }) => {
   const isCollapsed = mode === "collapsed";
+  const userName = user?.fullName || user?.name || "User";
+  const userEmail = user?.email || "";
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: Icons.Dashboard },
@@ -140,9 +142,9 @@ const Sidebar = ({ activePage, onNavigate, mode, onToggleMode, onLogout }) => {
           </div>
           {!isCollapsed && (
             <div className="flex flex-col min-w-0 flex-1 text-left">
-              <span className="text-sm font-black truncate">John Doe</span>
+              <span className="text-sm font-black truncate">{userName}</span>
               <span className="text-xs text-gray-500 font-bold truncate">
-                sathu@gmail.com
+                {userEmail}
               </span>
             </div>
           )}
