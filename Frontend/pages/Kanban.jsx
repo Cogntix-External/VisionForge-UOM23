@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-
 const MOCK_TASKS = [
   {
     id: "1",
