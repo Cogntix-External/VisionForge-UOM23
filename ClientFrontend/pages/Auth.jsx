@@ -31,8 +31,18 @@ const Auth = ({ onLogin }) => {
       }
 
       const data = await response.json();
+      const normalizedUser = data?.user ?? data;
+      const resolvedEmail = normalizedUser?.email || loginForm.email.trim();
+      const resolvedName =
+        normalizedUser?.fullName ||
+        normalizedUser?.name ||
+        (resolvedEmail ? resolvedEmail.split('@')[0] : 'User');
       setSuccess('Logged in successfully');
-      onLogin?.(data);
+      onLogin?.({
+        ...normalizedUser,
+        email: resolvedEmail,
+        fullName: resolvedName,
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -64,8 +74,18 @@ const Auth = ({ onLogin }) => {
       }
 
       const data = await response.json();
+      const normalizedUser = data?.user ?? data;
+      const resolvedEmail = normalizedUser?.email || signupForm.email.trim();
+      const resolvedName =
+        normalizedUser?.fullName ||
+        normalizedUser?.name ||
+        (resolvedEmail ? resolvedEmail.split('@')[0] : 'User');
       setSuccess('Account created successfully');
-      onLogin?.(data);
+      onLogin?.({
+        ...normalizedUser,
+        email: resolvedEmail,
+        fullName: resolvedName,
+      });
     } catch (err) {
       setError(err.message);
     } finally {
