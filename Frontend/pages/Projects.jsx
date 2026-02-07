@@ -73,6 +73,8 @@ const Projects = () => {
   const [activeFilter, setActiveFilter] = useState("All Projects");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [projects, setProjects] = useState(MOCK_PROJECTS);
+  const [activeTab, setActiveTab] = useState("changeRequests");
+
   const filters = [
     "All Projects",
     "Status: In Development",
@@ -103,15 +105,16 @@ const Projects = () => {
   });
 
   return (
-    <div className="space-y-8 -mt-6 relative z-10 px-4 pb-10">
-      <div className="flex items-center gap-6 relative">
+    <div className="space-y-6 -mt-6 relative z-10 px-8 pb-10">
+      {/* Search and Filter Bar */}
+      <div className="flex items-center gap-4 relative">
         <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none text-gray-400">
+          <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-gray-400">
             <Icons.Search />
           </div>
           <input
             type="text"
-            className="block w-full pl-14 pr-6 py-4 border border-transparent rounded-[20px] bg-[#e5e7eb]/80 text-gray-900 placeholder-gray-500 font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-inner"
+            className="block w-full pl-14 pr-5 py-4 border border-transparent rounded-2xl bg-[#e5e7eb]/80 text-gray-900 placeholder-gray-500 font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
             placeholder="Search projects by name...."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -121,11 +124,11 @@ const Projects = () => {
         <div className="relative">
           <button
             onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-            className="flex items-center space-x-4 px-8 py-4 bg-[#e5e7eb]/80 text-gray-900 font-bold rounded-[18px] hover:bg-gray-200 transition-all shadow-sm border border-gray-100 min-w-[220px] justify-between"
+            className="flex items-center gap-3 px-6 py-4 bg-[#e5e7eb]/80 text-gray-900 font-semibold rounded-2xl hover:bg-gray-200 transition-all border border-gray-100 min-w-[200px] justify-between"
           >
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-2">
               <Icons.Filter />
-              <span className="text-lg">{activeFilter}</span>
+              <span className="text-base">{activeFilter}</span>
             </div>
             <svg
               className={`w-5 h-5 text-gray-500 transition-transform ${showFilterDropdown ? "rotate-180" : ""}`}
@@ -143,7 +146,7 @@ const Projects = () => {
           </button>
 
           {showFilterDropdown && (
-            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 py-3 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 z-50 py-2 overflow-hidden">
               {filters.map((filter) => (
                 <button
                   key={filter}
@@ -151,7 +154,7 @@ const Projects = () => {
                     setActiveFilter(filter);
                     setShowFilterDropdown(false);
                   }}
-                  className={`w-full text-left px-6 py-3 text-lg font-bold hover:bg-gray-50 transition-colors ${activeFilter === filter ? "text-[#7c3aed] bg-purple-50" : "text-gray-600"}`}
+                  className={`w-full text-left px-5 py-2.5 text-base font-semibold hover:bg-gray-50 transition-colors ${activeFilter === filter ? "text-[#7c3aed] bg-purple-50" : "text-gray-600"}`}
                 >
                   {filter}
                 </button>
@@ -161,93 +164,100 @@ const Projects = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-[40px] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden min-h-[400px]">
-        <table className="min-w-full">
-          <thead className="bg-[#f9fafb]/50">
-            <tr>
-              <th className="px-12 py-10 text-left text-2xl font-black text-gray-800">
-                Project Name
-              </th>
-              <th className="px-12 py-10 text-left text-2xl font-black text-gray-800">
-                Progress
-              </th>
-              <th className="px-12 py-10 text-left text-2xl font-black text-gray-800">
-                Timeline
-              </th>
-              <th className="px-12 py-10 text-left text-2xl font-black text-gray-800">
-                Budget
-              </th>
-              <th className="px-12 py-10 text-center text-2xl font-black text-gray-800">
-                View
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
-            {filteredProjects.length > 0 ? (
-              filteredProjects.map((project) => (
-                <tr
-                  key={project.id}
-                  className="hover:bg-gray-50/50 transition-colors group"
-                >
-                  <td className="px-12 py-12 whitespace-nowrap text-xl font-bold text-gray-600">
-                    {project.name}
-                  </td>
-                  <td className="px-12 py-12 whitespace-nowrap text-xl font-black text-gray-900">
-                    <div className="flex items-center space-x-3">
-                      <span className="min-w-[50px]">{project.progress}%</span>
-                      <div className="w-24 bg-gray-100 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-green-500 h-full rounded-full"
-                          style={{ width: `${project.progress}%` }}
-                        />
+      {/* Projects Table */}
+      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-[#f9fafb] border-b border-gray-200">
+              <tr>
+                <th className="px-8 py-6 text-left text-lg font-bold text-gray-800 w-1/5">
+                  Project Name
+                </th>
+                <th className="px-8 py-6 text-left text-lg font-bold text-gray-800 w-1/4">
+                  Progress
+                </th>
+                <th className="px-8 py-6 text-left text-lg font-bold text-gray-800 w-1/4">
+                  Timeline
+                </th>
+                <th className="px-8 py-6 text-left text-lg font-bold text-gray-800 w-1/6">
+                  Budget
+                </th>
+                <th className="px-8 py-6 text-center text-lg font-bold text-gray-800 w-[140px]">
+                  View
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {filteredProjects.length > 0 ? (
+                filteredProjects.map((project) => (
+                  <tr
+                    key={project.id}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="px-8 py-6 text-base font-semibold text-gray-900">
+                      {project.name}
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-3">
+                        <span className="text-base font-bold text-gray-900 min-w-[45px]">
+                          {project.progress}%
+                        </span>
+                        <div className="flex-1 max-w-[120px] bg-gray-200 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-green-500 h-full rounded-full transition-all"
+                            style={{ width: `${project.progress}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-12 py-12 whitespace-nowrap text-xl font-black text-gray-900">
-                    {project.startDate}
-                  </td>
-                  <td className="px-12 py-12 whitespace-nowrap text-xl font-black text-gray-900">
-                    ${project.budget.toLocaleString()}
-                  </td>
-                  <td className="px-12 py-12 whitespace-nowrap text-center">
-                    <button
-                      onClick={() => setSelectedProject(project)}
-                      className="px-12 py-3 bg-[#bbf7d0] text-[#166534] text-xl font-black rounded-[24px] hover:bg-[#86efac] transition-all shadow-sm active:scale-95"
-                    >
-                      view
-                    </button>
+                    </td>
+                    <td className="px-8 py-6 text-base font-semibold text-gray-900">
+                      {project.startDate}
+                    </td>
+                    <td className="px-8 py-6 text-base font-bold text-gray-900">
+                      ${project.budget.toLocaleString()}
+                    </td>
+                    <td className="px-8 py-6 text-center">
+                      <button
+                        onClick={() => setSelectedProject(project)}
+                        className="px-8 py-2 bg-[#bbf7d0] text-[#166534] text-base font-bold rounded-full hover:bg-[#86efac] transition-all shadow-sm active:scale-95"
+                      >
+                        view
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-8 py-20 text-center text-lg font-semibold text-gray-400"
+                  >
+                    No projects found matching your criteria.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-12 py-32 text-center text-2xl font-bold text-gray-400"
-                >
-                  No projects found matching your criteria.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* Project Detail Modal */}
       {selectedProject && (
         <div
           onClick={() => setSelectedProject(null)}
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-[#111827]/60 backdrop-blur-md p-4 cursor-pointer"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white w-full max-w-4xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in duration-300 relative cursor-default"
+            className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden relative cursor-default max-h-[90vh] overflow-y-auto"
           >
+            {/* Close Button */}
             <button
               onClick={() => setSelectedProject(null)}
-              className="absolute top-8 right-8 p-3 hover:bg-gray-100 rounded-full transition-all"
+              className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-all z-10"
             >
               <svg
-                className="w-8 h-8 text-gray-900"
+                className="w-6 h-6 text-gray-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -255,103 +265,130 @@ const Projects = () => {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="3"
-                  d="M6 18L18 6M6 6l18 18"
+                  strokeWidth="2"
+                  d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
             </button>
-            <div className="p-12">
-              <h3 className="text-4xl font-black text-gray-900 mb-2">
+
+            <div className="p-10">
+              {/* Project Header */}
+              <h3 className="text-3xl font-bold text-gray-900 mb-3">
                 {selectedProject.name}
               </h3>
-              <p className="text-2xl font-bold text-gray-500 mb-10 max-w-3xl leading-relaxed">
+              <p className="text-base text-gray-600 mb-6 leading-relaxed">
                 A comprehensive platform development involving inventory
                 management, customer analytics, and high-performance secure gate
                 integration.
               </p>
 
-              <div className="flex items-center space-x-12 mb-10">
-                <div className="flex items-center space-x-4 bg-gray-50 p-6 rounded-[24px] border border-gray-100">
-                  <div className="bg-white p-3 rounded-xl text-amber-600 shadow-sm">
-                    <svg
-                      className="w-8 h-8"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xl font-black text-gray-900">
-                      Timeline: {selectedProject.startDate}
-                    </p>
-                  </div>
+              {/* Timeline Badge */}
+              <div className="inline-flex items-center gap-3 bg-gray-50 px-5 py-3 rounded-xl border border-gray-200 mb-6">
+                <div className="text-orange-500">
+                  <svg
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
                 </div>
+                <p className="text-base font-bold text-gray-900">
+                  Timeline: {selectedProject.startDate}
+                </p>
               </div>
 
-              <div className="grid grid-cols-4 gap-8 mb-12">
-                <StatPill
-                  label="Progress"
+              {/* Stats Grid */}
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <StatCard
+                  label="PROGRESS"
                   value={`${selectedProject.progress}%`}
                 />
-                <StatPill label="Total CRs" value="12" icon="📄" />
-                <StatPill label="Completed" value="9" icon="✔" />
-                <StatPill label="Pending" value="3" icon="!" />
+                <StatCard label="TOTAL CRS" value="12" icon="📄" />
+                <StatCard label="COMPLETED" value="9" icon="✓" />
+                <StatCard label="PENDING" value="3" icon="!" />
               </div>
 
-              <div className="bg-[#e5e7eb]/50 p-2 rounded-[32px] flex mb-8">
-                <button className="flex-1 py-5 text-2xl font-black rounded-[28px] bg-white shadow-xl text-gray-900">
+              {/* Tab Navigation */}
+              <div className="bg-gray-100 p-1.5 rounded-2xl flex mb-6">
+                <button
+                  onClick={() => setActiveTab("changeRequests")}
+                  className={`flex-1 py-3 text-base font-bold rounded-xl transition-all ${
+                    activeTab === "changeRequests"
+                      ? "bg-white shadow-sm text-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
                   Change Requests
                 </button>
-                <button className="flex-1 py-5 text-2xl font-black rounded-[28px] text-gray-400 hover:text-gray-600">
+                <button
+                  onClick={() => setActiveTab("documents")}
+                  className={`flex-1 py-3 text-base font-bold rounded-xl transition-all ${
+                    activeTab === "documents"
+                      ? "bg-white shadow-sm text-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
                   Documents
                 </button>
               </div>
 
-              <div className="border border-gray-200 rounded-[32px] overflow-hidden bg-white shadow-lg">
-                <table className="w-full text-xl">
-                  <thead className="bg-[#f9fafb] border-b border-gray-200">
-                    <tr>
-                      <th className="px-10 py-8 text-left font-black text-gray-800">
-                        ID
-                      </th>
-                      <th className="px-10 py-8 text-left font-black text-gray-800">
-                        Title
-                      </th>
-                      <th className="px-10 py-8 text-left font-black text-gray-800">
-                        Date
-                      </th>
-                      <th className="px-10 py-8 text-left font-black text-gray-800">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    <Row
-                      id="CR-001"
-                      title="Update Payment gateway"
-                      date="Oct 2024"
-                      status="completed"
-                    />
-                    <Row
-                      id="CR-002"
-                      title="Add product filters"
-                      date="Nov 2025"
-                      status="In progress"
-                    />
-                    <Row
-                      id="CR-003"
-                      title="Improve Checkout flow"
-                      date="July 2025"
-                      status="Approved"
-                    />
-                  </tbody>
-                </table>
-              </div>
+              {/* Change Requests Table */}
+              {activeTab === "changeRequests" && (
+                <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white">
+                  <table className="w-full">
+                    <thead className="bg-[#f9fafb] border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-gray-800">
+                          ID
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-gray-800">
+                          Title
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-gray-800">
+                          Date
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-gray-800">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      <ChangeRequestRow
+                        id="CR-001"
+                        title="Update Payment gateway"
+                        date="Oct 2024"
+                        status="completed"
+                      />
+                      <ChangeRequestRow
+                        id="CR-002"
+                        title="Add product filters"
+                        date="Nov 2025"
+                        status="In progress"
+                      />
+                      <ChangeRequestRow
+                        id="CR-003"
+                        title="Improve Checkout flow"
+                        date="July 2025"
+                        status="Approved"
+                      />
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Documents Tab Content */}
+              {activeTab === "documents" && (
+                <div className="border border-gray-200 rounded-2xl p-8 bg-gray-50 text-center">
+                  <p className="text-gray-500 font-semibold">
+                    No documents available for this project.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -360,31 +397,33 @@ const Projects = () => {
   );
 };
 
-const StatPill = ({ label, value, icon }) => (
-  <div className="bg-[#f8fafc] rounded-[32px] p-8 text-center border-2 border-gray-100 shadow-lg transition-all hover:scale-105 hover:border-purple-200">
-    <p className="text-xl font-bold text-gray-500 mb-2 uppercase tracking-widest">
+// Stat Card Component for Modal
+const StatCard = ({ label, value, icon }) => (
+  <div className="bg-gray-50 rounded-2xl p-5 text-center border border-gray-200">
+    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
       {label}
     </p>
-    <div className="flex items-center justify-center space-x-3">
-      {icon && <span className="text-2xl">{icon}</span>}
-      <p className="text-4xl font-black text-[#111827]">{value}</p>
+    <div className="flex items-center justify-center gap-2">
+      {icon && <span className="text-xl">{icon}</span>}
+      <p className="text-3xl font-bold text-gray-900">{value}</p>
     </div>
   </div>
 );
 
-const Row = ({ id, title, date, status }) => (
-  <tr className="hover:bg-gray-50/50">
-    <td className="px-10 py-8 font-bold text-gray-500">{id}</td>
-    <td className="px-10 py-8 font-black text-gray-900">{title}</td>
-    <td className="px-10 py-8 font-black text-gray-900">{date}</td>
-    <td className="px-10 py-8">
+// Change Request Row Component
+const ChangeRequestRow = ({ id, title, date, status }) => (
+  <tr className="hover:bg-gray-50">
+    <td className="px-6 py-4 text-sm font-semibold text-gray-600">{id}</td>
+    <td className="px-6 py-4 text-sm font-bold text-gray-900">{title}</td>
+    <td className="px-6 py-4 text-sm font-semibold text-gray-900">{date}</td>
+    <td className="px-6 py-4">
       <span
-        className={`px-8 py-2 rounded-full text-lg font-black border-2 ${
+        className={`inline-block px-4 py-1.5 rounded-full text-xs font-bold ${
           status === "completed"
-            ? "bg-[#dcfce7] text-green-800 border-green-200"
+            ? "bg-green-100 text-green-800"
             : status === "In progress"
-              ? "bg-[#ffedd5] text-orange-800 border-orange-200"
-              : "bg-[#f0f9ff] text-blue-800 border-blue-200"
+              ? "bg-orange-100 text-orange-800"
+              : "bg-blue-100 text-blue-800"
         }`}
       >
         {status}
