@@ -1,8 +1,0 @@
-{
-  "name": "CRMS - Client Portal",
-  "description": "A comprehensive Change & Requirement Management System (CRMS) specifically designed for clients to track project progress, manage PRDs, and handle change requests with integrated Kanban boards.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
-}
