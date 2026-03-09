@@ -9,8 +9,9 @@ import { clearSession } from "../../utils/auth";
 
 const clientItems = [
   { href: "/client/dashboard", label: "Dashboard" },
-  { href: "/client/projects", label: "Projects" },
-  { href: "/client/documents", label: "Documents" },
+  { href: "/client/Project", label: "Projects" },
+  { href: "/client/ChangeRequest", label: "Change Requests" },
+  { href: "/client/Proposal", label: "Proposals" },
 ];
 
 const companyItems = [
