@@ -6,7 +6,7 @@ const Auth = ({ onLogin }) => {
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({
     fullName: "",
-    email: "",
+    email: "example@example.com",
     password: "",
     role: "CLIENT",
   });

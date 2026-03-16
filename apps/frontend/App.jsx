@@ -1,111 +1,234 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
+
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
-import Documents from "./pages/Documents";
 import ChangeRequests from "./pages/ChangeRequests";
 import Proposals from "./pages/Proposals";
 import Kanban from "./pages/Kanban";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
+import Documents from "./pages/Documents";
+
+const ROLE = {
+  CLIENT: "CLIENT",
+  COMPANY: "COMPANY",
+};
+
+const PAGE_ACCESS = {
+  dashboard: [ROLE.CLIENT, ROLE.COMPANY],
+  projects: [ROLE.CLIENT, ROLE.COMPANY],
+  documents: [ROLE.CLIENT, ROLE.COMPANY],
+  "change-requests": [ROLE.CLIENT, ROLE.COMPANY],
+  proposals: [ROLE.CLIENT, ROLE.COMPANY],
+  kanban: [ROLE.CLIENT, ROLE.COMPANY],
+  notifications: [ROLE.CLIENT, ROLE.COMPANY],
+  settings: [ROLE.CLIENT, ROLE.COMPANY],
+};
+
+const PAGE_INFO = {
+  CLIENT: {
+    dashboard: {
+      title: "Client Dashboard",
+      subtitle: "Welcome back! Here is your project and request overview.",
+    },
+    projects: {
+      title: "Projects",
+      subtitle: "View accepted projects and their current progress.",
+    },
+    documents: {
+      title: "Project Documents",
+      subtitle: "View and download PRDs and related project files.",
+    },
+    "change-requests": {
+      title: "Change Requests",
+      subtitle: "Create and track your project change requests.",
+    },
+    proposals: {
+      title: "Project Proposals",
+      subtitle: "Review company proposals and accept or reject them.",
+    },
+    kanban: {
+      title: "Project Clientside Kanban",
+      subtitle: "Track your full project workflow and progress.",
+    },
+    notifications: {
+      title: "Notifications",
+      subtitle: "See proposal updates, document uploads, and decisions.",
+    },
+    settings: {
+      title: "Settings",
+      subtitle: "Manage your account settings and preferences.",
+    },
+  },
+  COMPANY: {
+    dashboard: {
+      title: "Company Dashboard",
+      subtitle: "Manage proposals, projects, and delivery progress.",
+    },
+    projects: {
+      title: "Company Projects",
+      subtitle: "Manage all approved and active client projects.",
+    },
+    documents: {
+      title: "Project Requirement Documents",
+      subtitle: "Upload PRDs and manage project documentation.",
+    },
+    "change-requests": {
+      title: "Change Requests",
+      subtitle: "Review client change requests and take action.",
+    },
+    proposals: {
+      title: "Project Proposals",
+      subtitle: "Create and manage proposals sent to clients.",
+    },
+    kanban: {
+      title: "Project company side Kanban",
+      subtitle: "Manage tasks and monitor team progress visually.",
+    },
+    notifications: {
+      title: "Notifications",
+      subtitle: "Stay updated on approvals, uploads, and requests.",
+    },
+    settings: {
+      title: "Settings",
+      subtitle: "Manage company profile and portal preferences.",
+    },
+  },
+};
+
+const DEFAULT_PAGE_BY_ROLE = {
+  CLIENT: "dashboard",
+  COMPANY: "dashboard",
+};
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [activePage, setActivePage] = useState("dashboard");
   const [showNotifications, setShowNotifications] = useState(false);
-  // 'expanded' = with nav (text), 'collapsed' = without nav (icons only)
   const [sidebarMode, setSidebarMode] = useState("collapsed");
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem("crms_token");
+    const storedUser = localStorage.getItem("crms_user");
+
+    if (storedToken && storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+
+        if (parsedUser?.role) {
+          setUser(parsedUser);
+          setIsLoggedIn(true);
+          setActivePage(DEFAULT_PAGE_BY_ROLE[parsedUser.role] || "dashboard");
+        }
+      } catch (error) {
+        console.error("Failed to parse stored user:", error);
+        localStorage.removeItem("crms_token");
+        localStorage.removeItem("crms_user");
+      }
+    }
+  }, []);
+
+  const currentRole = user?.role || null;
+
+  const allowedPages = useMemo(() => {
+    if (!currentRole) return [];
+    return Object.keys(PAGE_ACCESS).filter((page) =>
+      PAGE_ACCESS[page].includes(currentRole)
+    );
+  }, [currentRole]);
+
+  const safeSetActivePage = (page) => {
+    if (!currentRole) return;
+
+    if (PAGE_ACCESS[page]?.includes(currentRole)) {
+      setActivePage(page);
+      setShowNotifications(false);
+    } else {
+      setActivePage(DEFAULT_PAGE_BY_ROLE[currentRole] || "dashboard");
+    }
+  };
+
+  useEffect(() => {
+    if (!currentRole) return;
+
+    const isCurrentPageAllowed = PAGE_ACCESS[activePage]?.includes(currentRole);
+
+    if (!isCurrentPageAllowed) {
+      setActivePage(DEFAULT_PAGE_BY_ROLE[currentRole] || "dashboard");
+    }
+  }, [activePage, currentRole]);
 
   const handleLogout = () => {
     localStorage.removeItem("crms_token");
+    localStorage.removeItem("crms_user");
+    setUser(null);
     setIsLoggedIn(false);
     setActivePage("dashboard");
+    setShowNotifications(false);
+  };
+
+  const handleLoginSuccess = (loginResponse) => {
+    const loggedInUser = {
+      id: loginResponse.id,
+      name: loginResponse.name,
+      email: loginResponse.email,
+      role: loginResponse.role,
+      token: loginResponse.token,
+    };
+
+    localStorage.setItem("crms_token", loginResponse.token);
+    localStorage.setItem("crms_user", JSON.stringify(loggedInUser));
+
+    setUser(loggedInUser);
+    setIsLoggedIn(true);
+    setActivePage(DEFAULT_PAGE_BY_ROLE[loggedInUser.role] || "dashboard");
   };
 
   if (!isLoggedIn) {
-    return (
-      <Auth
-        onLogin={(loggedInUser) => {
-          setUser(loggedInUser);
-          setIsLoggedIn(true);
-        }}
-      />
-    );
+    return <Auth onLogin={handleLoginSuccess} />;
   }
 
   const renderPage = () => {
     switch (activePage) {
       case "dashboard":
-        return <Dashboard />;
+        return <Dashboard user={user} role={currentRole} />;
       case "projects":
-        return <Projects />;
+        return <Projects user={user} role={currentRole} />;
       case "documents":
-        return <Documents />;
+        return <Documents user={user} role={currentRole} />;
       case "change-requests":
-        return <ChangeRequests />;
+        return <ChangeRequests user={user} role={currentRole} />;
       case "proposals":
-        return <Proposals />;
+        return <Proposals user={user} role={currentRole} />;
       case "kanban":
-        return <Kanban />;
+        return <Kanban user={user} role={currentRole} />;
       case "notifications":
-        return <Notifications />;
+        return <Notifications user={user} role={currentRole} />;
       case "settings":
-        return <Settings />;
+        return <Settings user={user} role={currentRole} />;
       default:
-        return <Dashboard />;
+        return <Dashboard user={user} role={currentRole} />;
     }
   };
 
   const getPageInfo = () => {
-    switch (activePage) {
-      case "dashboard":
-        return {
-          title: "Dashboard",
-          subtitle:
-            "Welcome back! Here is what is happening with your projects.",
-        };
-      case "projects":
-        return {
-          title: "My projects",
-          subtitle: "View and manage all your projects in one place",
-        };
-      case "documents":
-        return {
-          title: "Documents",
-          subtitle:
-            "Access all project documents, PRDs, and change request files.",
-        };
-      case "change-requests":
-        return {
-          title: "Change Requests",
-          subtitle: "Manage your requirements and track modifications.",
-        };
-      case "proposals":
-        return {
-          title: "Project Proposals",
-          subtitle: "Review and accept or reject company proposals.",
-        };
-      case "kanban":
-        return {
-          title: "Kanban",
-          subtitle: "Visual progress of your change requests and tasks.",
-        };
-      case "notifications":
-        return {
-          title: "Notifications",
-          subtitle: "View and manage all your notifications",
-        };
-      case "settings":
-        return {
-          title: "Settings",
-          subtitle: "Manage your account settings and preferences",
-        };
-      default:
-        return { title: "Dashboard", subtitle: "" };
+    if (!currentRole) {
+      return {
+        title: "Dashboard",
+        subtitle: "",
+      };
     }
+
+    return (
+      PAGE_INFO[currentRole][activePage] || {
+        title: "Dashboard",
+        subtitle: "",
+      }
+    );
   };
 
   const pageInfo = getPageInfo();
@@ -114,13 +237,15 @@ const App = () => {
     <div className="flex h-screen bg-[#f3f4f6] overflow-hidden">
       <Sidebar
         activePage={activePage}
-        onNavigate={setActivePage}
+        onNavigate={safeSetActivePage}
         mode={sidebarMode}
         onToggleMode={() =>
           setSidebarMode(sidebarMode === "expanded" ? "collapsed" : "expanded")
         }
         onLogout={handleLogout}
         user={user}
+        role={currentRole}
+        allowedPages={allowedPages}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
@@ -129,8 +254,10 @@ const App = () => {
           subtitle={pageInfo.subtitle}
           showNotifications={showNotifications}
           onToggleNotifications={() => setShowNotifications(!showNotifications)}
-          onNavigateSettings={() => setActivePage("settings")}
+          onNavigateSettings={() => safeSetActivePage("settings")}
           onLogout={handleLogout}
+          user={user}
+          role={currentRole}
         />
 
         <main className="flex-1 overflow-y-auto p-8">{renderPage()}</main>
@@ -142,18 +269,37 @@ const App = () => {
               onClick={() => setShowNotifications(false)}
             />
             <div className="absolute top-24 right-8 z-50 w-96 flex flex-col gap-3 pointer-events-auto">
-              <NotificationCard
-                title="Change Request Approved"
-                message="Your change request CR-2025-001 has been approved."
-                time="2 hours ago"
-                isNew={true}
-              />
-              <NotificationCard
-                title="New Document Uploaded"
-                message="PRD v3.0 for NexaFlow is now available for review."
-                time="5 hours ago"
-                isNew={false}
-              />
+              {currentRole === ROLE.CLIENT ? (
+                <>
+                  <NotificationCard
+                    title="Proposal Received"
+                    message="A new project proposal has been sent by the company for your review."
+                    time="10 minutes ago"
+                    isNew={true}
+                  />
+                  <NotificationCard
+                    title="PRD Uploaded"
+                    message="A PRD document is now available for one of your projects."
+                    time="2 hours ago"
+                    isNew={false}
+                  />
+                </>
+              ) : (
+                <>
+                  <NotificationCard
+                    title="Proposal Accepted"
+                    message="A client has accepted your proposal. You can now proceed with the PRD."
+                    time="30 minutes ago"
+                    isNew={true}
+                  />
+                  <NotificationCard
+                    title="New ChangeRequest"
+                    message="A client has submitted a new change request for review."
+                    time="3 hours ago"
+                    isNew={false}
+                  />
+                </>
+              )}
             </div>
           </>
         )}
@@ -161,7 +307,6 @@ const App = () => {
     </div>
   );
 };
-
 const NotificationCard = ({ title, message, time, isNew }) => (
   <div className="bg-white rounded-xl shadow-2xl p-4 border-l-4 border-purple-500 transform transition-all animate-in slide-in-from-top-4 duration-300">
     <div className="flex justify-between items-start mb-1">
