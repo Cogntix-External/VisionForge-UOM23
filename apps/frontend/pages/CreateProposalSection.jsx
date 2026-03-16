@@ -3,22 +3,22 @@
 import React, { useState } from "react";
 
 export default function CreateProposalSection({
-  newProposal,
-  setNewProposal,
-  showTimeline,
-  setShowTimeline,
-  showBudget,
-  setShowBudget,
-  timelineData,
-  setTimelineData,
-  budgetData,
-  setBudgetData,
-  onClear,
-  onSubmit
+  newProposal = { title: "", client: "", description: "" },
+  setNewProposal = () => {},
+  showTimeline = true,
+  setShowTimeline = () => {},
+  showBudget = true,
+  setShowBudget = () => {},
+  timelineData = [],
+  setTimelineData = () => {},
+  budgetData = [],
+  setBudgetData = () => {},
+  onClear = () => {},
+  onSubmit = () => {},
 }) {
   const now = new Date();
   const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-    now.getDate()
+    now.getDate(),
   ).padStart(2, "0")}`;
   const isNonEmpty = (value) => String(value ?? "").trim() !== "";
   const isProposalComplete =
@@ -34,7 +34,7 @@ export default function CreateProposalSection({
         isNonEmpty(row.endDate) &&
         isNonEmpty(row.duration) &&
         isNonEmpty(row.assignedTo) &&
-        isNonEmpty(row.status)
+        isNonEmpty(row.status),
     );
   const isBudgetComplete =
     budgetData.length > 0 &&
@@ -44,9 +44,10 @@ export default function CreateProposalSection({
         isNonEmpty(row.description) &&
         isNonEmpty(row.quantity) &&
         isNonEmpty(row.unitPrice) &&
-        isNonEmpty(row.total)
+        isNonEmpty(row.total),
     );
-  const isFormValid = isProposalComplete && isTimelineComplete && isBudgetComplete;
+  const isFormValid =
+    isProposalComplete && isTimelineComplete && isBudgetComplete;
   const [timelineSavedMessage, setTimelineSavedMessage] = useState("");
   const [budgetSavedMessage, setBudgetSavedMessage] = useState("");
 
@@ -112,7 +113,10 @@ export default function CreateProposalSection({
           <textarea
             value={newProposal.description}
             onChange={(event) =>
-              setNewProposal({ ...newProposal, description: event.target.value })
+              setNewProposal({
+                ...newProposal,
+                description: event.target.value,
+              })
             }
             placeholder="Description *"
             className="w-full p-4 rounded bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -128,12 +132,24 @@ export default function CreateProposalSection({
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-slate-50">
-                      <th className="border border-slate-200 p-2 text-left">Phase</th>
-                      <th className="border border-slate-200 p-2 text-left">Start Date</th>
-                      <th className="border border-slate-200 p-2 text-left">End Date</th>
-                      <th className="border border-slate-200 p-2 text-left">Duration</th>
-                      <th className="border border-slate-200 p-2 text-left">Assigned To</th>
-                      <th className="border border-slate-200 p-2 text-left">Status</th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Phase
+                      </th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Start Date
+                      </th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        End Date
+                      </th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Duration
+                      </th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Assigned To
+                      </th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Status
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -161,7 +177,7 @@ export default function CreateProposalSection({
                               newData[idx].startDate = event.target.value;
                               newData[idx].duration = calculateDurationInDays(
                                 newData[idx].startDate,
-                                newData[idx].endDate
+                                newData[idx].endDate,
                               );
                               setTimelineData(newData);
                             }}
@@ -178,7 +194,7 @@ export default function CreateProposalSection({
                               newData[idx].endDate = event.target.value;
                               newData[idx].duration = calculateDurationInDays(
                                 newData[idx].startDate,
-                                newData[idx].endDate
+                                newData[idx].endDate,
                               );
                               setTimelineData(newData);
                             }}
@@ -237,8 +253,8 @@ export default function CreateProposalSection({
                         endDate: "",
                         duration: "",
                         assignedTo: "",
-                        status: ""
-                      }
+                        status: "",
+                      },
                     ])
                   }
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"
@@ -261,7 +277,9 @@ export default function CreateProposalSection({
                 </button>
               </div>
               {timelineSavedMessage && (
-                <p className="text-sm text-green-700 mt-3">{timelineSavedMessage}</p>
+                <p className="text-sm text-green-700 mt-3">
+                  {timelineSavedMessage}
+                </p>
               )}
             </div>
           )}
@@ -283,11 +301,21 @@ export default function CreateProposalSection({
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-slate-50">
-                      <th className="border border-slate-200 p-2 text-left">Item</th>
-                      <th className="border border-slate-200 p-2 text-left">Description</th>
-                      <th className="border border-slate-200 p-2 text-left">Quantity</th>
-                      <th className="border border-slate-200 p-2 text-left">Unit price</th>
-                      <th className="border border-slate-200 p-2 text-left">Total</th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Item
+                      </th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Description
+                      </th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Quantity
+                      </th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Unit price
+                      </th>
+                      <th className="border border-slate-200 p-2 text-left">
+                        Total
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -328,7 +356,7 @@ export default function CreateProposalSection({
                               newData[idx].quantity = event.target.value;
                               newData[idx].total = calculateRowTotal(
                                 newData[idx].quantity,
-                                newData[idx].unitPrice
+                                newData[idx].unitPrice,
                               );
                               setBudgetData(newData);
                             }}
@@ -345,7 +373,7 @@ export default function CreateProposalSection({
                               newData[idx].unitPrice = event.target.value;
                               newData[idx].total = calculateRowTotal(
                                 newData[idx].quantity,
-                                newData[idx].unitPrice
+                                newData[idx].unitPrice,
                               );
                               setBudgetData(newData);
                             }}
@@ -372,7 +400,13 @@ export default function CreateProposalSection({
                   onClick={() =>
                     setBudgetData([
                       ...budgetData,
-                      { item: "", description: "", quantity: "", unitPrice: "", total: "" }
+                      {
+                        item: "",
+                        description: "",
+                        quantity: "",
+                        unitPrice: "",
+                        total: "",
+                      },
                     ])
                   }
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"
@@ -395,7 +429,9 @@ export default function CreateProposalSection({
                 </button>
               </div>
               {budgetSavedMessage && (
-                <p className="text-sm text-green-700 mt-3">{budgetSavedMessage}</p>
+                <p className="text-sm text-green-700 mt-3">
+                  {budgetSavedMessage}
+                </p>
               )}
             </div>
           )}

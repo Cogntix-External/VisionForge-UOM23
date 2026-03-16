@@ -1,12 +1,20 @@
 import React, { useState } from "react";
 import { API_BASE } from "../constants";
 
+const normalizeRole = (rawRole) => {
+  if (!rawRole) return "";
+  const role = String(rawRole).trim().toUpperCase();
+  if (role === "ROLE_CLIENT") return "CLIENT";
+  if (role === "ROLE_COMPANY") return "COMPANY";
+  return role;
+};
+
 const Auth = ({ onLogin }) => {
   const [view, setView] = useState("login");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({
     fullName: "",
-    email: "example@example.com",
+    email: "",
     password: "",
     role: "CLIENT",
   });
@@ -18,7 +26,7 @@ const Auth = ({ onLogin }) => {
     if (role === "CLIENT") {
       window.location.href = "/client/dashboard";
     } else if (role === "COMPANY") {
-      window.location.href = "/company/dashboard";
+      window.location.href = "/company/DashboardSection";
     } else {
       window.location.href = "/";
     }
@@ -55,7 +63,7 @@ const Auth = ({ onLogin }) => {
       }
 
       const token = data?.token;
-      const resolvedRole = data?.role;
+      const resolvedRole = normalizeRole(data?.role);
       const resolvedEmail = data?.email || loginForm.email.trim();
       const resolvedName =
         data?.fullName ||
@@ -74,7 +82,7 @@ const Auth = ({ onLogin }) => {
           email: resolvedEmail,
           fullName: resolvedName,
           role: resolvedRole,
-        })
+        }),
       );
 
       setSuccess("Logged in successfully");
@@ -125,11 +133,13 @@ const Auth = ({ onLogin }) => {
       }
 
       if (!response.ok) {
-        throw new Error(data?.message || data?.detail || data?.error || "Signup failed");
+        throw new Error(
+          data?.message || data?.detail || data?.error || "Signup failed",
+        );
       }
 
       const token = data?.token;
-      const resolvedRole = data?.role || signupForm.role;
+      const resolvedRole = normalizeRole(data?.role || signupForm.role);
       const resolvedEmail = data?.email || signupForm.email.trim();
       const resolvedName =
         data?.fullName ||
@@ -149,7 +159,7 @@ const Auth = ({ onLogin }) => {
           email: resolvedEmail,
           fullName: resolvedName,
           role: resolvedRole,
-        })
+        }),
       );
 
       setSuccess("Account created successfully");

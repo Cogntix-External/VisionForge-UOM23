@@ -19,6 +19,7 @@ const Sidebar = ({
     { id: "projects", label: "My Projects", icon: Icons.Projects },
     { id: "proposals", label: "Project Proposals", icon: Icons.Proposals },
     { id: "documents", label: "Documents", icon: Icons.Documents },
+    
     {
       id: "change-requests",
       label: "Change Requests",
