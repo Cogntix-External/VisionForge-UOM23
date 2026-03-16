@@ -3,7 +3,11 @@
 import React from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
-export default function ProposalsListSection({ projects, onCreate, onSelect }) {
+export default function ProposalsListSection({
+  projects = [],
+  onCreate = () => {},
+  onSelect = () => {},
+}) {
   return (
     <div className="p-8 max-w-7xl mx-auto w-full">
       <div className="flex justify-between items-center mb-6">
@@ -33,28 +37,36 @@ export default function ProposalsListSection({ projects, onCreate, onSelect }) {
               </tr>
             </thead>
             <tbody>
-              {projects.map((proj) => (
-                <tr
-                  key={proj.id}
-                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
-                >
-                  <td className="py-4 font-bold text-slate-700">{proj.id}</td>
-                  <td className="py-4 text-slate-600">{proj.title}</td>
-                  <td className="py-4 text-slate-600">
-                    {proj.client || "John Doe"}
-                  </td>
-                  <td className="py-4 text-slate-600">{proj.budget}</td>
-                  <td className="py-4 text-slate-600">{proj.duration}</td>
-                  <td className="py-4">
-                    <button
-                      onClick={() => onSelect(proj)}
-                      className="text-blue-600 font-bold hover:text-blue-800"
-                    >
-                      More details
-                    </button>
+              {projects.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-slate-500">
+                    No proposals available yet.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                projects.map((proj) => (
+                  <tr
+                    key={proj.id || proj.title}
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                  >
+                    <td className="py-4 font-bold text-slate-700">{proj.id}</td>
+                    <td className="py-4 text-slate-600">{proj.title}</td>
+                    <td className="py-4 text-slate-600">
+                      {proj.client || "John Doe"}
+                    </td>
+                    <td className="py-4 text-slate-600">{proj.budget}</td>
+                    <td className="py-4 text-slate-600">{proj.duration}</td>
+                    <td className="py-4">
+                      <button
+                        onClick={() => onSelect(proj)}
+                        className="text-blue-600 font-bold hover:text-blue-800"
+                      >
+                        More details
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
