@@ -4,7 +4,11 @@ import React from "react";
 import { FileEdit, FileText, History, Plus, Search } from "lucide-react";
 import { cn } from "../utils/cn.js";
 
-export default function PrdRepositorySection({ prdList, onCreate, onReview }) {
+export default function PrdRepositorySection({
+  prdList = [],
+  onCreate = () => {},
+  onReview = () => {},
+}) {
   const StatCard = ({ label, value, icon: Icon, color }) => (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4 flex-1 min-w-[200px]">
       <div className={cn("p-3 rounded-2xl", color)}>
@@ -22,7 +26,12 @@ export default function PrdRepositorySection({ prdList, onCreate, onReview }) {
   return (
     <div className="space-y-6">
       <div className="flex gap-6 items-center">
-        <StatCard label="Total PRDs" value="55" icon={FileText} color="bg-green-500" />
+        <StatCard
+          label="Total PRDs"
+          value="55"
+          icon={FileText}
+          color="bg-green-500"
+        />
         <StatCard
           label="PRDs in review"
           value="20"
@@ -70,13 +79,20 @@ export default function PrdRepositorySection({ prdList, onCreate, onReview }) {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {prdList.map((prd) => (
-                <tr key={prd.pid} className="group hover:bg-gray-50/50 transition-colors">
-                  <td className="py-6 px-4 font-bold text-gray-700">{prd.pid}</td>
+                <tr
+                  key={prd.pid}
+                  className="group hover:bg-gray-50/50 transition-colors"
+                >
+                  <td className="py-6 px-4 font-bold text-gray-700">
+                    {prd.pid}
+                  </td>
                   <td className="py-6 px-4 font-bold text-gray-800 max-w-xs">
                     {prd.title}
                   </td>
                   <td className="py-6 px-4">
-                    <span className="font-medium text-gray-800">{prd.status}</span>
+                    <span className="font-medium text-gray-800">
+                      {prd.status}
+                    </span>
                   </td>
                   <td className="py-6 px-4 text-gray-500 font-medium">
                     {prd.createdDate || prd.lastModified}

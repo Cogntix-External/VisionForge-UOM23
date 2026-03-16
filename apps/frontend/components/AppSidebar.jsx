@@ -4,23 +4,31 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import CRMSLogo from "../../assets/CRMSLogo";
-import { clearSession } from "../../utils/auth";
+import CRMSLogo from "../assets/CRMSLogo";
+import { clearSession } from "../utils/auth";
 
 const clientItems = [
   { href: "/client/dashboard", label: "Dashboard" },
   { href: "/client/Project", label: "Projects" },
   { href: "/client/ChangeRequest", label: "Change Requests" },
   { href: "/client/Proposal", label: "Proposals" },
+  { href: "/client/Document", label: "Documents" },
+  { href: "/client/Kanban", label: "Kanban" },
 ];
 
 const companyItems = [
-  { href: "/company/dashboard", label: "Dashboard" },
-  { href: "/company/kanban", label: "Kanban" },
-  { href: "/company/proposals", label: "Proposals" },
+  { href: "/company/DashboardSection", label: "Dashboard" },
+  { href: "/company/PrdRepository", label: "PRD Repository" },
+  { href: "/company/ProposalsListSection", label: "Proposals" },
+  { href: "/company/CreateProposalSection", label: "Create Proposal" },
+  { href: "/company/ProposalDetailsSection", label: "Proposal Details" },
 ];
 
-export default function Sidebar({ section = "client" }) {
+function isActivePath(pathname, href) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export default function AppSidebar({ section = "client" }) {
   const pathname = usePathname();
   const router = useRouter();
   const menuItems = section === "company" ? companyItems : clientItems;
@@ -41,7 +49,7 @@ export default function Sidebar({ section = "client" }) {
 
       <nav className="flex-1 flex flex-col py-4 space-y-3 px-4">
         {menuItems.map((item) => {
-          const active = pathname === item.href;
+          const active = isActivePath(pathname, item.href);
           return (
             <Link
               key={item.href}

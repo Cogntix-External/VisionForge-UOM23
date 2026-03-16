@@ -7,25 +7,45 @@ const pageMeta = {
     title: "Dashboard",
     subtitle: "Welcome back! Here is what is happening with your projects.",
   },
-  "/client/projects": {
-    title: "My projects",
-    subtitle: "View and manage all your projects in one place",
+  "/client/Project": {
+    title: "Projects",
+    subtitle: "View and manage all your projects in one place.",
   },
-  "/client/documents": {
+  "/client/ChangeRequest": {
+    title: "Change Requests",
+    subtitle: "Track and manage change requests across your projects.",
+  },
+  "/client/Proposal": {
+    title: "Project Proposals",
+    subtitle: "Create and review proposal submissions.",
+  },
+  "/client/Document": {
     title: "Documents",
     subtitle: "Access all project documents, PRDs, and change request files.",
   },
-  "/company/dashboard": {
+  "/client/Kanban": {
+    title: "Kanban",
+    subtitle: "Visualize project workflow and task progress.",
+  },
+  "/company/DashboardSection": {
     title: "Company Dashboard",
     subtitle: "Overview of company-level execution and delivery.",
   },
-  "/company/kanban": {
-    title: "Kanban",
-    subtitle: "Visual progress of your change requests and tasks.",
+  "/company/PrdRepository": {
+    title: "PRD Repository",
+    subtitle: "Centralized repository for product requirement documents.",
   },
-  "/company/proposals": {
+  "/company/ProposalsListSection": {
     title: "Project Proposals",
     subtitle: "Review and manage proposal decisions.",
+  },
+  "/company/CreateProposalSection": {
+    title: "Create Proposal",
+    subtitle: "Draft and submit a new proposal.",
+  },
+  "/company/ProposalDetailsSection": {
+    title: "Proposal Details",
+    subtitle: "Inspect proposal content and decision history.",
   },
 };
 

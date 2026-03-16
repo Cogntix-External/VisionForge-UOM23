@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "../utils/cn.js";
 
-export default function DashboardSection({ projects, onCreate }) {
+export default function DashboardSection({ projects = [], onCreate = () => {} }) {
   return (
     <div className="p-8 max-w-7xl mx-auto w-full">
       <div className="flex justify-between items-center mb-8">
