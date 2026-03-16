@@ -3,21 +3,32 @@
 import React from "react";
 import { Paperclip } from "lucide-react";
 
+const fallbackProject = {
+  id: "N/A",
+  title: "No proposal selected",
+  lastUpdated: "Not available",
+  client: "Not assigned",
+  status: "Draft",
+  budgetData: [],
+  timelines: [],
+};
+
 export default function ProposalDetailsSection({
   selectedProject,
-  onBack,
-  detailsView,
-  setDetailsView,
-  projectBudgetData,
-  setProjectBudgetData,
-  projectTimelineData,
-  setProjectTimelineData,
-  projectMilestoneData,
-  setProjectMilestoneData,
-  uploadedFile,
-  setUploadedFile
+  onBack = () => {},
+  detailsView = null,
+  setDetailsView = () => {},
+  projectBudgetData = [],
+  setProjectBudgetData = () => {},
+  projectTimelineData = [],
+  setProjectTimelineData = () => {},
+  projectMilestoneData = [],
+  setProjectMilestoneData = () => {},
+  uploadedFile = null,
+  setUploadedFile = () => {},
 }) {
-  if (!selectedProject) return null;
+  const project = selectedProject || fallbackProject;
+  const isFallbackProject = !selectedProject;
 
   return (
     <div className="p-8 max-w-6xl mx-auto w-full">
@@ -31,40 +42,51 @@ export default function ProposalDetailsSection({
         </button>
       </div>
 
+      {isFallbackProject && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 mb-6">
+          Open this page from the proposals list to view a specific proposal.
+          Placeholder data is shown until a proposal is selected.
+        </div>
+      )}
+
       <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-        <h2 className="text-lg font-bold text-slate-800 mb-6">Proposal Details</h2>
+        <h2 className="text-lg font-bold text-slate-800 mb-6">
+          Proposal Details
+        </h2>
         <div className="grid grid-cols-3 gap-6">
           <div className="bg-slate-50 p-4 rounded-lg">
             <p className="text-xs text-slate-400 uppercase font-bold mb-2">
               Project Title
             </p>
-            <p className="font-semibold text-slate-700">{selectedProject.title}</p>
+            <p className="font-semibold text-slate-700">{project.title}</p>
           </div>
           <div className="bg-slate-50 p-4 rounded-lg">
             <p className="text-xs text-slate-400 uppercase font-bold mb-2">
               Last Updater
             </p>
             <p className="font-semibold text-slate-700">
-              {selectedProject.lastUpdated}
+              {project.lastUpdated}
             </p>
           </div>
           <div className="bg-slate-50 p-4 rounded-lg">
             <p className="text-xs text-slate-400 uppercase font-bold mb-2">
               Proposal ID
             </p>
-            <p className="font-semibold text-slate-700">{selectedProject.id}</p>
+            <p className="font-semibold text-slate-700">{project.id}</p>
           </div>
           <div className="bg-slate-50 p-4 rounded-lg">
             <p className="text-xs text-slate-400 uppercase font-bold mb-2">
               Client name
             </p>
             <p className="font-semibold text-slate-700">
-              {selectedProject.client || "John Doe"}
+              {project.client || "John Doe"}
             </p>
           </div>
           <div className="bg-slate-50 p-4 rounded-lg">
-            <p className="text-xs text-slate-400 uppercase font-bold mb-2">Status</p>
-            <p className="font-semibold text-slate-700">{selectedProject.status}</p>
+            <p className="text-xs text-slate-400 uppercase font-bold mb-2">
+              Status
+            </p>
+            <p className="font-semibold text-slate-700">{project.status}</p>
           </div>
           <div />
         </div>
@@ -75,18 +97,24 @@ export default function ProposalDetailsSection({
           Budget and Timeline
         </h2>
         <p className="text-slate-600 mb-6">
-          Project details: {selectedProject.title} is a state-of-the-art system
-          designed to help teams achieve timely and manageable results with
-          intelligent decision making.
+          Project details: {project.title} is a state-of-the-art system designed
+          to help teams achieve timely and manageable results with intelligent
+          decision making.
         </p>
         <div className="grid grid-cols-3 gap-6">
           <button
             onClick={() => {
               setDetailsView("budget");
               setProjectBudgetData(
-                selectedProject.budgetData || [
-                  { item: "", description: "", quantity: "", unitPrice: "", total: "" }
-                ]
+                project.budgetData || [
+                  {
+                    item: "",
+                    description: "",
+                    quantity: "",
+                    unitPrice: "",
+                    total: "",
+                  },
+                ],
               );
             }}
             className="px-4 py-3 bg-[#000066] text-white rounded hover:bg-blue-900 font-semibold"
@@ -97,9 +125,16 @@ export default function ProposalDetailsSection({
             onClick={() => {
               setDetailsView("timeline");
               setProjectTimelineData(
-                selectedProject.timelines || [
-                  { phase: "", startDate: "", endDate: "", duration: "", assignedTo: "", status: "" }
-                ]
+                project.timelines || [
+                  {
+                    phase: "",
+                    startDate: "",
+                    endDate: "",
+                    duration: "",
+                    assignedTo: "",
+                    status: "",
+                  },
+                ],
               );
             }}
             className="px-4 py-3 bg-[#000066] text-white rounded hover:bg-blue-900 font-semibold"
@@ -117,16 +152,28 @@ export default function ProposalDetailsSection({
 
       {detailsView === "budget" && (
         <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-          <h2 className="text-lg font-bold text-slate-800 mb-6">Estimated Budget</h2>
+          <h2 className="text-lg font-bold text-slate-800 mb-6">
+            Estimated Budget
+          </h2>
           <div className="overflow-x-auto mb-6">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50">
-                  <th className="border border-slate-200 p-3 text-left">Item</th>
-                  <th className="border border-slate-200 p-3 text-left">Description</th>
-                  <th className="border border-slate-200 p-3 text-left">Quantity</th>
-                  <th className="border border-slate-200 p-3 text-left">Unit price</th>
-                  <th className="border border-slate-200 p-3 text-left">Total</th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Item
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Description
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Quantity
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Unit price
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Total
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -207,7 +254,13 @@ export default function ProposalDetailsSection({
               onClick={() =>
                 setProjectBudgetData([
                   ...projectBudgetData,
-                  { item: "", description: "", quantity: "", unitPrice: "", total: "" }
+                  {
+                    item: "",
+                    description: "",
+                    quantity: "",
+                    unitPrice: "",
+                    total: "",
+                  },
                 ])
               }
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"
@@ -232,17 +285,31 @@ export default function ProposalDetailsSection({
 
       {detailsView === "timeline" && (
         <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-          <h2 className="text-lg font-bold text-slate-800 mb-6">Estimated Timeline</h2>
+          <h2 className="text-lg font-bold text-slate-800 mb-6">
+            Estimated Timeline
+          </h2>
           <div className="overflow-x-auto mb-6">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50">
-                  <th className="border border-slate-200 p-3 text-left">Phase</th>
-                  <th className="border border-slate-200 p-3 text-left">Start Date</th>
-                  <th className="border border-slate-200 p-3 text-left">End Date</th>
-                  <th className="border border-slate-200 p-3 text-left">Duration</th>
-                  <th className="border border-slate-200 p-3 text-left">Assigned To</th>
-                  <th className="border border-slate-200 p-3 text-left">Status</th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Phase
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Start Date
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    End Date
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Duration
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Assigned To
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -340,8 +407,8 @@ export default function ProposalDetailsSection({
                     endDate: "",
                     duration: "",
                     assignedTo: "",
-                    status: ""
-                  }
+                    status: "",
+                  },
                 ])
               }
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"
@@ -373,9 +440,15 @@ export default function ProposalDetailsSection({
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50">
-                  <th className="border border-slate-200 p-3 text-left">Milestone</th>
-                  <th className="border border-slate-200 p-3 text-left">Target Date</th>
-                  <th className="border border-slate-200 p-3 text-left">Payment Amount</th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Milestone
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Target Date
+                  </th>
+                  <th className="border border-slate-200 p-3 text-left">
+                    Payment Amount
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -429,7 +502,7 @@ export default function ProposalDetailsSection({
               onClick={() =>
                 setProjectMilestoneData([
                   ...projectMilestoneData,
-                  { milestone: "", targetDate: "", paymentAmount: "" }
+                  { milestone: "", targetDate: "", paymentAmount: "" },
                 ])
               }
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"
@@ -461,7 +534,9 @@ export default function ProposalDetailsSection({
             <div className="flex items-start gap-3">
               <span className="text-xl mt-1">-</span>
               <div>
-                <p className="font-semibold text-slate-700">Required Technologies</p>
+                <p className="font-semibold text-slate-700">
+                  Required Technologies
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -475,7 +550,9 @@ export default function ProposalDetailsSection({
             <div className="flex items-start gap-3">
               <span className="text-xl mt-1">-</span>
               <div>
-                <p className="font-semibold text-slate-700">Additional teamwork</p>
+                <p className="font-semibold text-slate-700">
+                  Additional teamwork
+                </p>
               </div>
             </div>
           </div>
