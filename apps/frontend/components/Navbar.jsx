@@ -31,22 +31,6 @@ const pageMeta = {
     title: "Company Dashboard",
     subtitle: "Overview of company-level execution and delivery.",
   },
-  "/company/KanbanBoardPage": {
-    title: "Kanban",
-    subtitle: "Track and manage project workflow in board view.",
-  },
-  "/company/Audit-trail": {
-    title: "Audit Trail",
-    subtitle: "Review chronological records of system and project activities.",
-  },
-  "/company/Version-history": {
-    title: "Version History",
-    subtitle: "Inspect changes and revisions across project artifacts.",
-  },
-  "/company/Prd-details&Editor": {
-    title: "PRD Details & Editor",
-    subtitle: "View and edit detailed PRD content and structure.",
-  },
   "/company/PrdRepository": {
     title: "PRD Repository",
     subtitle: "Centralized repository for product requirement documents.",
