@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Calendar,
   MessageSquare,
@@ -11,16 +11,15 @@ import {
   X,
   Send,
 } from "lucide-react";
-import Layout from "./Layout";
 import AddCardModal from "./AddCardModal";
 import { projects as allProjects } from "@/lib/projects";
 
 const KanbanBoardPage = () => {
-  const params = useParams();
-  const pid = decodeURIComponent((params?.pid || "").toString());
+  const searchParams = useSearchParams();
+  const pid = decodeURIComponent((searchParams?.get("pid") || "").toString());
   const project = useMemo(
     () => allProjects.find((item) => item.pid === pid),
-    [pid]
+    [pid],
   );
 
   const [columns, setColumns] = useState([
@@ -39,9 +38,24 @@ const KanbanBoardPage = () => {
           date: "Mar 15",
           comments: 3,
           commentsData: [
-            { id: "c1", user: "Manager", text: "Please update the colors", time: "10:15 AM" },
-            { id: "c2", user: "Dev", text: "I will do it today", time: "10:20 AM" },
-            { id: "c3", user: "QA", text: "Add accessibility contrast check", time: "10:25 AM" },
+            {
+              id: "c1",
+              user: "Manager",
+              text: "Please update the colors",
+              time: "10:15 AM",
+            },
+            {
+              id: "c2",
+              user: "Dev",
+              text: "I will do it today",
+              time: "10:20 AM",
+            },
+            {
+              id: "c3",
+              user: "QA",
+              text: "Add accessibility contrast check",
+              time: "10:25 AM",
+            },
           ],
           attachments: 2,
           attachmentsData: [],
@@ -54,7 +68,14 @@ const KanbanBoardPage = () => {
           description: "Optimize application performance for mobile devices",
           date: "Mar 22",
           comments: 1,
-          commentsData: [{ id: "c1", user: "Dev", text: "Started performance profiling", time: "9:10 AM" }],
+          commentsData: [
+            {
+              id: "c1",
+              user: "Dev",
+              text: "Started performance profiling",
+              time: "9:10 AM",
+            },
+          ],
           attachments: 3,
           attachmentsData: [],
         },
@@ -156,7 +177,8 @@ const KanbanBoardPage = () => {
           title: "Dashboard Analytics",
           tag: "High",
           tagColor: "bg-red-100 text-red-700",
-          description: "Perform comprehensive security audit of the application",
+          description:
+            "Perform comprehensive security audit of the application",
           date: "Mar 10",
           comments: 0,
           commentsData: [],
@@ -224,8 +246,8 @@ const KanbanBoardPage = () => {
         data.tag === "High"
           ? "bg-red-100 text-red-700"
           : data.tag === "Low"
-          ? "bg-green-100 text-green-700"
-          : "bg-yellow-100 text-yellow-700",
+            ? "bg-green-100 text-green-700"
+            : "bg-yellow-100 text-yellow-700",
       description: data.description || "",
       date: data.date
         ? new Date(data.date).toLocaleDateString("en-US", {
@@ -245,9 +267,13 @@ const KanbanBoardPage = () => {
     setColumns((cols) =>
       cols.map((col) =>
         col.id === columnId
-          ? { ...col, cards: [...col.cards, newCard], count: (col.cards?.length || 0) + 1 }
-          : col
-      )
+          ? {
+              ...col,
+              cards: [...col.cards, newCard],
+              count: (col.cards?.length || 0) + 1,
+            }
+          : col,
+      ),
     );
 
     closeForm();
@@ -307,8 +333,8 @@ const KanbanBoardPage = () => {
               cards: col.cards.filter((c) => c.id !== cardId),
               count: Math.max(0, (col.cards?.length || 1) - 1),
             }
-          : col
-      )
+          : col,
+      ),
     );
   };
 
@@ -372,7 +398,9 @@ const KanbanBoardPage = () => {
           cards: col.cards.map((card) => {
             if (card.id !== cardId) return card;
 
-            const list = Array.isArray(card.commentsData) ? card.commentsData : [];
+            const list = Array.isArray(card.commentsData)
+              ? card.commentsData
+              : [];
             const updated = [...list, newMsg];
 
             return {
@@ -382,7 +410,7 @@ const KanbanBoardPage = () => {
             };
           }),
         };
-      })
+      }),
     );
 
     setCommentText("");
@@ -393,113 +421,130 @@ const KanbanBoardPage = () => {
     : null;
 
   return (
-    <Layout title="Kanban Board">
-      <div className="flex flex-col h-[calc(100vh-140px)]">
-        <div className="mb-6">
-          <p className="text-gray-500 text-sm mb-1">Welcome, back to Kanban Board!</p>
-          <h2 className="text-2xl font-bold text-gray-800">
-            {project?.name || "Smart Task Allocation and Tracking System"}
-          </h2>
-          <p className="text-gray-500 text-sm mt-1">Manage and track your team's tasks</p>
-        </div>
+    <div className="flex flex-col h-[calc(100vh-140px)]">
+      <div className="mb-6">
+        <p className="text-gray-500 text-sm mb-1">
+          Welcome, back to Kanban Board!
+        </p>
+        <h2 className="text-2xl font-bold text-gray-800">
+          {project?.name || "Smart Task Allocation and Tracking System"}
+        </h2>
+        <p className="text-gray-500 text-sm mt-1">
+          Manage and track your team's tasks
+        </p>
+      </div>
 
-        <div
-          ref={boardRef}
-          className="flex-1 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onMouseMove={handleMouseMove}
-        >
-          <div className="flex gap-6 h-full min-w-max pb-4">
-            {columns.map((column) => (
-              <div
-                key={column.id}
-                className="w-80 flex-shrink-0 bg-gray-100 rounded-xl flex flex-col max-h-full"
-              >
-                <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full ${getColumnDotClass(column.id)}`} />
-                    <h3 className="font-semibold text-gray-700">{column.title}</h3>
-                    <span className="bg-gray-200 text-gray-600 text-xs font-medium px-2 py-1 rounded-full">
-                      {column.count}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openForm(column.id);
-                    }}
-                    className="p-1 hover:bg-gray-200 rounded-lg transition-colors"
-                    title="Add ticket"
-                  >
-                    <Plus className="w-5 h-5 text-gray-500" />
-                  </button>
+      <div
+        ref={boardRef}
+        className="flex-1 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onMouseMove={handleMouseMove}
+      >
+        <div className="flex gap-6 h-full min-w-max pb-4">
+          {columns.map((column) => (
+            <div
+              key={column.id}
+              className="w-80 flex-shrink-0 bg-gray-100 rounded-xl flex flex-col max-h-full"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-3 h-3 rounded-full ${getColumnDotClass(column.id)}`}
+                  />
+                  <h3 className="font-semibold text-gray-700">
+                    {column.title}
+                  </h3>
+                  <span className="bg-gray-200 text-gray-600 text-xs font-medium px-2 py-1 rounded-full">
+                    {column.count}
+                  </span>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                  {column.cards.map((card) => (
-                    <div
-                      key={card.id}
-                      className="kanban-card bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => setOpenMenu({ columnId: null, cardId: null })}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-gray-800 text-sm">{card.title}</h4>
-                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${card.tagColor}`}>
-                          {card.tag}
-                        </span>
-                      </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openForm(column.id);
+                  }}
+                  className="p-1 hover:bg-gray-200 rounded-lg transition-colors"
+                  title="Add ticket"
+                >
+                  <Plus className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
 
-                      <p className="text-xs text-gray-500 mb-3 line-clamp-2">{card.description}</p>
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {column.cards.map((card) => (
+                  <div
+                    key={card.id}
+                    className="kanban-card bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() =>
+                      setOpenMenu({ columnId: null, cardId: null })
+                    }
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-medium text-gray-800 text-sm">
+                        {card.title}
+                      </h4>
+                      <span
+                        className={`text-xs font-medium px-2 py-1 rounded-full ${card.tagColor}`}
+                      >
+                        {card.tag}
+                      </span>
+                    </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                        <div className="flex items-center gap-3 text-gray-400">
-                          <div className="flex items-center gap-1 text-xs">
-                            <Calendar className="w-3 h-3" />
-                            <span>{card.date}</span>
-                          </div>
+                    <p className="text-xs text-gray-500 mb-3 line-clamp-2">
+                      {card.description}
+                    </p>
 
-                          {/* message icon */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openCommentsModal(column.id, card.id);
-                            }}
-                            className="flex items-center gap-1 text-xs hover:text-indigo-600 transition-colors"
-                            title="Ticket messages"
-                          >
-                            <MessageSquare className="w-3 h-3" />
-                            <span>{card.comments || 0}</span>
-                          </button>
-
-                          <div className="flex items-center gap-1 text-xs">
-                            <Paperclip className="w-3 h-3" />
-                            <span>{card.attachments || 0}</span>
-                          </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                      <div className="flex items-center gap-3 text-gray-400">
+                        <div className="flex items-center gap-1 text-xs">
+                          <Calendar className="w-3 h-3" />
+                          <span>{card.date}</span>
                         </div>
 
-                        <div className="relative">
-                          <button
-                            type="button"
-                            className="menu-btn p-1 hover:bg-gray-100 rounded-full transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenu((prev) =>
-                                prev.cardId === card.id && prev.columnId === column.id
-                                  ? { columnId: null, cardId: null }
-                                  : { columnId: column.id, cardId: card.id }
-                              );
-                            }}
-                            title="More"
-                          >
-                            <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                          </button>
+                        {/* message icon */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCommentsModal(column.id, card.id);
+                          }}
+                          className="flex items-center gap-1 text-xs hover:text-indigo-600 transition-colors"
+                          title="Ticket messages"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>{card.comments || 0}</span>
+                        </button>
 
-                          {openMenu.cardId === card.id && openMenu.columnId === column.id && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <Paperclip className="w-3 h-3" />
+                          <span>{card.attachments || 0}</span>
+                        </div>
+                      </div>
+
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="menu-btn p-1 hover:bg-gray-100 rounded-full transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenu((prev) =>
+                              prev.cardId === card.id &&
+                              prev.columnId === column.id
+                                ? { columnId: null, cardId: null }
+                                : { columnId: column.id, cardId: card.id },
+                            );
+                          }}
+                          title="More"
+                        >
+                          <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                        </button>
+
+                        {openMenu.cardId === card.id &&
+                          openMenu.columnId === column.id && (
                             <div className="menu-popup absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded shadow z-10 text-sm">
                               <button
                                 type="button"
@@ -516,105 +561,108 @@ const KanbanBoardPage = () => {
                               </button>
                             </div>
                           )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <AddCardModal
+        show={openFormColumnId !== null}
+        initialData={newCardData}
+        onCancel={closeForm}
+        onSave={(data) => handleFormSubmit(openFormColumnId, data)}
+      />
+
+      {/* Comments popup */}
+      {openComments && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              closeCommentsModal();
+            }}
+          />
+
+          <div
+            className="relative w-full max-w-lg mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 bg-gray-50 border-b">
+              <div>
+                <h3 className="font-semibold text-gray-800">Ticket Messages</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {openedCard?.title || ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCommentsModal}
+                className="p-2 rounded-lg hover:bg-white"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
+                {openedCard?.commentsData?.length ? (
+                  openedCard.commentsData.map((m) => (
+                    <div key={m.id} className="flex gap-3">
+                      <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-semibold">
+                        {(m.user || "U").charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-800">
+                            {m.user}
+                          </p>
+                          <p className="text-xs text-gray-400">{m.time}</p>
+                        </div>
+                        <div className="mt-1 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700">
+                          {m.text}
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400">
+                    No messages yet. Add the first message.
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
 
-        <AddCardModal
-          show={openFormColumnId !== null}
-          initialData={newCardData}
-          onCancel={closeForm}
-          onSave={(data) => handleFormSubmit(openFormColumnId, data)}
-        />
-
-        {/* Comments popup */}
-        {openComments && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div
-              className="absolute inset-0 bg-black/40"
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                closeCommentsModal();
-              }}
-            />
-
-            <div
-              className="relative w-full max-w-lg mx-4 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-5 py-4 bg-gray-50 border-b">
-                <div>
-                  <h3 className="font-semibold text-gray-800">Ticket Messages</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">{openedCard?.title || ""}</p>
-                </div>
+              <div className="mt-4 flex items-center gap-2">
+                <input
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 h-11 rounded-xl border border-slate-200 px-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSendComment();
+                  }}
+                />
                 <button
                   type="button"
-                  onClick={closeCommentsModal}
-                  className="p-2 rounded-lg hover:bg-white"
-                  aria-label="Close"
+                  onClick={handleSendComment}
+                  className="h-11 px-4 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-2"
                 >
-                  <X className="w-4 h-4 text-gray-500" />
+                  <Send className="w-4 h-4" />
+                  Send
                 </button>
-              </div>
-
-              <div className="p-5">
-                <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
-                  {openedCard?.commentsData?.length ? (
-                    openedCard.commentsData.map((m) => (
-                      <div key={m.id} className="flex gap-3">
-                        <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-semibold">
-                          {(m.user || "U").charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-gray-800">{m.user}</p>
-                            <p className="text-xs text-gray-400">{m.time}</p>
-                          </div>
-                          <div className="mt-1 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700">
-                            {m.text}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-400">No messages yet. Add the first message.</p>
-                  )}
-                </div>
-
-                <div className="mt-4 flex items-center gap-2">
-                  <input
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Type a message..."
-                    className="flex-1 h-11 rounded-xl border border-slate-200 px-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSendComment();
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSendComment}
-                    className="h-11 px-4 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    Send
-                  </button>
-                </div>
               </div>
             </div>
           </div>
-        )}
-      </div>
-    </Layout>
+        </div>
+      )}
+    </div>
   );
 };
 
 export default KanbanBoardPage;
-
-

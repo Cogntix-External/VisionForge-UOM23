@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { API_BASE } from "../constants";
+import { setSession } from "../utils/auth";
+import { login, signup } from "../services/api";
 
 const normalizeRole = (rawRole) => {
   if (!rawRole) return "";
@@ -24,11 +25,11 @@ const Auth = ({ onLogin }) => {
 
   const redirectByRole = (role) => {
     if (role === "CLIENT") {
-      window.location.href = "/client/dashboard";
+      globalThis.location.href = "/client/dashboard";
     } else if (role === "COMPANY") {
-      window.location.href = "/company/DashboardSection";
+      globalThis.location.href = "/company/DashboardSection";
     } else {
-      window.location.href = "/";
+      globalThis.location.href = "/";
     }
   };
 
@@ -39,28 +40,10 @@ const Auth = ({ onLogin }) => {
     setSuccess("");
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: loginForm.email.trim(),
-          password: loginForm.password,
-        }),
+      const data = await login({
+        email: loginForm.email.trim(),
+        password: loginForm.password,
       });
-
-      let data = null;
-      const contentType = response.headers.get("content-type");
-
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        throw new Error(text || "Login failed");
-      }
-
-      if (!response.ok) {
-        throw new Error(data?.message || "Login failed");
-      }
 
       const token = data?.token;
       const resolvedRole = normalizeRole(data?.role);
@@ -70,29 +53,18 @@ const Auth = ({ onLogin }) => {
         data?.name ||
         (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
 
-      if (token) {
-        localStorage.setItem("crms_token", token);
-      }
-
-      localStorage.setItem("crms_role", resolvedRole || "");
-      localStorage.setItem(
-        "crms_user",
-        JSON.stringify({
-          ...data,
-          email: resolvedEmail,
-          fullName: resolvedName,
-          role: resolvedRole,
-        }),
-      );
-
-      setSuccess("Logged in successfully");
-
-      onLogin?.({
+      const sessionUser = {
         ...data,
         email: resolvedEmail,
         fullName: resolvedName,
         role: resolvedRole,
-      });
+      };
+
+      setSession(token, sessionUser);
+
+      setSuccess("Logged in successfully");
+
+      onLogin?.(sessionUser);
 
       setTimeout(() => {
         redirectByRole(resolvedRole);
@@ -111,32 +83,12 @@ const Auth = ({ onLogin }) => {
     setSuccess("");
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: signupForm.fullName.trim(),
-          email: signupForm.email.trim(),
-          password: signupForm.password,
-          role: signupForm.role,
-        }),
+      const data = await signup({
+        name: signupForm.fullName.trim(),
+        email: signupForm.email.trim(),
+        password: signupForm.password,
+        role: signupForm.role,
       });
-
-      let data = null;
-      const contentType = response.headers.get("content-type");
-
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        throw new Error(text || "Signup failed");
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message || data?.detail || data?.error || "Signup failed",
-        );
-      }
 
       const token = data?.token;
       const resolvedRole = normalizeRole(data?.role || signupForm.role);
@@ -147,29 +99,18 @@ const Auth = ({ onLogin }) => {
         signupForm.fullName.trim() ||
         (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
 
-      if (token) {
-        localStorage.setItem("crms_token", token);
-      }
-
-      localStorage.setItem("crms_role", resolvedRole || "");
-      localStorage.setItem(
-        "crms_user",
-        JSON.stringify({
-          ...data,
-          email: resolvedEmail,
-          fullName: resolvedName,
-          role: resolvedRole,
-        }),
-      );
-
-      setSuccess("Account created successfully");
-
-      onLogin?.({
+      const sessionUser = {
         ...data,
         email: resolvedEmail,
         fullName: resolvedName,
         role: resolvedRole,
-      });
+      };
+
+      setSession(token, sessionUser);
+
+      setSuccess("Account created successfully");
+
+      onLogin?.(sessionUser);
 
       setTimeout(() => {
         redirectByRole(resolvedRole);

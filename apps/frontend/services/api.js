@@ -1,12 +1,28 @@
+import { getToken } from "../utils/auth";
+
+const inferredHost =
+  globalThis.window !== undefined
+    ? globalThis.window.location.hostname
+    : "localhost";
+
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api/v1/clients";
+  process.env.NEXT_PUBLIC_API_BASE || `http://${inferredHost}:8080`;
+
+const AUTH_BASE = `${API_BASE}/api/auth`;
 
 async function request(path, options = {}) {
+  const token = getToken();
+  const requestHeaders = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  if (options.headers) {
+    Object.assign(requestHeaders, options.headers);
+  }
+
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
+    headers: requestHeaders,
     ...options,
   });
 
@@ -24,17 +40,17 @@ async function request(path, options = {}) {
 }
 
 export function login(payload) {
-  return request("/login", {
+  return request(`${AUTH_BASE.replace(API_BASE, "")}/login`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
 export function signup(payload) {
-  return request("/signup", {
+  return request(`${AUTH_BASE.replace(API_BASE, "")}/register`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export { API_BASE, request };
+export { API_BASE, AUTH_BASE, request };
