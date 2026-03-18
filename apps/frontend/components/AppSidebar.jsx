@@ -18,14 +18,10 @@ const clientItems = [
 
 const companyItems = [
   { href: "/company/DashboardSection", label: "Dashboard" },
+  { href: "/company/PrdRepository", label: "PRD Repository" },
   { href: "/company/ProposalsListSection", label: "Proposals" },
   { href: "/company/CreateProposalSection", label: "Create Proposal" },
   { href: "/company/ProposalDetailsSection", label: "Proposal Details" },
-  { href: "/company/KanbanBoardPage", label: "Kanban" },
-  { href: "/company/PrdRepository", label: "PRD Repository" },
-  { href: "/company/Prd-details&Editor", label: "PRD Details & Editor" },
-  { href: "/company/Audit-trail", label: "Audit Trail" },
-  { href: "/company/Version-history", label: "Version History" },
 ];
 
 function isActivePath(pathname, href) {
