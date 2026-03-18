@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
-import Layout from "./Layout";
 import { projects as allProjects } from "@/lib/projects";
 
 const ITEMS_PER_PAGE = 4;
@@ -39,7 +38,7 @@ const KanbanOverviewPage = () => {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedProjects = filteredProjects.slice(
     startIndex,
-    startIndex + ITEMS_PER_PAGE
+    startIndex + ITEMS_PER_PAGE,
   );
 
   const handleView = (project) => {
@@ -77,8 +76,7 @@ const KanbanOverviewPage = () => {
   };
 
   return (
-    <Layout title="Kanban Board Overview">
-      <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -149,7 +147,9 @@ const KanbanOverviewPage = () => {
 
           {paginatedProjects.length === 0 && (
             <div className="py-12 text-center">
-              <p className="text-gray-500">No projects found matching your search.</p>
+              <p className="text-gray-500">
+                No projects found matching your search.
+              </p>
             </div>
           )}
 
@@ -173,14 +173,16 @@ const KanbanOverviewPage = () => {
             {getPageNumbers().map((page, index) => (
               <button
                 key={`${page}-${index}`}
-                onClick={() => typeof page === "number" && handlePageChange(page)}
+                onClick={() =>
+                  typeof page === "number" && handlePageChange(page)
+                }
                 disabled={page === "..."}
                 className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors ${
                   page === currentPage
                     ? "bg-[var(--primary)] text-white"
                     : page === "..."
-                    ? "cursor-default text-gray-400"
-                    : "hover:bg-[var(--surface)] text-gray-600"
+                      ? "cursor-default text-gray-400"
+                      : "hover:bg-[var(--surface)] text-gray-600"
                 }`}
               >
                 {page}
@@ -205,9 +207,8 @@ const KanbanOverviewPage = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 
 export default KanbanOverviewPage;
-

@@ -22,6 +22,9 @@ const companyItems = [
   { href: "/company/ProposalsListSection", label: "Proposals" },
   { href: "/company/CreateProposalSection", label: "Create Proposal" },
   { href: "/company/ProposalDetailsSection", label: "Proposal Details" },
+  { href: "/company/KanbanBoardPage", label: "Kanban" },
+  { href: "/company/Audit-trail", label: "Audit Trail" },
+  { href: "/company/Version-history", label: "Version History" },
 ];
 
 function isActivePath(pathname, href) {
