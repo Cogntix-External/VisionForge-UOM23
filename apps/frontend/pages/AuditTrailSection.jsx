@@ -3,6 +3,8 @@
 import React from "react";
 
 export default function AuditTrailSection({ auditRequests, onOpenReview, onShowVersionHistory }) {
+  const rows = Array.isArray(auditRequests) ? auditRequests : [];
+
   return (
     <div className="space-y-8">
       <div className="flex gap-4">
@@ -47,7 +49,7 @@ export default function AuditTrailSection({ auditRequests, onOpenReview, onShowV
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {auditRequests.map((item) => (
+              {rows.map((item) => (
                 <tr key={item.crid} className="group">
                   <td className="py-6 px-4 font-bold text-gray-600 text-sm">{item.pid}</td>
                   <td className="py-6 px-4 font-bold text-gray-700 text-sm">{item.crid}</td>

@@ -3,14 +3,17 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Auth from "../../pages/Auth";
-import { getToken, setSession } from "../../utils/auth";
+import { getToken, getUser, normalizeRole, setSession } from "../../utils/auth";
 
 export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
     if (getToken()) {
-      router.replace("/client/dashboard");
+      const role = normalizeRole(getUser()?.role);
+      router.replace(
+        role === "COMPANY" ? "/company/DashboardSection" : "/client/dashboard",
+      );
     }
   }, [router]);
 
@@ -22,9 +25,11 @@ export default function LoginPage() {
             ? localStorage.getItem("crms_token")
             : null;
         setSession(token, user);
-        const role = (user?.role || "CLIENT").toUpperCase();
+        const role = normalizeRole(user?.role || "CLIENT");
         router.push(
-          role === "COMPANY" ? "/company/dashboard" : "/client/dashboard",
+          role === "COMPANY"
+            ? "/company/DashboardSection"
+            : "/client/dashboard",
         );
       }}
     />

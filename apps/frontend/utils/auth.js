@@ -1,5 +1,14 @@
 const TOKEN_KEY = "crms_token";
 const USER_KEY = "crms_user";
+const ROLE_KEY = "crms_role";
+
+export function normalizeRole(rawRole) {
+  if (!rawRole) return "";
+  const role = String(rawRole).trim().toUpperCase();
+  if (role === "ROLE_CLIENT") return "CLIENT";
+  if (role === "ROLE_COMPANY") return "COMPANY";
+  return role;
+}
 
 export function setSession(token, user) {
   if (typeof window === "undefined") return;
@@ -10,7 +19,18 @@ export function setSession(token, user) {
   }
 
   if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    const normalizedRole = normalizeRole(user.role);
+    const normalizedUser = {
+      ...user,
+      role: normalizedRole || user.role,
+    };
+
+    localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
+
+    if (normalizedRole) {
+      localStorage.setItem(ROLE_KEY, normalizedRole);
+      document.cookie = `${ROLE_KEY}=${normalizedRole}; path=/; SameSite=Lax`;
+    }
   }
 }
 
@@ -37,5 +57,7 @@ export function clearSession() {
 
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(ROLE_KEY);
   document.cookie = `${TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  document.cookie = `${ROLE_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 }

@@ -3,7 +3,9 @@
 import React from "react";
 import { cn } from "../utils/cn.js";
 
-export default function VersionHistorySection({ versions }) {
+export default function VersionHistorySection({ versions = [] }) {
+  const rows = Array.isArray(versions) ? versions : [];
+
   return (
     <div className="p-8 max-w-5xl mx-auto w-full">
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
@@ -21,7 +23,7 @@ export default function VersionHistorySection({ versions }) {
               </tr>
             </thead>
             <tbody>
-              {versions.map((version, idx) => (
+              {rows.map((version, idx) => (
                 <tr key={idx} className="border-b border-gray-50">
                   <td className="py-4 px-4 font-semibold text-gray-700">
                     {version.version}
@@ -46,6 +48,13 @@ export default function VersionHistorySection({ versions }) {
                   </td>
                 </tr>
               ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td className="py-8 px-4 text-gray-500 text-center" colSpan={6}>
+                    No version history available yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

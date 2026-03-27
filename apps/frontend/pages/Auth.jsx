@@ -1,6 +1,14 @@
 import React, { useState } from "react";
 import { API_BASE } from "../constants";
 
+const normalizeRole = (rawRole) => {
+  if (!rawRole) return "";
+  const role = String(rawRole).trim().toUpperCase();
+  if (role === "ROLE_CLIENT") return "CLIENT";
+  if (role === "ROLE_COMPANY") return "COMPANY";
+  return role;
+};
+
 const Auth = ({ onLogin }) => {
   const [view, setView] = useState("login");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
@@ -8,10 +16,21 @@ const Auth = ({ onLogin }) => {
     fullName: "",
     email: "",
     password: "",
+    role: "CLIENT",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const redirectByRole = (role) => {
+    if (role === "CLIENT") {
+      window.location.href = "/client/dashboard";
+    } else if (role === "COMPANY") {
+      window.location.href = "/company/DashboardSection";
+    } else {
+      window.location.href = "/";
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -20,39 +39,66 @@ const Auth = ({ onLogin }) => {
     setSuccess("");
 
     try {
-      const response = await fetch(`${API_BASE}/login`, {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: loginForm.email.trim(),
-          passwordHash: loginForm.password,
+          password: loginForm.password,
         }),
       });
 
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "Login failed");
+      let data = null;
+      const contentType = response.headers.get("content-type");
+
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || "Login failed");
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || "Login failed");
+      }
+
       const token = data?.token;
-      const normalizedUser = data?.user ?? data;
-      const resolvedEmail = normalizedUser?.email || loginForm.email.trim();
+      const resolvedRole = normalizeRole(data?.role);
+      const resolvedEmail = data?.email || loginForm.email.trim();
       const resolvedName =
-        normalizedUser?.fullName ||
-        normalizedUser?.name ||
+        data?.fullName ||
+        data?.name ||
         (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
+
       if (token) {
         localStorage.setItem("crms_token", token);
       }
+
+      localStorage.setItem("crms_role", resolvedRole || "");
+      localStorage.setItem(
+        "crms_user",
+        JSON.stringify({
+          ...data,
+          email: resolvedEmail,
+          fullName: resolvedName,
+          role: resolvedRole,
+        }),
+      );
+
       setSuccess("Logged in successfully");
+
       onLogin?.({
-        ...normalizedUser,
+        ...data,
         email: resolvedEmail,
         fullName: resolvedName,
+        role: resolvedRole,
       });
+
+      setTimeout(() => {
+        redirectByRole(resolvedRole);
+      }, 500);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -65,41 +111,71 @@ const Auth = ({ onLogin }) => {
     setSuccess("");
 
     try {
-      const response = await fetch(`${API_BASE}/signup`, {
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: signupForm.fullName.trim(),
+          name: signupForm.fullName.trim(),
           email: signupForm.email.trim(),
-          passwordHash: signupForm.password,
-          role: "CLIENT",
+          password: signupForm.password,
+          role: signupForm.role,
         }),
       });
 
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "Signup failed");
+      let data = null;
+      const contentType = response.headers.get("content-type");
+
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || "Signup failed");
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data?.message || data?.detail || data?.error || "Signup failed",
+        );
+      }
+
       const token = data?.token;
-      const normalizedUser = data?.user ?? data;
-      const resolvedEmail = normalizedUser?.email || signupForm.email.trim();
+      const resolvedRole = normalizeRole(data?.role || signupForm.role);
+      const resolvedEmail = data?.email || signupForm.email.trim();
       const resolvedName =
-        normalizedUser?.fullName ||
-        normalizedUser?.name ||
+        data?.fullName ||
+        data?.name ||
+        signupForm.fullName.trim() ||
         (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
+
       if (token) {
         localStorage.setItem("crms_token", token);
       }
+
+      localStorage.setItem("crms_role", resolvedRole || "");
+      localStorage.setItem(
+        "crms_user",
+        JSON.stringify({
+          ...data,
+          email: resolvedEmail,
+          fullName: resolvedName,
+          role: resolvedRole,
+        }),
+      );
+
       setSuccess("Account created successfully");
+
       onLogin?.({
-        ...normalizedUser,
+        ...data,
         email: resolvedEmail,
         fullName: resolvedName,
+        role: resolvedRole,
       });
+
+      setTimeout(() => {
+        redirectByRole(resolvedRole);
+      }, 500);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Signup failed");
     } finally {
       setLoading(false);
     }
@@ -210,6 +286,7 @@ const Auth = ({ onLogin }) => {
                       required
                     />
                   </div>
+
                   <div>
                     <div className="flex justify-between items-center mb-1.5">
                       <label className="text-sm font-medium text-gray-700">
@@ -303,6 +380,7 @@ const Auth = ({ onLogin }) => {
                       required
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Email
@@ -318,6 +396,7 @@ const Auth = ({ onLogin }) => {
                       required
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Password
@@ -335,6 +414,22 @@ const Auth = ({ onLogin }) => {
                       }
                       required
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Sign up as
+                    </label>
+                    <select
+                      value={signupForm.role}
+                      onChange={(e) =>
+                        setSignupForm({ ...signupForm, role: e.target.value })
+                      }
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-gray-700"
+                    >
+                      <option value="CLIENT">Client</option>
+                      <option value="COMPANY">Company</option>
+                    </select>
                   </div>
                 </div>
 
@@ -371,6 +466,7 @@ const Auth = ({ onLogin }) => {
                     No worries, we'll send you reset instructions
                   </p>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Email
@@ -381,9 +477,11 @@ const Auth = ({ onLogin }) => {
                     placeholder="Enter your email"
                   />
                 </div>
+
                 <button className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200">
                   Send Reset Link
                 </button>
+
                 <button
                   onClick={() => setView("login")}
                   className="w-full text-purple-600 font-semibold hover:underline"
