@@ -14,4 +14,6 @@ public class CreateProposalRequest {
 
     @NotBlank(message = "Client ID is required")
     private String clientId;
+
+     private String companyId;
 }
