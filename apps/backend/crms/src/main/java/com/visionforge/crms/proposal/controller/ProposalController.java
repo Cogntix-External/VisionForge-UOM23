@@ -8,13 +8,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import com.visionforge.crms.proposal.dto.ProposalDecisionRequest;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api")
+@CrossOrigin(origins = "*")
 public class ProposalController {
 
     private final ProposalService proposalService;
@@ -67,9 +67,8 @@ public class ProposalController {
     public ResponseEntity<ProposalResponse> rejectProposal(
             @PathVariable String id,
             @RequestHeader("X-Client-Id") String clientId,
-            @RequestBody Map<String, String> body
+            @RequestBody ProposalDecisionRequest request
     ) {
-        String reason = body.getOrDefault("rejectionReason", "No reason provided");
-        return ResponseEntity.ok(proposalService.rejectProposal(id, clientId, reason));
+        return ResponseEntity.ok(proposalService.rejectProposal(id, clientId, request.getReason()));
     }
 }

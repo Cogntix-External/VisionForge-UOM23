@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Paperclip } from "lucide-react";
+import { acceptProposal, rejectProposal } from "@/services/api";
 
 const fallbackProject = {
   id: "N/A",
@@ -26,9 +27,78 @@ export default function ProposalDetailsSection({
   setProjectMilestoneData = () => {},
   uploadedFile = null,
   setUploadedFile = () => {},
+  clientId = null,
+  onProposalUpdate = () => {},
 }) {
   const project = selectedProject || fallbackProject;
   const isFallbackProject = !selectedProject;
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [showRejectModal, setShowRejectModal] = useState(false);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "ACCEPTED":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "REJECTED":
+        return "bg-red-100 text-red-800 border-red-300";
+      default:
+        return "bg-slate-100 text-slate-800 border-slate-300";
+    }
+  };
+
+  const handleAccept = async () => {
+    if (!clientId || !project.id) {
+      setError("Missing client ID or proposal ID");
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const updatedProposal = await acceptProposal(project.id, clientId);
+      onProposalUpdate(updatedProposal);
+      alert("Proposal accepted successfully!");
+    } catch (err) {
+      setError(err.message || "Failed to accept proposal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectSubmit = async () => {
+    if (!clientId || !project.id) {
+      setError("Missing client ID or proposal ID");
+      return;
+    }
+    
+    if (!rejectionReason.trim()) {
+      setError("Please provide a rejection reason");
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const updatedProposal = await rejectProposal(project.id, clientId, rejectionReason);
+      onProposalUpdate(updatedProposal);
+      setShowRejectModal(false);
+      setRejectionReason("");
+      alert("Proposal rejected successfully!");
+    } catch (err) {
+      setError(err.message || "Failed to reject proposal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isProposalActionable = project.status === "PENDING" || project.status === undefined;
 
   return (
     <div className="p-8 max-w-6xl mx-auto w-full">
@@ -49,10 +119,37 @@ export default function ProposalDetailsSection({
         </div>
       )}
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3 mb-6">
+          {error}
+        </div>
+      )}
+
       <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-        <h2 className="text-lg font-bold text-slate-800 mb-6">
-          Proposal Details
-        </h2>
+        <div className="flex justify-between items-start mb-6">
+          <h2 className="text-lg font-bold text-slate-800">
+            Proposal Details
+          </h2>
+          {!isFallbackProject && isProposalActionable && (
+            <div className="flex gap-3">
+              <button
+                onClick={handleAccept}
+                disabled={loading}
+                className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 font-semibold"
+              >
+                {loading ? "Processing..." : "Accept Proposal"}
+              </button>
+              <button
+                onClick={() => setShowRejectModal(true)}
+                disabled={loading}
+                className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 font-semibold"
+              >
+                {loading ? "Processing..." : "Reject Proposal"}
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-3 gap-6">
           <div className="bg-slate-50 p-4 rounded-lg">
             <p className="text-xs text-slate-400 uppercase font-bold mb-2">
@@ -86,18 +183,20 @@ export default function ProposalDetailsSection({
             <p className="text-xs text-slate-400 uppercase font-bold mb-2">
               Status
             </p>
-            <p className="font-semibold text-slate-700">{project.status}</p>
+            <p className={`font-semibold px-3 py-1 rounded border inline-block ${getStatusColor(project.status)}`}>
+              {project.status}
+            </p>
           </div>
-          <div />
+          {project.rejectionReason && project.status === "REJECTED" && (
+            <div className="bg-slate-50 p-4 rounded-lg col-span-3">
+              <p className="text-xs text-slate-400 uppercase font-bold mb-2">
+                Rejection Reason
+              </p>
+              <p className="font-semibold text-red-700">{project.rejectionReason}</p>
+            </div>
+          )}
         </div>
       </div>
-
-      <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-        <h2 className="text-lg font-bold text-slate-800 mb-6">
-          Budget and Timeline
-        </h2>
-        <p className="text-slate-600 mb-6">
-          Project details: {project.title} is a state-of-the-art system designed
           to help teams achieve timely and manageable results with intelligent
           decision making.
         </p>
@@ -576,6 +675,42 @@ export default function ProposalDetailsSection({
                 File attached: {uploadedFile.name}
               </span>
             )}
+          </div>
+        </div>
+      )}
+
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full shadow-lg">
+            <h3 className="text-xl font-bold text-slate-800 mb-4">Reject Proposal</h3>
+            <p className="text-slate-600 mb-6">
+              Please provide a reason for rejecting this proposal. This will be saved for your records.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              className="w-full p-3 border border-slate-200 rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-red-500"
+              rows="4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectionReason("");
+                }}
+                className="flex-1 px-4 py-2 bg-slate-400 text-white rounded hover:bg-slate-500 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRejectSubmit}
+                disabled={loading || !rejectionReason.trim()}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 font-semibold"
+              >
+                {loading ? "Processing..." : "Confirm Rejection"}
+              </button>
+            </div>
           </div>
         </div>
       )}
