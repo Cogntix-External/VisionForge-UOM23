@@ -61,7 +61,7 @@ export default function ProposalsListSection({
                         onClick={() => onSelect(proj)}
                         className="text-blue-600 font-bold hover:text-blue-800"
                       >
-                        More details
+                        View more
                       </button>
                     </td>
                   </tr>

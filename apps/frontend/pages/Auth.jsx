@@ -85,6 +85,13 @@ const Auth = ({ onLogin }) => {
         }),
       );
 
+      if (resolvedRole === "COMPANY" && data?.id) {
+        localStorage.setItem("companyId", data.id);
+      }
+      if (resolvedRole === "CLIENT" && data?.id) {
+        localStorage.setItem("clientId", data.id);
+      }
+
       setSuccess("Logged in successfully");
 
       onLogin?.({
@@ -161,6 +168,13 @@ const Auth = ({ onLogin }) => {
           role: resolvedRole,
         }),
       );
+
+      if (resolvedRole === "COMPANY" && data?.id) {
+        localStorage.setItem("companyId", data.id);
+      }
+      if (resolvedRole === "CLIENT" && data?.id) {
+        localStorage.setItem("clientId", data.id);
+      }
 
       setSuccess("Account created successfully");
 
