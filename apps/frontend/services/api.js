@@ -1,13 +1,17 @@
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api/v1/clients";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8081/api";
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
+
+  const response = await fetch(`${baseUrl}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...customHeaders,
     },
-    ...options,
+    ...rest,
   });
 
   if (!response.ok) {
@@ -40,62 +44,59 @@ export function signup(payload) {
 // ── Proposal API Functions ─────────────────────────────────────
 // Get client's proposals
 export function getClientProposals(clientId) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
   return request(`/client/proposals`, {
     method: "GET",
     headers: {
       "X-Client-Id": clientId,
     },
-    baseUrl: baseUrl,
+  });
+}
+
+export function getCompanyProposals(companyId) {
+  return request(`/company/proposals`, {
+    method: "GET",
+    headers: {
+      "X-Company-Id": companyId,
+    },
+  });
+}
+
+export function createCompanyProposal(payload, companyId) {
+  return request(`/company/proposals`, {
+    method: "POST",
+    headers: {
+      "X-Company-Id": companyId,
+    },
+    body: JSON.stringify(payload),
   });
 }
 
 // Get proposal by ID
 export function getProposalById(proposalId) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
-  return fetch(`${baseUrl}/proposals/${proposalId}`, {
+  return request(`/proposals/${proposalId}`, {
     method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error("Failed to fetch proposal");
-      return res.json();
-    });
+  });
 }
 
 // Accept proposal
 export function acceptProposal(proposalId, clientId) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
-  return fetch(`${baseUrl}/client/proposals/${proposalId}/accept`, {
+  return request(`/client/proposals/${proposalId}/accept`, {
     method: "PATCH",
     headers: {
-      "Content-Type": "application/json",
       "X-Client-Id": clientId,
     },
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error("Failed to accept proposal");
-      return res.json();
-    });
+  });
 }
 
 // Reject proposal
 export function rejectProposal(proposalId, clientId, reason) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
-  return fetch(`${baseUrl}/client/proposals/${proposalId}/reject`, {
+  return request(`/client/proposals/${proposalId}/reject`, {
     method: "PATCH",
     headers: {
-      "Content-Type": "application/json",
       "X-Client-Id": clientId,
     },
     body: JSON.stringify({ reason }),
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error("Failed to reject proposal");
-      return res.json();
-    });
+  });
 }
 
 export { API_BASE, request };

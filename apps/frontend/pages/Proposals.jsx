@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Icons } from "../constants";
 
 const MOCK_PROPOSALS = [
@@ -65,6 +66,7 @@ const STATUS_STYLES = {
 };
 
 const Proposals = () => {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [proposals, setProposals] = useState(MOCK_PROPOSALS);
@@ -116,6 +118,16 @@ const Proposals = () => {
           : proposal,
       ),
     );
+  };
+
+  const openProposalDetails = (proposal) => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(
+        "crms:selectedProposal",
+        JSON.stringify(proposal),
+      );
+    }
+    router.push("/company/ProposalDetailsSection");
   };
 
   return (
@@ -248,7 +260,7 @@ const Proposals = () => {
                   <td className="px-3 lg:px-6 py-4 text-center align-middle">
                     <button
                       type="button"
-                      onClick={() => setSelectedProposalId(proposal.id)}
+                      onClick={() => openProposalDetails(proposal)}
                       className="inline-flex items-center justify-center px-4 py-2 bg-[#bbf7d0] text-[#166534] text-sm font-bold rounded-full hover:bg-[#86efac] transition-all"
                     >
                       View
