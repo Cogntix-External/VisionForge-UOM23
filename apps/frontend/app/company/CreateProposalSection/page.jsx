@@ -51,12 +51,26 @@ export default function CompanyCreateProposalSectionPage() {
       return;
     }
 
+    const normalizedClientId = String(newProposal.clientId || "").trim();
+    if (!normalizedClientId) {
+      alert("Client ID is required.");
+      return;
+    }
+
+    const clientExists = registeredClients.some(
+      (client) => String(client.id || "").trim() === normalizedClientId,
+    );
+    if (registeredClients.length > 0 && !clientExists) {
+      alert("Please select a valid registered client ID.");
+      return;
+    }
+
     try {
       const createdProposal = await createCompanyProposal(
         {
-          title: newProposal.title,
-          description: newProposal.description,
-          clientId: newProposal.clientId,
+          title: String(newProposal.title || "").trim(),
+          description: String(newProposal.description || "").trim(),
+          clientId: normalizedClientId,
           companyId,
         },
         companyId,

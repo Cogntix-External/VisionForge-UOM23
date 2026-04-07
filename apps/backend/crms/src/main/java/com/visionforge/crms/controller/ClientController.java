@@ -9,6 +9,7 @@ import com.visionforge.crms.service.ClientService;
 import com.visionforge.crms.security.JwtUtil; // 1. Import JwtUtil
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -52,5 +53,20 @@ public class ClientController {
         } else {
             return ResponseEntity.status(401).body("Invalid Email or Password");
         }
+    }
+
+    @GetMapping("/list")
+    public ResponseEntity<?> getRegisteredClients() {
+        List<Map<String, String>> clients = clientService.getRegisteredClients().stream()
+                .map(user -> {
+                    Map<String, String> summary = new HashMap<>();
+                    summary.put("id", user.getId());
+                    summary.put("fullName", user.getFullName());
+                    summary.put("email", user.getEmail());
+                    return summary;
+                })
+                .toList();
+
+        return ResponseEntity.ok(clients);
     }
 }

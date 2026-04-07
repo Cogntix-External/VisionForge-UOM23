@@ -1,6 +1,7 @@
 package com.visionforge.crms.service;
 
 import java.util.Optional;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -39,5 +40,11 @@ public class ClientService {
         } else {
             return null; // Login Failed
         }
+    }
+
+    public List<User> getRegisteredClients() {
+        return userRepository.findAll().stream()
+                .filter(user -> "CLIENT".equalsIgnoreCase(user.getRole()))
+                .toList();
     }
 }

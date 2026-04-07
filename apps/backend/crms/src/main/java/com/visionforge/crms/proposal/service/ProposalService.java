@@ -22,18 +22,21 @@ public class ProposalService {
     // ── Create Proposal ─────────────────────────────────────────────
     public ProposalResponse createProposal(
             CreateProposalRequest request, String companyId) {
+        String normalizedClientId = request.getClientId().trim();
+        String normalizedCompanyId = companyId.trim();
+
         Proposal proposal = Proposal.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .clientId(request.getClientId())
-                .companyId(companyId)
+            .clientId(normalizedClientId)
+            .companyId(normalizedCompanyId)
                 .build();
         return mapToResponse(proposalRepository.save(proposal));
     }
 
     // ── Company: Get All Proposals ──────────────────────────────────
     public List<ProposalResponse> getProposalsByCompany(String companyId) {
-        return proposalRepository.findByCompanyId(companyId)
+        return proposalRepository.findByCompanyId(companyId.trim())
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -41,7 +44,7 @@ public class ProposalService {
 
     // ── Client: Get All Proposals ──────────────────────────────────
     public List<ProposalResponse> getProposalsByClient(String clientId) {
-        return proposalRepository.findByClientId(clientId)
+        return proposalRepository.findByClientId(clientId.trim())
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -91,7 +94,7 @@ public class ProposalService {
     // ── Private Helpers ─────────────────────────────────────────────
     private void validateClientOwnership(
             Proposal proposal, String clientId) {
-        if (!proposal.getClientId().equals(clientId)) {
+        if (!proposal.getClientId().equals(clientId.trim())) {
             throw new RuntimeException(
                 "Unauthorized: proposal does not belong to this client"
             );

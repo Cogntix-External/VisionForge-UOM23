@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8081/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
 
 async function request(path, options = {}) {
   const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
