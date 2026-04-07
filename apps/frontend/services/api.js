@@ -41,6 +41,12 @@ export function signup(payload) {
   });
 }
 
+export function getRegisteredClients() {
+  return request("/v1/clients/list", {
+    method: "GET",
+  });
+}
+
 // ── Proposal API Functions ─────────────────────────────────────
 // Get client's proposals
 export function getClientProposals(clientId) {

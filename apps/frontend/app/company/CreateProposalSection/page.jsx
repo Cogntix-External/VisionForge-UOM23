@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import CreateProposalSection from "@/pages/CreateProposalSection";
-import { createCompanyProposal } from "@/services/api";
+import { createCompanyProposal, getRegisteredClients } from "@/services/api";
 
-const initialProposal = { title: "", client: "", description: "" };
+const initialProposal = { title: "", clientId: "", description: "" };
 
 export default function CompanyCreateProposalSectionPage() {
   const router = useRouter();
@@ -14,6 +14,20 @@ export default function CompanyCreateProposalSectionPage() {
   const [showBudget, setShowBudget] = useState(true);
   const [timelineData, setTimelineData] = useState([]);
   const [budgetData, setBudgetData] = useState([]);
+  const [registeredClients, setRegisteredClients] = useState([]);
+
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        const clients = await getRegisteredClients();
+        setRegisteredClients(Array.isArray(clients) ? clients : []);
+      } catch {
+        setRegisteredClients([]);
+      }
+    };
+
+    loadClients();
+  }, []);
 
   const handleClear = () => {
     setNewProposal(initialProposal);
@@ -42,7 +56,7 @@ export default function CompanyCreateProposalSectionPage() {
         {
           title: newProposal.title,
           description: newProposal.description,
-          clientId: newProposal.client,
+          clientId: newProposal.clientId,
           companyId,
         },
         companyId,
@@ -75,6 +89,7 @@ export default function CompanyCreateProposalSectionPage() {
       setBudgetData={setBudgetData}
       onClear={handleClear}
       onSubmit={handleSubmit}
+      clientOptions={registeredClients}
     />
   );
 }
