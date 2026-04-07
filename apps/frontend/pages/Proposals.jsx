@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icons } from "../constants";
 
@@ -65,15 +65,34 @@ const STATUS_STYLES = {
   Rejected: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-const Proposals = () => {
+const normalizeStatus = (rawStatus) => {
+  const value = String(rawStatus || "").trim().toUpperCase();
+  if (value === "ACCEPTED") return "Accepted";
+  if (value === "REJECTED") return "Rejected";
+  return "Pending";
+};
+
+const Proposals = ({
+  proposals: externalProposals,
+  loading = false,
+  error = null,
+}) => {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
-  const [proposals, setProposals] = useState(MOCK_PROPOSALS);
+  const [proposals, setProposals] = useState(
+    Array.isArray(externalProposals) ? externalProposals : MOCK_PROPOSALS,
+  );
   const [selectedProposalId, setSelectedProposalId] = useState(null);
 
+  useEffect(() => {
+    if (Array.isArray(externalProposals)) {
+      setProposals(externalProposals);
+    }
+  }, [externalProposals]);
+
   const getDisplayStatus = (proposal) =>
-    proposal.decisionAt ? proposal.status : "Pending";
+    proposal.decisionAt ? normalizeStatus(proposal.status) : normalizeStatus(proposal.status);
 
   const filteredProposals = useMemo(() => {
     const normalizedTerm = searchTerm.trim().toLowerCase();
@@ -105,6 +124,22 @@ const Proposals = () => {
       { total: 0, Pending: 0, Accepted: 0, Rejected: 0 },
     );
   }, [proposals]);
+
+  if (loading) {
+    return (
+      <div className="p-8 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg">
+        Loading proposals...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 bg-red-50 border border-red-200 text-red-800 rounded-lg">
+        {error}
+      </div>
+    );
+  }
 
   const handleDecision = (proposalId, decision) => {
     setProposals((prev) =>
@@ -235,7 +270,9 @@ const Proposals = () => {
                   </td>
                   <td className="px-3 lg:px-6 py-4 align-middle">
                     <span className="text-sm font-bold text-gray-900">
-                      ${proposal.budget.toLocaleString()}
+                      {typeof proposal.budget === "number"
+                        ? `$${proposal.budget.toLocaleString()}`
+                        : proposal.budget || "-"}
                     </span>
                   </td>
                   <td className="px-3 lg:px-6 py-4 align-middle">
@@ -328,9 +365,7 @@ const ProposalModal = ({ proposal, onClose, onDecision }) => (
       <div className="p-8 space-y-6">
         <div className="flex flex-wrap items-center gap-3">
           {(() => {
-            const displayStatus = proposal.decisionAt
-              ? proposal.status
-              : "Pending";
+            const displayStatus = normalizeStatus(proposal.status);
             return (
               <span
                 className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-bold ${
@@ -358,19 +393,23 @@ const ProposalModal = ({ proposal, onClose, onDecision }) => (
         <div className="grid grid-cols-2 gap-4">
           <DetailStat
             label="Budget"
-            value={`$${proposal.budget.toLocaleString()}`}
+            value={
+              typeof proposal.budget === "number"
+                ? `$${proposal.budget.toLocaleString()}`
+                : proposal.budget || "-"
+            }
           />
           <DetailStat label="Timeline" value={proposal.timeline} />
           <DetailStat label="Submitted By" value={proposal.submittedBy} />
           <DetailStat
             label="Tech Stack"
-            value={proposal.techStack.join(", ")}
+            value={Array.isArray(proposal.techStack) ? proposal.techStack.join(", ") : "-"}
           />
         </div>
 
-        <ListBlock title="Scope" items={proposal.scope} />
-        <ListBlock title="Deliverables" items={proposal.deliverables} />
-        <ListBlock title="Risks" items={proposal.risks} />
+        <ListBlock title="Scope" items={Array.isArray(proposal.scope) ? proposal.scope : []} />
+        <ListBlock title="Deliverables" items={Array.isArray(proposal.deliverables) ? proposal.deliverables : []} />
+        <ListBlock title="Risks" items={Array.isArray(proposal.risks) ? proposal.risks : []} />
 
         <div className="flex flex-wrap gap-3">
           <button

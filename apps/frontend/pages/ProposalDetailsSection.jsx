@@ -8,7 +8,7 @@ const fallbackProject = {
   id: "N/A",
   title: "No proposal selected",
   lastUpdated: "Not available",
-  client: "Not assigned",
+  clientId: "Not assigned",
   status: "Draft",
   budgetData: [],
   timelines: [],
@@ -183,7 +183,10 @@ export default function ProposalDetailsSection({
           <InfoCard label="Project Title" value={project.title} />
           <InfoCard label="Last Updater" value={project.lastUpdated} />
           <InfoCard label="Proposal ID" value={project.id} />
-          <InfoCard label="Client name" value={project.client || "John Doe"} />
+          <InfoCard
+            label="Client ID"
+            value={project.clientId || project.client || "Not assigned"}
+          />
           <InfoCard
             label="Status"
             value={project.status}

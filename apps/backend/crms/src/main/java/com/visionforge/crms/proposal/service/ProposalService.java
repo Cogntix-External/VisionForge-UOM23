@@ -39,6 +39,14 @@ public class ProposalService {
                 .collect(Collectors.toList());
     }
 
+    // ── Client: Get All Proposals ──────────────────────────────────
+    public List<ProposalResponse> getProposalsByClient(String clientId) {
+        return proposalRepository.findByClientId(clientId)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
     // ── Get Single Proposal ─────────────────────────────────────────
     public ProposalResponse getProposalById(String proposalId) {
         Proposal proposal = proposalRepository.findById(proposalId)

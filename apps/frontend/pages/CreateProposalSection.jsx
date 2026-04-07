@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 
 export default function CreateProposalSection({
-  newProposal = { title: "", client: "", description: "" },
+  newProposal = { title: "", clientId: "", description: "" },
   setNewProposal = () => {},
   showTimeline = true,
   setShowTimeline = () => {},
@@ -15,6 +15,7 @@ export default function CreateProposalSection({
   setBudgetData = () => {},
   onClear = () => {},
   onSubmit = () => {},
+  clientOptions = [],
 }) {
   const now = new Date();
   const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
@@ -23,7 +24,7 @@ export default function CreateProposalSection({
   const isNonEmpty = (value) => String(value ?? "").trim() !== "";
   const isProposalComplete =
     isNonEmpty(newProposal.title) &&
-    isNonEmpty(newProposal.client) &&
+    isNonEmpty(newProposal.clientId) &&
     isNonEmpty(newProposal.description);
   const isTimelineComplete =
     timelineData.length > 0 &&
@@ -101,13 +102,21 @@ export default function CreateProposalSection({
         </div>
         <div>
           <input
-            value={newProposal.client}
+            list="client-id-options"
+            value={newProposal.clientId}
             onChange={(event) =>
-              setNewProposal({ ...newProposal, client: event.target.value })
+              setNewProposal({ ...newProposal, clientId: event.target.value })
             }
-            placeholder="Client *"
+            placeholder="Client ID *"
             className="w-full p-4 rounded bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
+          <datalist id="client-id-options">
+            {clientOptions.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.fullName || client.email || client.id}
+              </option>
+            ))}
+          </datalist>
         </div>
         <div>
           <textarea

@@ -30,7 +30,7 @@ export default function ProposalsListSection({
               <tr className="text-sm text-slate-400 uppercase border-b border-slate-200">
                 <th className="pb-4 font-bold">PID</th>
                 <th className="pb-4 font-bold">Proposal name</th>
-                <th className="pb-4 font-bold">Client Name</th>
+                <th className="pb-4 font-bold">Client ID</th>
                 <th className="pb-4 font-bold">Budget</th>
                 <th className="pb-4 font-bold">Duration</th>
                 <th className="pb-4 font-bold">Actions</th>
@@ -52,7 +52,7 @@ export default function ProposalsListSection({
                     <td className="py-4 font-bold text-slate-700">{proj.id}</td>
                     <td className="py-4 text-slate-600">{proj.title}</td>
                     <td className="py-4 text-slate-600">
-                      {proj.client || "John Doe"}
+                      {proj.client || "Not assigned"}
                     </td>
                     <td className="py-4 text-slate-600">{proj.budget}</td>
                     <td className="py-4 text-slate-600">{proj.duration}</td>
