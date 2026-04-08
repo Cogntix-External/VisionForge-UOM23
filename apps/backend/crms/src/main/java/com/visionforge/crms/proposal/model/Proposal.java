@@ -8,8 +8,6 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Data
 @Builder
@@ -25,22 +23,10 @@ public class Proposal {
     private String description;
     private String clientId;
     private String companyId;
-    @Builder.Default
-    private ProposalStatus status = ProposalStatus.PENDING;
 
+    private ProposalStatus status;
     private String rejectionReason;
 
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
-
+    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
-    @Builder.Default
-    private List<ProposalStageHistory> stageHistory = new ArrayList<>();
-
-    public enum ProposalStatus {
-        PENDING,
-        ACCEPTED,
-        REJECTED
-    }
 }

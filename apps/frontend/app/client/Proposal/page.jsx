@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Proposals from "@/pages/Proposals";
+import ProposalModal from "@/components/ProposalModal";
 import { getClientProposals } from "@/services/api";
 
 export default function ClientProposalsPage() {
@@ -9,6 +10,8 @@ export default function ClientProposalsPage() {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedProposal, setSelectedProposal] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Get clientId from localStorage or context
   useEffect(() => {
@@ -81,6 +84,12 @@ export default function ClientProposalsPage() {
     setProposals((prev) =>
       prev.map((p) => (p.id === updatedProposal.id ? updatedProposal : p)),
     );
+    setIsModalOpen(false);
+  };
+
+  const handleViewProposal = (proposal) => {
+    setSelectedProposal(proposal);
+    setIsModalOpen(true);
   };
 
   if (!clientId) {
@@ -92,13 +101,23 @@ export default function ClientProposalsPage() {
   }
 
   return (
-    <Proposals
-      isClient
-      proposals={proposals}
-      loading={loading}
-      error={error}
-      clientId={clientId}
-      onProposalUpdate={handleProposalUpdate}
-    />
+    <>
+      <Proposals
+        isClient
+        useModal={true}
+        proposals={proposals}
+        loading={loading}
+        error={error}
+        clientId={clientId}
+        onViewProposal={handleViewProposal}
+      />
+      <ProposalModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        proposal={selectedProposal}
+        clientId={clientId}
+        onProposalUpdate={handleProposalUpdate}
+      />
+    </>
   );
 }

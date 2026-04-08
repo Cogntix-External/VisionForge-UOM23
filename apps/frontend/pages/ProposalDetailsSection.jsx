@@ -2,7 +2,12 @@
 
 import React, { useState } from "react";
 import { Paperclip } from "lucide-react";
-import { acceptProposal, rejectProposal } from "@/services/api";
+import {
+  acceptProposal,
+  rejectProposal,
+  acceptProposalByCompany,
+  rejectProposalByCompany,
+} from "@/services/api";
 
 const fallbackProject = {
   id: "N/A",
@@ -51,6 +56,7 @@ export default function ProposalDetailsSection({
   uploadedFile = null,
   setUploadedFile = () => {},
   clientId = null,
+  companyId = null,
   onProposalUpdate = () => {},
 }) {
   const project = selectedProject || fallbackProject;
@@ -74,8 +80,9 @@ export default function ProposalDetailsSection({
   };
 
   const handleAccept = async () => {
-    if (!clientId || !project.id) {
-      setError("Missing client ID or proposal ID");
+    const userId = clientId || companyId;
+    if (!userId || !project.id) {
+      setError("Missing user ID or proposal ID");
       return;
     }
 
@@ -83,7 +90,9 @@ export default function ProposalDetailsSection({
     setError(null);
 
     try {
-      const updatedProposal = await acceptProposal(project.id, clientId);
+      const updatedProposal = companyId
+        ? await acceptProposalByCompany(project.id, companyId)
+        : await acceptProposal(project.id, clientId);
       onProposalUpdate(updatedProposal);
       alert("Proposal accepted successfully!");
     } catch (err) {
@@ -94,8 +103,9 @@ export default function ProposalDetailsSection({
   };
 
   const handleRejectSubmit = async () => {
-    if (!clientId || !project.id) {
-      setError("Missing client ID or proposal ID");
+    const userId = clientId || companyId;
+    if (!userId || !project.id) {
+      setError("Missing user ID or proposal ID");
       return;
     }
 
@@ -108,7 +118,9 @@ export default function ProposalDetailsSection({
     setError(null);
 
     try {
-      const updatedProposal = await rejectProposal(project.id, clientId, rejectionReason);
+      const updatedProposal = companyId
+        ? await rejectProposalByCompany(project.id, companyId, rejectionReason)
+        : await rejectProposal(project.id, clientId, rejectionReason);
       onProposalUpdate(updatedProposal);
       setShowRejectModal(false);
       setRejectionReason("");
@@ -129,7 +141,10 @@ export default function ProposalDetailsSection({
   };
 
   const addMilestoneRow = () => {
-    setProjectMilestoneData([...projectMilestoneData, { ...emptyMilestoneRow }]);
+    setProjectMilestoneData([
+      ...projectMilestoneData,
+      { ...emptyMilestoneRow },
+    ]);
   };
 
   return (
@@ -146,7 +161,8 @@ export default function ProposalDetailsSection({
 
       {isFallbackProject && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 mb-6">
-          Open this page from the proposals list to view a specific proposal. Placeholder data is shown until a proposal is selected.
+          Open this page from the proposals list to view a specific proposal.
+          Placeholder data is shown until a proposal is selected.
         </div>
       )}
 
@@ -193,14 +209,19 @@ export default function ProposalDetailsSection({
             valueClassName={`inline-block border rounded px-3 py-1 ${getStatusColor(project.status)}`}
           />
           {project.rejectionReason && project.status === "REJECTED" && (
-            <InfoCard label="Rejection Reason" value={project.rejectionReason} valueClassName="text-red-700" />
+            <InfoCard
+              label="Rejection Reason"
+              value={project.rejectionReason}
+              valueClassName="text-red-700"
+            />
           )}
         </div>
       </div>
 
       <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
         <p className="text-slate-600 leading-relaxed mb-6">
-          to help teams achieve timely and manageable results with intelligent decision making.
+          to help teams achieve timely and manageable results with intelligent
+          decision making.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -235,31 +256,71 @@ export default function ProposalDetailsSection({
                 <TableCell>
                   <TextInput
                     value={row.item}
-                    onChange={(value) => updateRow(setProjectBudgetData, projectBudgetData, idx, "item", value)}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectBudgetData,
+                        projectBudgetData,
+                        idx,
+                        "item",
+                        value,
+                      )
+                    }
                   />
                 </TableCell>
                 <TableCell>
                   <TextInput
                     value={row.description}
-                    onChange={(value) => updateRow(setProjectBudgetData, projectBudgetData, idx, "description", value)}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectBudgetData,
+                        projectBudgetData,
+                        idx,
+                        "description",
+                        value,
+                      )
+                    }
                   />
                 </TableCell>
                 <TableCell>
                   <NumberInput
                     value={row.quantity}
-                    onChange={(value) => updateRow(setProjectBudgetData, projectBudgetData, idx, "quantity", value)}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectBudgetData,
+                        projectBudgetData,
+                        idx,
+                        "quantity",
+                        value,
+                      )
+                    }
                   />
                 </TableCell>
                 <TableCell>
                   <NumberInput
                     value={row.unitPrice}
-                    onChange={(value) => updateRow(setProjectBudgetData, projectBudgetData, idx, "unitPrice", value)}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectBudgetData,
+                        projectBudgetData,
+                        idx,
+                        "unitPrice",
+                        value,
+                      )
+                    }
                   />
                 </TableCell>
                 <TableCell>
                   <NumberInput
                     value={row.total}
-                    onChange={(value) => updateRow(setProjectBudgetData, projectBudgetData, idx, "total", value)}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectBudgetData,
+                        projectBudgetData,
+                        idx,
+                        "total",
+                        value,
+                      )
+                    }
                   />
                 </TableCell>
               </tr>
@@ -276,27 +337,100 @@ export default function ProposalDetailsSection({
       {detailsView === "timeline" && (
         <SectionCard title="Estimated Timeline">
           <EditableTable
-            headers={["Phase", "Start Date", "End Date", "Duration", "Assigned To", "Status"]}
+            headers={[
+              "Phase",
+              "Start Date",
+              "End Date",
+              "Duration",
+              "Assigned To",
+              "Status",
+            ]}
             rows={projectTimelineData}
             renderRow={(row, idx) => (
               <tr key={idx}>
                 <TableCell>
-                  <TextInput value={row.phase} onChange={(value) => updateRow(setProjectTimelineData, projectTimelineData, idx, "phase", value)} />
+                  <TextInput
+                    value={row.phase}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectTimelineData,
+                        projectTimelineData,
+                        idx,
+                        "phase",
+                        value,
+                      )
+                    }
+                  />
                 </TableCell>
                 <TableCell>
-                  <DateInput value={row.startDate} onChange={(value) => updateRow(setProjectTimelineData, projectTimelineData, idx, "startDate", value)} />
+                  <DateInput
+                    value={row.startDate}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectTimelineData,
+                        projectTimelineData,
+                        idx,
+                        "startDate",
+                        value,
+                      )
+                    }
+                  />
                 </TableCell>
                 <TableCell>
-                  <DateInput value={row.endDate} onChange={(value) => updateRow(setProjectTimelineData, projectTimelineData, idx, "endDate", value)} />
+                  <DateInput
+                    value={row.endDate}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectTimelineData,
+                        projectTimelineData,
+                        idx,
+                        "endDate",
+                        value,
+                      )
+                    }
+                  />
                 </TableCell>
                 <TableCell>
-                  <TextInput value={row.duration} onChange={(value) => updateRow(setProjectTimelineData, projectTimelineData, idx, "duration", value)} />
+                  <TextInput
+                    value={row.duration}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectTimelineData,
+                        projectTimelineData,
+                        idx,
+                        "duration",
+                        value,
+                      )
+                    }
+                  />
                 </TableCell>
                 <TableCell>
-                  <TextInput value={row.assignedTo} onChange={(value) => updateRow(setProjectTimelineData, projectTimelineData, idx, "assignedTo", value)} />
+                  <TextInput
+                    value={row.assignedTo}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectTimelineData,
+                        projectTimelineData,
+                        idx,
+                        "assignedTo",
+                        value,
+                      )
+                    }
+                  />
                 </TableCell>
                 <TableCell>
-                  <TextInput value={row.status} onChange={(value) => updateRow(setProjectTimelineData, projectTimelineData, idx, "status", value)} />
+                  <TextInput
+                    value={row.status}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectTimelineData,
+                        projectTimelineData,
+                        idx,
+                        "status",
+                        value,
+                      )
+                    }
+                  />
                 </TableCell>
               </tr>
             )}
@@ -317,13 +451,46 @@ export default function ProposalDetailsSection({
             renderRow={(row, idx) => (
               <tr key={idx}>
                 <TableCell>
-                  <TextInput value={row.milestone} onChange={(value) => updateRow(setProjectMilestoneData, projectMilestoneData, idx, "milestone", value)} />
+                  <TextInput
+                    value={row.milestone}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectMilestoneData,
+                        projectMilestoneData,
+                        idx,
+                        "milestone",
+                        value,
+                      )
+                    }
+                  />
                 </TableCell>
                 <TableCell>
-                  <DateInput value={row.targetDate} onChange={(value) => updateRow(setProjectMilestoneData, projectMilestoneData, idx, "targetDate", value)} />
+                  <DateInput
+                    value={row.targetDate}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectMilestoneData,
+                        projectMilestoneData,
+                        idx,
+                        "targetDate",
+                        value,
+                      )
+                    }
+                  />
                 </TableCell>
                 <TableCell>
-                  <TextInput value={row.paymentAmount} onChange={(value) => updateRow(setProjectMilestoneData, projectMilestoneData, idx, "paymentAmount", value)} />
+                  <TextInput
+                    value={row.paymentAmount}
+                    onChange={(value) =>
+                      updateRow(
+                        setProjectMilestoneData,
+                        projectMilestoneData,
+                        idx,
+                        "paymentAmount",
+                        value,
+                      )
+                    }
+                  />
                 </TableCell>
               </tr>
             )}
@@ -338,17 +505,25 @@ export default function ProposalDetailsSection({
 
       {detailsView === null && (
         <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100">
-          <h2 className="text-lg font-bold text-slate-800 mb-6">Technical Specifications</h2>
+          <h2 className="text-lg font-bold text-slate-800 mb-6">
+            Technical Specifications
+          </h2>
           <div className="space-y-4 mb-6">
-            <p className="font-semibold text-slate-700">Required Technologies</p>
-            <p className="font-semibold text-slate-700">Required Milestone Structure</p>
+            <p className="font-semibold text-slate-700">
+              Required Technologies
+            </p>
+            <p className="font-semibold text-slate-700">
+              Required Milestone Structure
+            </p>
             <p className="font-semibold text-slate-700">Additional teamwork</p>
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             <input
               type="file"
               id="fileInput"
-              onChange={(event) => setUploadedFile(event.target.files?.[0] || null)}
+              onChange={(event) =>
+                setUploadedFile(event.target.files?.[0] || null)
+              }
               style={{ display: "none" }}
               accept="*/*"
             />
@@ -359,7 +534,11 @@ export default function ProposalDetailsSection({
               <Paperclip className="w-4 h-4" />
               {uploadedFile ? uploadedFile.name : "Attach: Technical Document"}
             </button>
-            {uploadedFile && <span className="text-sm text-green-600 font-semibold">File attached: {uploadedFile.name}</span>}
+            {uploadedFile && (
+              <span className="text-sm text-green-600 font-semibold">
+                File attached: {uploadedFile.name}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -367,8 +546,13 @@ export default function ProposalDetailsSection({
       {showRejectModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-8 max-w-md w-full shadow-lg">
-            <h3 className="text-xl font-bold text-slate-800 mb-4">Reject Proposal</h3>
-            <p className="text-slate-600 mb-6">Please provide a reason for rejecting this proposal. This will be saved for your records.</p>
+            <h3 className="text-xl font-bold text-slate-800 mb-4">
+              Reject Proposal
+            </h3>
+            <p className="text-slate-600 mb-6">
+              Please provide a reason for rejecting this proposal. This will be
+              saved for your records.
+            </p>
             <textarea
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
@@ -401,7 +585,11 @@ export default function ProposalDetailsSection({
   );
 }
 
-function InfoCard({ label, value, valueClassName = "font-semibold text-slate-700" }) {
+function InfoCard({
+  label,
+  value,
+  valueClassName = "font-semibold text-slate-700",
+}) {
   return (
     <div className="bg-slate-50 p-4 rounded-lg">
       <p className="text-xs text-slate-400 uppercase font-bold mb-2">{label}</p>
@@ -426,7 +614,10 @@ function EditableTable({ headers, rows, renderRow }) {
         <thead>
           <tr className="bg-slate-50">
             {headers.map((header) => (
-              <th key={header} className="border border-slate-200 p-3 text-left">
+              <th
+                key={header}
+                className="border border-slate-200 p-3 text-left"
+              >
                 {header}
               </th>
             ))}
@@ -441,13 +632,22 @@ function EditableTable({ headers, rows, renderRow }) {
 function ActionRow({ onAdd, onBack, onSave }) {
   return (
     <div className="flex gap-3 flex-wrap">
-      <button onClick={onAdd} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold">
+      <button
+        onClick={onAdd}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"
+      >
         Add a Row
       </button>
-      <button onClick={onBack} className="px-4 py-2 bg-slate-400 text-white rounded hover:bg-slate-500 font-bold">
+      <button
+        onClick={onBack}
+        className="px-4 py-2 bg-slate-400 text-white rounded hover:bg-slate-500 font-bold"
+      >
         Move Back
       </button>
-      <button onClick={onSave} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold">
+      <button
+        onClick={onSave}
+        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold"
+      >
         Save Changes
       </button>
     </div>
