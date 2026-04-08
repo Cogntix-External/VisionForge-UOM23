@@ -1,104 +1,122 @@
 package com.visionforge.crms.proposal.service;
 
-import com.visionforge.crms.project.service.ProjectService;
 import com.visionforge.crms.proposal.dto.CreateProposalRequest;
+import com.visionforge.crms.proposal.dto.ProposalDecisionRequest;
 import com.visionforge.crms.proposal.dto.ProposalResponse;
 import com.visionforge.crms.proposal.model.Proposal;
+import com.visionforge.crms.proposal.model.ProposalStatus;
 import com.visionforge.crms.proposal.repository.ProposalRepository;
+import com.visionforge.crms.user.CurrentUserService;
+import com.visionforge.crms.user.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ProposalService {
 
     private final ProposalRepository proposalRepository;
-    private final ProjectService projectService;
+    private final CurrentUserService currentUserService;
 
-    // ── Create Proposal ─────────────────────────────────────────────
-    public ProposalResponse createProposal(
-            CreateProposalRequest request, String companyId) {
-        String normalizedClientId = request.getClientId().trim();
-        String normalizedCompanyId = companyId.trim();
-
+    // company create proposal
+    public ProposalResponse createProposal(CreateProposalRequest request, String companyId) {
         Proposal proposal = Proposal.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
-            .clientId(normalizedClientId)
-            .companyId(normalizedCompanyId)
+                .clientId(request.getClientId())
+                .companyId(companyId)
+                .status(ProposalStatus.PENDING)
+                .rejectionReason(null)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
+
         return mapToResponse(proposalRepository.save(proposal));
     }
 
-    // ── Company: Get All Proposals ──────────────────────────────────
+    // company proposals
     public List<ProposalResponse> getProposalsByCompany(String companyId) {
-        return proposalRepository.findByCompanyId(companyId.trim())
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return proposalRepository.findByCompanyId(companyId)
+                .stream().map(this::mapToResponse).collect(java.util.stream.Collectors.toList());
     }
 
-    // ── Client: Get All Proposals ──────────────────────────────────
-    public List<ProposalResponse> getProposalsByClient(String clientId) {
-        return proposalRepository.findByClientId(clientId.trim())
+    // client proposals - JWT based
+    public List<ProposalResponse> getCurrentClientProposals() {
+        if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
+            throw new RuntimeException("Only client can access client proposals");
+        }
+
+        String clientId = currentUserService.getCurrentUserId();
+
+        return proposalRepository.findByClientId(clientId)
                 .stream()
                 .map(this::mapToResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    // ── Get Single Proposal ─────────────────────────────────────────
-    public ProposalResponse getProposalById(String proposalId) {
-        Proposal proposal = proposalRepository.findById(proposalId)
-                .orElseThrow(() -> new RuntimeException(
-                    "Proposal not found: " + proposalId
-                ));
+    // single proposal detail for logged-in client only
+    public ProposalResponse getCurrentClientProposalById(String proposalId) {
+        if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
+            throw new RuntimeException("Only client can view proposal details");
+        }
+
+        String clientId = currentUserService.getCurrentUserId();
+
+        Proposal proposal = proposalRepository.findByIdAndClientId(proposalId, clientId)
+                .orElseThrow(() -> new RuntimeException("Proposal not found for this client"));
+
         return mapToResponse(proposal);
     }
 
-    // ── Accept Proposal → Auto Create Project ───────────────────────
-    public ProposalResponse acceptProposal(
-            String proposalId, String clientId) {
-        Proposal proposal = proposalRepository.findById(proposalId)
-                .orElseThrow(() -> new RuntimeException(
-                    "Proposal not found"
-                ));
-        validateClientOwnership(proposal, clientId);
-        proposal.setStatus(Proposal.ProposalStatus.ACCEPTED);
+    // accept proposal
+    public ProposalResponse acceptCurrentClientProposal(String proposalId) {
+        if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
+            throw new RuntimeException("Only client can accept proposal");
+        }
+
+        String clientId = currentUserService.getCurrentUserId();
+
+        Proposal proposal = proposalRepository.findByIdAndClientId(proposalId, clientId)
+                .orElseThrow(() -> new RuntimeException("Proposal not found for this client"));
+
+        if (proposal.getStatus() != ProposalStatus.PENDING) {
+            throw new RuntimeException("Only pending proposals can be accepted");
+        }
+
+        proposal.setStatus(ProposalStatus.ACCEPTED);
+        proposal.setRejectionReason(null);
         proposal.setUpdatedAt(LocalDateTime.now());
-        Proposal saved = proposalRepository.save(proposal);
 
-        // ── AUTO Project Create ─────────────────────────────────
-        projectService.createProjectFromProposal(saved);
-
-        return mapToResponse(saved);
-    }
-
-    // ── Reject Proposal ─────────────────────────────────────────────
-    public ProposalResponse rejectProposal(
-            String proposalId, String clientId, String rejectionReason) {
-        Proposal proposal = proposalRepository.findById(proposalId)
-                .orElseThrow(() -> new RuntimeException(
-                    "Proposal not found"
-                ));
-        validateClientOwnership(proposal, clientId);
-        proposal.setStatus(Proposal.ProposalStatus.REJECTED);
-        proposal.setRejectionReason(rejectionReason);
-        proposal.setUpdatedAt(LocalDateTime.now());
         return mapToResponse(proposalRepository.save(proposal));
     }
 
-    // ── Private Helpers ─────────────────────────────────────────────
-    private void validateClientOwnership(
-            Proposal proposal, String clientId) {
-        if (!proposal.getClientId().equals(clientId.trim())) {
-            throw new RuntimeException(
-                "Unauthorized: proposal does not belong to this client"
-            );
+    // reject proposal
+    public ProposalResponse rejectCurrentClientProposal(String proposalId, ProposalDecisionRequest request) {
+        if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
+            throw new RuntimeException("Only client can reject proposal");
         }
+
+        String clientId = currentUserService.getCurrentUserId();
+
+        Proposal proposal = proposalRepository.findByIdAndClientId(proposalId, clientId)
+                .orElseThrow(() -> new RuntimeException("Proposal not found for this client"));
+
+        if (proposal.getStatus() != ProposalStatus.PENDING) {
+            throw new RuntimeException("Only pending proposals can be rejected");
+        }
+
+        proposal.setStatus(ProposalStatus.REJECTED);
+        proposal.setRejectionReason(
+                request.getRejectionReason() == null || request.getRejectionReason().isBlank()
+                        ? "No reason provided"
+                        : request.getRejectionReason()
+        );
+        proposal.setUpdatedAt(LocalDateTime.now());
+
+        return mapToResponse(proposalRepository.save(proposal));
     }
 
     private ProposalResponse mapToResponse(Proposal proposal) {

@@ -1,108 +1,72 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
+
+function getToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("crms_token");
+}
 
 async function request(path, options = {}) {
-  const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
+  const token = getToken();
 
-  const response = await fetch(`${baseUrl}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...customHeaders,
+      ...(options.headers || {}),
     },
-    ...rest,
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "Request failed");
+    let message = `HTTP ${response.status}`;
+    try {
+      const data = await response.json();
+      message = data.message || data.error || message;
+    } catch (e) {
+      // ignore
+    }
+    throw new Error(message);
   }
 
-  const contentType = response.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return response.json();
-  }
-
-  return response.text();
+  return response.json();
 }
 
+// login
 export function login(payload) {
-  return request("/login", {
+  return request("/auth/login", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export function signup(payload) {
-  return request("/signup", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function getRegisteredClients() {
-  return request("/v1/clients/list", {
+// client proposals list
+export function getClientProposals() {
+  return request("/client/proposals", {
     method: "GET",
   });
 }
 
-// ── Proposal API Functions ─────────────────────────────────────
-// Get client's proposals
-export function getClientProposals(clientId) {
-  return request(`/client/proposals`, {
-    method: "GET",
-    headers: {
-      "X-Client-Id": clientId,
-    },
-  });
-}
-
-export function getCompanyProposals(companyId) {
-  return request(`/company/proposals`, {
-    method: "GET",
-    headers: {
-      "X-Company-Id": companyId,
-    },
-  });
-}
-
-export function createCompanyProposal(payload, companyId) {
-  return request(`/company/proposals`, {
-    method: "POST",
-    headers: {
-      "X-Company-Id": companyId,
-    },
-    body: JSON.stringify(payload),
-  });
-}
-
-// Get proposal by ID
-export function getProposalById(proposalId) {
-  return request(`/proposals/${proposalId}`, {
+// client single proposal detail
+export function getClientProposalById(proposalId) {
+  return request(`/client/proposals/${proposalId}`, {
     method: "GET",
   });
 }
 
-// Accept proposal
-export function acceptProposal(proposalId, clientId) {
+// accept proposal
+export function acceptProposal(proposalId) {
   return request(`/client/proposals/${proposalId}/accept`, {
     method: "PATCH",
-    headers: {
-      "X-Client-Id": clientId,
-    },
   });
 }
 
-// Reject proposal
-export function rejectProposal(proposalId, clientId, reason) {
+// reject proposal
+export function rejectProposal(proposalId, rejectionReason) {
   return request(`/client/proposals/${proposalId}/reject`, {
     method: "PATCH",
-    headers: {
-      "X-Client-Id": clientId,
-    },
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({ rejectionReason }),
   });
 }
 
-export { API_BASE, request };
+export { API_BASE };

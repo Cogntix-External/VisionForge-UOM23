@@ -38,6 +38,10 @@ class AuthSecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Allow proposal accept/reject without JWT (use X-Client-Id and X-Company-Id headers)
+                        .requestMatchers("/api/client/proposals/**").permitAll()
+                        .requestMatchers("/api/company/proposals/**").permitAll()
+                        // Other client/company endpoints require JWT authentication
                         .requestMatchers("/api/client/**").hasRole("CLIENT")
                         .requestMatchers("/api/company/**").hasRole("COMPANY")
                         .anyRequest().authenticated()

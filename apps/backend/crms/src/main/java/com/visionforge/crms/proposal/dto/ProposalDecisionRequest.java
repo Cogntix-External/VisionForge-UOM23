@@ -4,5 +4,5 @@ import lombok.Data;
 
 @Data
 public class ProposalDecisionRequest {
-    private String reason;
+    private String rejectionReason;
 }

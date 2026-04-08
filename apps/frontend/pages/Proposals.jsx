@@ -1,63 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Icons } from "../constants";
-
-const MOCK_PROPOSALS = [
-  {
-    id: "PR-2026-001",
-    projectName: "SmartCore",
-    title: "Customer Analytics Module",
-    summary:
-      "Company proposes a new analytics module to track retention, churn, and engagement with weekly executive reports.",
-    budget: 12000,
-    timeline: "6 weeks",
-    submittedBy: "Company PM - Alice Smith",
-    submittedAt: "Jan 28, 2026",
-    status: "Pending",
-    scope: [
-      "Behavior tracking dashboard",
-      "Weekly automated report pack",
-      "Data export to CSV",
-    ],
-    deliverables: ["Wireframes", "Data model", "Reporting UI", "QA plan"],
-    risks: ["Data source consistency", "Stakeholder sign-off on KPIs"],
-    techStack: ["React", "Spring Boot", "PostgreSQL"],
-  },
-  {
-    id: "PR-2026-002",
-    projectName: "NexaFlow",
-    title: "Workflow Builder Enhancements",
-    summary:
-      "Add drag-and-drop nodes, conditional routing, and approval gates to improve workflow creation speed.",
-    budget: 18500,
-    timeline: "8 weeks",
-    submittedBy: "Company Lead - Daniel Park",
-    submittedAt: "Feb 02, 2026",
-    status: "Accepted",
-    scope: ["Node palette redesign", "Conditional routing", "Approval gates"],
-    deliverables: ["Prototype", "UI kit", "Implementation", "Docs"],
-    risks: ["Complex conditional logic", "Training updates"],
-    techStack: ["React", "Node.js", "Redis"],
-    decisionAt: "Feb 06, 2026",
-  },
-  {
-    id: "PR-2026-003",
-    projectName: "AppNest",
-    title: "Security Hardening Phase",
-    summary:
-      "Company proposes adding MFA, audit trails, and improved role permissions across the platform.",
-    budget: 9800,
-    timeline: "5 weeks",
-    submittedBy: "Company PM - Sarah Lee",
-    submittedAt: "Feb 05, 2026",
-    status: "Rejected",
-    scope: ["MFA setup", "Audit logs", "Permission review"],
-    deliverables: ["Security checklist", "Implementation", "Testing"],
-    risks: ["User adoption", "Compliance review"],
-    techStack: ["React", "Spring Boot", "Okta"],
-    decisionAt: "Feb 09, 2026",
-  },
-];
+import {
+  getClientProposals,
+  getClientProposalById,
+  acceptProposal,
+  rejectProposal,
+} from "../services/api";
 
 const STATUS_STYLES = {
   Pending: "bg-amber-100 text-amber-700 border-amber-200",
@@ -66,64 +13,128 @@ const STATUS_STYLES = {
 };
 
 const normalizeStatus = (rawStatus) => {
-  const value = String(rawStatus || "").trim().toUpperCase();
+  const value = String(rawStatus || "")
+    .trim()
+    .toUpperCase();
   if (value === "ACCEPTED") return "Accepted";
   if (value === "REJECTED") return "Rejected";
   return "Pending";
 };
 
-const Proposals = ({
-  proposals: externalProposals,
-  loading = false,
-  error = null,
-}) => {
-  const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("All");
-  const [proposals, setProposals] = useState(
-    Array.isArray(externalProposals) ? externalProposals : MOCK_PROPOSALS,
-  );
-  const [selectedProposalId, setSelectedProposalId] = useState(null);
+const formatProposal = (proposal) => ({
+  id: proposal.id,
+  title: proposal.title,
+  projectName: proposal.title || "Untitled Project",
+  companyName: proposal.companyId,
+  companyId: proposal.companyId,
+  description: proposal.description || "No description provided",
+  submittedAt: proposal.createdAt
+    ? new Date(proposal.createdAt).toLocaleDateString()
+    : "-",
+  status: normalizeStatus(proposal.status),
+  rejectionReason: proposal.rejectionReason || "",
+});
+
+const Proposals = () => {
+  const [proposals, setProposals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
+  const [selectedProposal, setSelectedProposal] = useState(null);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
-    if (Array.isArray(externalProposals)) {
-      setProposals(externalProposals);
+    fetchProposals();
+  }, []);
+
+  const fetchProposals = async () => {
+    try {
+      setLoading(true);
+      setPageError("");
+      const data = await getClientProposals();
+      setProposals(data.map(formatProposal));
+    } catch (error) {
+      console.error(error);
+      setPageError(error.message || "Failed to fetch proposals");
+    } finally {
+      setLoading(false);
     }
-  }, [externalProposals]);
-
-  const getDisplayStatus = (proposal) =>
-    proposal.decisionAt ? normalizeStatus(proposal.status) : normalizeStatus(proposal.status);
-
-  const filteredProposals = useMemo(() => {
-    const normalizedTerm = searchTerm.trim().toLowerCase();
-    return proposals.filter((proposal) => {
-      const matchesSearch =
-        !normalizedTerm ||
-        proposal.title.toLowerCase().includes(normalizedTerm) ||
-        proposal.projectName.toLowerCase().includes(normalizedTerm) ||
-        proposal.id.toLowerCase().includes(normalizedTerm);
-      const matchesStatus =
-        filterStatus === "All" || getDisplayStatus(proposal) === filterStatus;
-      return matchesSearch && matchesStatus;
-    });
-  }, [filterStatus, proposals, searchTerm]);
-
-  const selectedProposal = useMemo(
-    () => proposals.find((proposal) => proposal.id === selectedProposalId),
-    [proposals, selectedProposalId],
-  );
+  };
 
   const statusCounts = useMemo(() => {
     return proposals.reduce(
       (acc, proposal) => {
-        const displayStatus = getDisplayStatus(proposal);
         acc.total += 1;
-        acc[displayStatus] += 1;
+        acc[proposal.status] += 1;
         return acc;
       },
       { total: 0, Pending: 0, Accepted: 0, Rejected: 0 },
     );
   }, [proposals]);
+
+  const handleViewProposal = async (proposalId) => {
+    try {
+      setModalLoading(true);
+      setModalError("");
+      const data = await getClientProposalById(proposalId);
+      setSelectedProposal(formatProposal(data));
+    } catch (error) {
+      console.error(error);
+      setModalError(error.message || "Failed to fetch proposal details");
+      setSelectedProposal((prev) =>
+        prev ? prev : proposals.find((p) => p.id === proposalId) || null,
+      );
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleAccept = async () => {
+    if (!selectedProposal) return;
+
+    try {
+      setModalLoading(true);
+      setModalError("");
+      const updated = await acceptProposal(selectedProposal.id);
+      const formatted = formatProposal(updated);
+
+      setSelectedProposal(formatted);
+      setProposals((prev) =>
+        prev.map((p) => (p.id === formatted.id ? formatted : p)),
+      );
+    } catch (error) {
+      console.error(error);
+      setModalError(error.message || "Failed to accept proposal");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedProposal) return;
+
+    try {
+      setModalLoading(true);
+      setModalError("");
+      const updated = await rejectProposal(
+        selectedProposal.id,
+        rejectReason || "No reason provided",
+      );
+      const formatted = formatProposal(updated);
+
+      setSelectedProposal(formatted);
+      setProposals((prev) =>
+        prev.map((p) => (p.id === formatted.id ? formatted : p)),
+      );
+      setRejectReason("");
+    } catch (error) {
+      console.error(error);
+      setModalError(error.message || "Failed to reject proposal");
+    } finally {
+      setModalLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -133,37 +144,13 @@ const Proposals = ({
     );
   }
 
-  if (error) {
+  if (pageError) {
     return (
       <div className="p-8 bg-red-50 border border-red-200 text-red-800 rounded-lg">
-        {error}
+        {pageError}
       </div>
     );
   }
-
-  const handleDecision = (proposalId, decision) => {
-    setProposals((prev) =>
-      prev.map((proposal) =>
-        proposal.id === proposalId
-          ? {
-              ...proposal,
-              status: decision,
-              decisionAt: new Date().toLocaleDateString(),
-            }
-          : proposal,
-      ),
-    );
-  };
-
-  const openProposalDetails = (proposal) => {
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(
-        "crms:selectedProposal",
-        JSON.stringify(proposal),
-      );
-    }
-    router.push("/company/ProposalDetailsSection");
-  };
 
   return (
     <div className="space-y-6 lg:space-y-8 -mt-6 relative z-10 px-2 sm:px-4 pb-10">
@@ -186,118 +173,51 @@ const Proposals = ({
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 lg:gap-6">
-        <div className="relative flex-1 min-w-[220px]">
-          <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none text-gray-400">
-            <Icons.Search />
-          </div>
-          <input
-            type="text"
-            className="block w-full pl-14 pr-6 py-4 border border-transparent rounded-2xl bg-[#e5e7eb]/60 text-gray-900 placeholder-gray-500 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all shadow-sm"
-            placeholder="Search proposals by project, title, or ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            aria-label="Search proposals"
-          />
-        </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-6 py-4 bg-[#e5e7eb]/60 text-gray-900 font-bold rounded-2xl border border-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all"
-          aria-label="Filter proposals by status"
-        >
-          <option>All</option>
-          <option>Pending</option>
-          <option>Accepted</option>
-          <option>Rejected</option>
-        </select>
-      </div>
-
       <div className="bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-x-auto">
         <table className="min-w-[720px] w-full table-fixed">
-          <colgroup>
-            <col className="w-[18%]" />
-            <col className="w-[22%]" />
-            <col className="w-[14%]" />
-            <col className="w-[14%]" />
-            <col className="w-[14%]" />
-            <col className="w-[18%]" />
-          </colgroup>
           <thead className="bg-[#f9fafb]">
             <tr>
-              <th className="px-3 lg:px-8 py-4 text-left text-sm lg:text-lg font-bold text-gray-900">
+              <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
                 Proposal ID
               </th>
-              <th className="px-3 lg:px-8 py-4 text-left text-sm lg:text-lg font-bold text-gray-900">
-                Project & Title
+              <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
+                Title
               </th>
-              <th className="px-3 lg:px-6 py-4 text-left text-sm lg:text-lg font-bold text-gray-900">
-                Budget
+              <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
+                Company
               </th>
-              <th className="px-3 lg:px-6 py-4 text-left text-sm lg:text-lg font-bold text-gray-900">
-                Timeline
+              <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
+                Submitted
               </th>
-              <th className="px-3 lg:px-6 py-4 text-center text-sm lg:text-lg font-bold text-gray-900">
+              <th className="px-6 py-4 text-center text-lg font-bold text-gray-900">
                 Status
               </th>
-              <th className="px-3 lg:px-6 py-4 text-center text-sm lg:text-lg font-bold text-gray-900">
+              <th className="px-6 py-4 text-center text-lg font-bold text-gray-900">
                 View
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
-            {filteredProposals.length > 0 ? (
-              filteredProposals.map((proposal) => (
-                <tr key={proposal.id} className="hover:bg-gray-50/50">
-                  <td className="px-3 lg:px-8 py-4 align-middle">
-                    <p className="text-sm font-bold text-gray-900">
-                      {proposal.id}
-                    </p>
-                    <p className="text-xs text-gray-500 font-semibold">
-                      {proposal.submittedAt}
-                    </p>
-                  </td>
-                  <td className="px-3 lg:px-8 py-4 align-middle">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                      {proposal.projectName}
-                    </p>
-                    <p className="text-base font-bold text-gray-900">
-                      {proposal.title}
-                    </p>
-                    <p className="text-xs text-gray-500 font-semibold">
-                      {proposal.submittedBy}
-                    </p>
-                  </td>
-                  <td className="px-3 lg:px-6 py-4 align-middle">
-                    <span className="text-sm font-bold text-gray-900">
-                      {typeof proposal.budget === "number"
-                        ? `$${proposal.budget.toLocaleString()}`
-                        : proposal.budget || "-"}
+            {proposals.length > 0 ? (
+              proposals.map((proposal) => (
+                <tr key={proposal.id}>
+                  <td className="px-6 py-4 font-bold">{proposal.id}</td>
+                  <td className="px-6 py-4">{proposal.title}</td>
+                  <td className="px-6 py-4">{proposal.companyName}</td>
+                  <td className="px-6 py-4">{proposal.submittedAt}</td>
+                  <td className="px-6 py-4 text-center">
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-bold ${
+                        STATUS_STYLES[proposal.status]
+                      }`}
+                    >
+                      {proposal.status}
                     </span>
                   </td>
-                  <td className="px-3 lg:px-6 py-4 align-middle">
-                    <span className="text-sm font-semibold text-gray-700">
-                      {proposal.timeline}
-                    </span>
-                  </td>
-                  <td className="px-3 lg:px-6 py-4 text-center align-middle">
-                    {(() => {
-                      const displayStatus = getDisplayStatus(proposal);
-                      return (
-                        <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-bold ${
-                            STATUS_STYLES[displayStatus]
-                          }`}
-                        >
-                          {displayStatus}
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td className="px-3 lg:px-6 py-4 text-center align-middle">
+                  <td className="px-6 py-4 text-center">
                     <button
                       type="button"
-                      onClick={() => openProposalDetails(proposal)}
+                      onClick={() => handleViewProposal(proposal.id)}
                       className="inline-flex items-center justify-center px-4 py-2 bg-[#bbf7d0] text-[#166534] text-sm font-bold rounded-full hover:bg-[#86efac] transition-all"
                     >
                       View
@@ -311,7 +231,7 @@ const Proposals = ({
                   colSpan={6}
                   className="px-8 py-16 text-center text-lg font-bold text-gray-400"
                 >
-                  No proposals match your filters.
+                  No proposals available.
                 </td>
               </tr>
             )}
@@ -320,133 +240,122 @@ const Proposals = ({
       </div>
 
       {selectedProposal && (
-        <ProposalModal
-          proposal={selectedProposal}
-          onClose={() => setSelectedProposalId(null)}
-          onDecision={handleDecision}
-        />
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            setSelectedProposal(null);
+            setModalError("");
+            setRejectReason("");
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-8 border-b flex items-center justify-between">
+              <h2 className="text-3xl font-bold text-gray-900">
+                Proposal Details
+              </h2>
+              <button
+                onClick={() => {
+                  setSelectedProposal(null);
+                  setModalError("");
+                  setRejectReason("");
+                }}
+                className="text-3xl text-gray-500"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6">
+              {modalError && (
+                <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                  {modalError}
+                </div>
+              )}
+
+              {modalLoading && (
+                <div className="p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg">
+                  Processing...
+                </div>
+              )}
+
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full border text-sm font-bold ${
+                  STATUS_STYLES[selectedProposal.status]
+                }`}
+              >
+                {selectedProposal.status}
+              </span>
+
+              <div className="grid grid-cols-2 gap-6">
+                <DetailBlock
+                  label="Project Title"
+                  value={selectedProposal.title}
+                />
+                <DetailBlock label="Proposal ID" value={selectedProposal.id} />
+                <DetailBlock
+                  label="Company Name"
+                  value={selectedProposal.companyName}
+                />
+                <DetailBlock
+                  label="Submitted Date"
+                  value={selectedProposal.submittedAt}
+                />
+              </div>
+
+              <DetailBlock
+                label="Description"
+                value={
+                  selectedProposal.description || "No description provided"
+                }
+              />
+
+              {selectedProposal.status === "Pending" && (
+                <div className="space-y-4">
+                  <textarea
+                    className="w-full border rounded-xl p-4"
+                    rows={4}
+                    placeholder="Enter rejection reason (optional)"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                  />
+
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={handleReject}
+                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Reject Proposal
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleAccept}
+                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700"
+                    >
+                      Accept Proposal
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {selectedProposal.status === "Rejected" &&
+                selectedProposal.rejectionReason && (
+                  <DetailBlock
+                    label="Rejection Reason"
+                    value={selectedProposal.rejectionReason}
+                  />
+                )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 };
-
-const ProposalModal = ({ proposal, onClose, onDecision }) => (
-  <div
-    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-    onClick={onClose}
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="proposal-modal-title"
-  >
-    <div
-      className="bg-white rounded-2xl w-full max-w-[90vw] lg:max-w-4xl max-h-[90vh] overflow-auto"
-      onClick={(event) => event.stopPropagation()}
-    >
-      <div className="sticky top-0 bg-gradient-to-r from-[#7c3aed] to-[#a855f7] p-6 flex justify-between items-center">
-        <div>
-          <h2
-            id="proposal-modal-title"
-            className="text-white font-bold text-2xl"
-          >
-            {proposal.title}
-          </h2>
-          <p className="text-purple-100 text-sm mt-1">
-            {proposal.id} • {proposal.projectName}
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-white hover:bg-white/20 p-2 rounded-lg transition"
-          aria-label="Close proposal details"
-        >
-          ✕
-        </button>
-      </div>
-      <div className="p-8 space-y-6">
-        <div className="flex flex-wrap items-center gap-3">
-          {(() => {
-            const displayStatus = normalizeStatus(proposal.status);
-            return (
-              <span
-                className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-bold ${
-                  STATUS_STYLES[displayStatus]
-                }`}
-              >
-                {displayStatus}
-              </span>
-            );
-          })()}
-          {proposal.decisionAt && (
-            <span className="text-xs font-bold text-gray-500">
-              Decision date: {proposal.decisionAt}
-            </span>
-          )}
-        </div>
-
-        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5">
-          <p className="text-sm font-bold text-gray-600">Summary</p>
-          <p className="text-gray-700 text-sm leading-relaxed mt-2">
-            {proposal.summary}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <DetailStat
-            label="Budget"
-            value={
-              typeof proposal.budget === "number"
-                ? `$${proposal.budget.toLocaleString()}`
-                : proposal.budget || "-"
-            }
-          />
-          <DetailStat label="Timeline" value={proposal.timeline} />
-          <DetailStat label="Submitted By" value={proposal.submittedBy} />
-          <DetailStat
-            label="Tech Stack"
-            value={Array.isArray(proposal.techStack) ? proposal.techStack.join(", ") : "-"}
-          />
-        </div>
-
-        <ListBlock title="Scope" items={Array.isArray(proposal.scope) ? proposal.scope : []} />
-        <ListBlock title="Deliverables" items={Array.isArray(proposal.deliverables) ? proposal.deliverables : []} />
-        <ListBlock title="Risks" items={Array.isArray(proposal.risks) ? proposal.risks : []} />
-
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              onDecision(proposal.id, "Accepted");
-              onClose();
-            }}
-            disabled={Boolean(proposal.decisionAt)}
-            className={`flex-1 min-w-[140px] px-4 py-3 rounded-xl font-bold transition ${
-              proposal.decisionAt
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-emerald-500 text-white hover:bg-emerald-600"
-            }`}
-          >
-            Accept Proposal
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onDecision(proposal.id, "Rejected");
-              onClose();
-            }}
-            disabled={Boolean(proposal.decisionAt)}
-            className={`flex-1 min-w-[140px] px-4 py-3 rounded-xl font-bold transition ${
-              proposal.decisionAt
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-rose-500 text-white hover:bg-rose-600"
-            }`}
-          >
-            Reject Proposal
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 const SummaryCard = ({ label, value, tone }) => {
   const toneStyles = {
@@ -470,28 +379,10 @@ const SummaryCard = ({ label, value, tone }) => {
   );
 };
 
-const DetailStat = ({ label, value }) => (
+const DetailBlock = ({ label, value }) => (
   <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
-    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-      {label}
-    </p>
-    <p className="text-sm font-bold text-gray-900 mt-2">{value}</p>
-  </div>
-);
-
-const ListBlock = ({ title, items }) => (
-  <div>
-    <p className="text-sm font-bold text-gray-700 mb-2">{title}</p>
-    <ul className="space-y-2">
-      {items.map((item) => (
-        <li
-          key={item}
-          className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-sm font-semibold text-gray-700"
-        >
-          {item}
-        </li>
-      ))}
-    </ul>
+    <p className="text-sm font-bold text-gray-600">{label}</p>
+    <p className="text-gray-900 text-lg mt-2">{value}</p>
   </div>
 );
 

@@ -1,9 +1,7 @@
 package com.visionforge.crms.proposal.model;
 
-public class ProposalStatus {
-    public enum Status {
+public enum ProposalStatus {
     PENDING,
     ACCEPTED,
     REJECTED
-}
 }

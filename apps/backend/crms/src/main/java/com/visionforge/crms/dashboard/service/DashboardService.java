@@ -5,6 +5,7 @@ import com.visionforge.crms.dashboard.dto.CompanyDashboardResponse.ProjectTableR
 import com.visionforge.crms.project.model.Project;
 import com.visionforge.crms.project.repository.ProjectRepository;
 import com.visionforge.crms.proposal.model.Proposal;
+import com.visionforge.crms.proposal.model.ProposalStatus;
 import com.visionforge.crms.proposal.repository.ProposalRepository;
 import com.visionforge.crms.user.User;
 import com.visionforge.crms.user.UserRepository;
@@ -34,17 +35,17 @@ public class DashboardService {
 
         long pendingApprovals = proposals.stream()
                 .filter(p -> p.getStatus() ==
-                        Proposal.ProposalStatus.PENDING)
+                        ProposalStatus.PENDING)
                 .count();
 
         long acceptedProposals = proposals.stream()
                 .filter(p -> p.getStatus() ==
-                        Proposal.ProposalStatus.ACCEPTED)
+                        ProposalStatus.ACCEPTED)
                 .count();
 
         long rejectedProposals = proposals.stream()
                 .filter(p -> p.getStatus() ==
-                        Proposal.ProposalStatus.REJECTED)
+                        ProposalStatus.REJECTED)
                 .count();
 
         // ── Projects ────────────────────────────────────────────────

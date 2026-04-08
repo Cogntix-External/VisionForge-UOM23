@@ -2,14 +2,12 @@ package com.visionforge.crms.proposal.repository;
 
 import com.visionforge.crms.proposal.model.Proposal;
 import org.springframework.data.mongodb.repository.MongoRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
-@Repository
 public interface ProposalRepository extends MongoRepository<Proposal, String> {
-
-    List<Proposal> findByCompanyId(String companyId);
-
     List<Proposal> findByClientId(String clientId);
+    List<Proposal> findByCompanyId(String companyId);
+    Optional<Proposal> findByIdAndClientId(String id, String clientId);
 }
