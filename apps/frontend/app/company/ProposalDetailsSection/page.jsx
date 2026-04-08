@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ProposalDetailsSection from "@/pages/ProposalDetailsSection";
-
 export default function CompanyProposalDetailsSectionPage() {
   const router = useRouter();
   const [selectedProject, setSelectedProject] = useState(null);
