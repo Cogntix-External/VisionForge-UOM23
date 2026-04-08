@@ -69,4 +69,39 @@ export function rejectProposal(proposalId, rejectionReason) {
   });
 }
 
+// get registered clients
+export function getRegisteredClients() {
+  return request("/company/clients", {
+    method: "GET",
+  });
+}
+
+// create company proposal
+export function createCompanyProposal(payload, companyId) {
+  const resolvedCompanyId =
+    companyId || JSON.parse(localStorage.getItem("crms_user"))?.id;
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
+  return request("/company/proposals", {
+    method: "POST",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+function getCompanyId(passedId) {
+  if (passedId) return passedId;
+
+  if (typeof window !== "undefined") {
+    const user = JSON.parse(localStorage.getItem("crms_user"));
+    return user?.id;
+  }
+
+  return null;
+}
 export { API_BASE };
