@@ -5,94 +5,120 @@ import { useRouter } from "next/navigation";
 import ProposalsListSection from "@/pages/ProposalsListSection";
 import { getCompanyProposals } from "@/services/api";
 
+const resolveCompanyId = () => {
+  try {
+    const storedUser = JSON.parse(localStorage.getItem("crms_user") || "{}");
+    return (
+      localStorage.getItem("companyId") ||
+      storedUser.companyId ||
+      storedUser.id ||
+      storedUser.userId ||
+      storedUser._id ||
+      null
+    );
+  } catch {
+    return null;
+  }
+};
+
+const formatDate = (rawDate) => {
+  if (!rawDate) return "-";
+
+  const value = new Date(rawDate);
+  if (Number.isNaN(value.getTime())) return "-";
+
+  return value.toLocaleDateString();
+};
+
+const mapProposal = (proposal) => ({
+  id: proposal.id,
+  title: proposal.title || "Untitled Proposal",
+  client: proposal.clientId || "Not assigned",
+  budget:
+    typeof proposal.totalBudget === "number"
+      ? `$${proposal.totalBudget.toFixed(2)}`
+      : "$0.00",
+  duration:
+    typeof proposal.totalDurationDays === "number"
+      ? `${proposal.totalDurationDays} days`
+      : "0 days",
+  status: String(proposal.status || "PENDING").toUpperCase(),
+  createdAt: formatDate(proposal.createdAt),
+  companyId: proposal.companyId,
+  clientId: proposal.clientId,
+  clientName: proposal.clientName || "",
+  rejectionReason: proposal.rejectionReason || "",
+});
+
 export default function CompanyProposalsListSectionPage() {
   const router = useRouter();
   const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [companyId, setCompanyId] = useState(null);
 
   useEffect(() => {
-    try {
-      const user = JSON.parse(localStorage.getItem("crms_user") || "{}");
-      const explicitCompanyId = localStorage.getItem("companyId");
-      const latestProposal = JSON.parse(
-        sessionStorage.getItem("crms:latestCompanyProposal") || "null",
-      );
-      const resolvedCompanyId =
-        explicitCompanyId ||
-        user.companyId ||
-        user.id ||
-        user.userId ||
-        user._id ||
-        latestProposal?.companyId ||
-        null;
-      setCompanyId(resolvedCompanyId);
-    } catch {
-      setCompanyId(null);
-    }
-  }, []);
+    const resolvedCompanyId = resolveCompanyId();
+    setCompanyId(resolvedCompanyId);
 
-  useEffect(() => {
-    if (!companyId) return;
+    if (!resolvedCompanyId) {
+      setError("Company ID is missing. Please login again.");
+      setLoading(false);
+      return;
+    }
 
     const fetchProposals = async () => {
       try {
-        const data = await getCompanyProposals(companyId);
-        const serverList = Array.isArray(data) ? data : [];
-        const latestRaw = sessionStorage.getItem("crms:latestCompanyProposal");
-        const latestProposal = latestRaw ? JSON.parse(latestRaw) : null;
-
-        if (
-          latestProposal &&
-          latestProposal.companyId === companyId &&
-          !serverList.some((item) => item.id === latestProposal.id)
-        ) {
-          setProjects([latestProposal, ...serverList]);
-        } else {
-          setProjects(serverList);
-        }
-      } catch {
-        const latestRaw = sessionStorage.getItem("crms:latestCompanyProposal");
-        const latestProposal = latestRaw ? JSON.parse(latestRaw) : null;
-        if (latestProposal && latestProposal.companyId === companyId) {
-          setProjects([latestProposal]);
-        } else {
-          setProjects([]);
-        }
+        setLoading(true);
+        setError("");
+        const data = await getCompanyProposals(resolvedCompanyId);
+        const proposals = Array.isArray(data) ? data.map(mapProposal) : [];
+        setProjects(proposals);
+      } catch (fetchError) {
+        setError(fetchError.message || "Failed to fetch proposals");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchProposals();
-  }, [companyId]);
+  }, []);
 
-  const mappedProjects = useMemo(
-    () =>
-      projects.map((proposal) => ({
-        id: proposal.id,
-        title: proposal.title,
-        client: proposal.clientId || "N/A",
-        budget: "-",
-        duration: "-",
-        raw: proposal,
-      })),
-    [projects],
-  );
+  const content = useMemo(() => {
+    if (loading) {
+      return (
+        <div className="p-4 rounded border border-blue-200 bg-blue-50 text-blue-800">
+          Loading proposals...
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="p-4 rounded border border-red-200 bg-red-50 text-red-800">
+          {error}
+        </div>
+      );
+    }
+
+    return null;
+  }, [loading, error]);
 
   return (
-    <ProposalsListSection
-      projects={mappedProjects}
-      onCreate={() => {
-        router.push("/company/CreateProposalSection");
-      }}
-      onSelect={(proposalRow) => {
-        const selectedProposal = proposalRow.raw || proposalRow;
-        if (typeof window !== "undefined") {
+    <div className="space-y-4">
+      {content}
+      <ProposalsListSection
+        projects={projects}
+        onCreate={() => router.push("/company/CreateProposalSection")}
+        onSelect={(project) => {
           window.sessionStorage.setItem(
             "crms:selectedProposal",
-            JSON.stringify(selectedProposal),
+            JSON.stringify(project),
           );
-        }
-        router.push("/company/ProposalDetailsSection");
-      }}
-    />
+          window.sessionStorage.setItem("crms:companyId", companyId || "");
+          router.push("/company/ProposalDetailsSection");
+        }}
+      />
+    </div>
   );
 }

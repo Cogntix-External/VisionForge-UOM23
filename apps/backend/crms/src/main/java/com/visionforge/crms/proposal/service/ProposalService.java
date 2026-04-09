@@ -6,6 +6,7 @@ import com.visionforge.crms.proposal.dto.ProposalResponse;
 import com.visionforge.crms.proposal.model.Proposal;
 import com.visionforge.crms.proposal.model.ProposalStatus;
 import com.visionforge.crms.proposal.repository.ProposalRepository;
+import com.visionforge.crms.project.service.ProjectService;
 import com.visionforge.crms.user.CurrentUserService;
 import com.visionforge.crms.user.Role;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class ProposalService {
 
     private final ProposalRepository proposalRepository;
     private final CurrentUserService currentUserService;
+    private final ProjectService projectService;
 
     // company create proposal
     public ProposalResponse createProposal(CreateProposalRequest request, String companyId) {
@@ -27,6 +29,9 @@ public class ProposalService {
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .clientId(request.getClientId())
+            .clientName(request.getClientName())
+            .totalBudget(request.getTotalBudget())
+            .totalDurationDays(request.getTotalDurationDays())
                 .companyId(companyId)
                 .status(ProposalStatus.PENDING)
                 .rejectionReason(null)
@@ -90,7 +95,10 @@ public class ProposalService {
         proposal.setRejectionReason(null);
         proposal.setUpdatedAt(LocalDateTime.now());
 
-        return mapToResponse(proposalRepository.save(proposal));
+        Proposal savedProposal = proposalRepository.save(proposal);
+        projectService.createProjectFromProposal(savedProposal);
+
+        return mapToResponse(savedProposal);
     }
 
     // reject proposal
@@ -125,6 +133,9 @@ public class ProposalService {
                 .title(proposal.getTitle())
                 .description(proposal.getDescription())
                 .clientId(proposal.getClientId())
+                .clientName(proposal.getClientName())
+                .totalBudget(proposal.getTotalBudget())
+                .totalDurationDays(proposal.getTotalDurationDays())
                 .companyId(proposal.getCompanyId())
                 .status(proposal.getStatus())
                 .rejectionReason(proposal.getRejectionReason())

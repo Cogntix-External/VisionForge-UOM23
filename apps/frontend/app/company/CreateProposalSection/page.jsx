@@ -5,24 +5,69 @@ import { useRouter } from "next/navigation";
 import CreateProposalSection from "@/pages/CreateProposalSection";
 import { createCompanyProposal, getRegisteredClients } from "@/services/api";
 
-const initialProposal = { title: "", clientId: "", description: "" };
+const emptyTimelineRow = {
+  phase: "",
+  startDate: "",
+  endDate: "",
+  duration: "",
+  assignedTo: "",
+  status: "",
+};
+
+const emptyBudgetRow = {
+  item: "",
+  description: "",
+  quantity: "",
+  unitPrice: "",
+  total: "",
+};
+
+const initialProposal = {
+  title: "",
+  clientId: "",
+  clientName: "",
+  description: "",
+};
+
+const resolveCompanyId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem("crms_user") || "{}");
+    return (
+      localStorage.getItem("companyId") ||
+      user.companyId ||
+      user.id ||
+      user.userId ||
+      user._id ||
+      null
+    );
+  } catch {
+    return null;
+  }
+};
 
 export default function CompanyCreateProposalSectionPage() {
   const router = useRouter();
   const [newProposal, setNewProposal] = useState(initialProposal);
   const [showTimeline, setShowTimeline] = useState(true);
   const [showBudget, setShowBudget] = useState(true);
-  const [timelineData, setTimelineData] = useState([]);
-  const [budgetData, setBudgetData] = useState([]);
-  const [registeredClients, setRegisteredClients] = useState([]);
+  const [timelineData, setTimelineData] = useState([emptyTimelineRow]);
+  const [budgetData, setBudgetData] = useState([emptyBudgetRow]);
+  const [clientOptions, setClientOptions] = useState([]);
+  const [companyId, setCompanyId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    const resolvedCompanyId = resolveCompanyId();
+    setCompanyId(resolvedCompanyId);
+
     const loadClients = async () => {
       try {
-        const clients = await getRegisteredClients();
-        setRegisteredClients(Array.isArray(clients) ? clients : []);
-      } catch {
-        setRegisteredClients([]);
+        setError("");
+        const response = await getRegisteredClients();
+        setClientOptions(Array.isArray(response) ? response : []);
+      } catch (clientError) {
+        setError(clientError.message || "Failed to load client IDs");
       }
     };
 
@@ -33,77 +78,83 @@ export default function CompanyCreateProposalSectionPage() {
     setNewProposal(initialProposal);
     setShowTimeline(true);
     setShowBudget(true);
-    setTimelineData([]);
-    setBudgetData([]);
+    setTimelineData([emptyTimelineRow]);
+    setBudgetData([emptyBudgetRow]);
+    setError("");
   };
 
   const handleSubmit = async () => {
-    let user = {};
-    try {
-      user = JSON.parse(localStorage.getItem("crms_user") || "{}");
-    } catch {
-      user = {};
-    }
+    if (isSubmitting) return;
 
-    const companyId = user.companyId || user.id || user.userId || user._id;
     if (!companyId) {
-      alert("Company ID not found. Please login again.");
-      return;
-    }
-
-    const normalizedClientId = String(newProposal.clientId || "").trim();
-    if (!normalizedClientId) {
-      alert("Client ID is required.");
-      return;
-    }
-
-    const clientExists = registeredClients.some(
-      (client) => String(client.id || "").trim() === normalizedClientId,
-    );
-    if (registeredClients.length > 0 && !clientExists) {
-      alert("Please select a valid registered client ID.");
+      setError("Company ID is missing. Please login again.");
       return;
     }
 
     try {
-      const createdProposal = await createCompanyProposal(
+      setIsSubmitting(true);
+      setError("");
+
+      const totalBudget = budgetData.reduce((sum, row) => {
+        const rowTotal = Number(row.total);
+        return sum + (Number.isFinite(rowTotal) ? rowTotal : 0);
+      }, 0);
+
+      const totalDurationDays = timelineData.reduce((sum, row) => {
+        const value = parseInt(String(row.duration || "").trim(), 10);
+        return sum + (Number.isFinite(value) ? value : 0);
+      }, 0);
+
+      await createCompanyProposal(
         {
-          title: String(newProposal.title || "").trim(),
-          description: String(newProposal.description || "").trim(),
-          clientId: normalizedClientId,
-          companyId,
+          title: newProposal.title.trim(),
+          description: newProposal.description.trim(),
+          clientId: newProposal.clientId,
+          clientName: newProposal.clientName.trim(),
+          totalBudget,
+          totalDurationDays,
         },
         companyId,
       );
 
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(
-          "crms:latestCompanyProposal",
-          JSON.stringify(createdProposal),
-        );
-      }
-
+      handleClear();
       router.push("/company/ProposalsListSection");
-    } catch (error) {
-      alert(error?.message || "Failed to create proposal");
+    } catch (submitError) {
+      setError(submitError.message || "Failed to submit proposal");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <CreateProposalSection
-      newProposal={newProposal}
-      setNewProposal={setNewProposal}
-      showTimeline={showTimeline}
-      setShowTimeline={setShowTimeline}
-      showBudget={showBudget}
-      setShowBudget={setShowBudget}
-      timelineData={timelineData}
-      setTimelineData={setTimelineData}
-      budgetData={budgetData}
-      setBudgetData={setBudgetData}
-      onClear={handleClear}
-      onSubmit={handleSubmit}
-      clientOptions={registeredClients}
-    />
+    <div className="space-y-4">
+      {error && (
+        <div className="p-4 rounded border border-red-200 bg-red-50 text-red-800">
+          {error}
+        </div>
+      )}
+
+      {isSubmitting && (
+        <div className="p-4 rounded border border-blue-200 bg-blue-50 text-blue-800">
+          Submitting proposal...
+        </div>
+      )}
+
+      <CreateProposalSection
+        newProposal={newProposal}
+        setNewProposal={setNewProposal}
+        showTimeline={showTimeline}
+        setShowTimeline={setShowTimeline}
+        showBudget={showBudget}
+        setShowBudget={setShowBudget}
+        timelineData={timelineData}
+        setTimelineData={setTimelineData}
+        budgetData={budgetData}
+        setBudgetData={setBudgetData}
+        onClear={handleClear}
+        onSubmit={handleSubmit}
+        clientOptions={clientOptions}
+      />
+    </div>
   );
 }

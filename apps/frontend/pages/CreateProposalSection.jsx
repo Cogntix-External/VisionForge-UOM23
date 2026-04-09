@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 
 export default function CreateProposalSection({
-  newProposal = { title: "", clientId: "", description: "" },
+  newProposal = { title: "", clientId: "", clientName: "", description: "" },
   setNewProposal = () => {},
   showTimeline = true,
   setShowTimeline = () => {},
@@ -25,6 +25,7 @@ export default function CreateProposalSection({
   const isProposalComplete =
     isNonEmpty(newProposal.title) &&
     isNonEmpty(newProposal.clientId) &&
+    isNonEmpty(newProposal.clientName) &&
     isNonEmpty(newProposal.description);
   const isTimelineComplete =
     timelineData.length > 0 &&
@@ -101,22 +102,47 @@ export default function CreateProposalSection({
           />
         </div>
         <div>
-          <input
-            list="client-id-options"
+          <select
             value={newProposal.clientId}
-            onChange={(event) =>
-              setNewProposal({ ...newProposal, clientId: event.target.value })
-            }
-            placeholder="Client ID *"
+            onChange={(event) => {
+              const selectedClient = clientOptions.find(
+                (client) => client.id === event.target.value,
+              );
+              setNewProposal({
+                ...newProposal,
+                clientId: event.target.value,
+                clientName:
+                  selectedClient?.fullName ||
+                  selectedClient?.email ||
+                  newProposal.clientName ||
+                  "",
+              });
+            }}
+            aria-label="Client ID"
             className="w-full p-4 rounded bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-          <datalist id="client-id-options">
+          >
+            <option value="">Select Client ID *</option>
             {clientOptions.map((client) => (
               <option key={client.id} value={client.id}>
-                {client.fullName || client.email || client.id}
+                {client.id} - {client.fullName || client.email || "Client"}
               </option>
             ))}
-          </datalist>
+          </select>
+          {clientOptions.length === 0 && (
+            <p className="mt-2 text-sm text-slate-500">
+              No registered clients found. Register a client first to assign it.
+            </p>
+          )}
+        </div>
+        <div>
+          <input
+            value={newProposal.clientName || ""}
+            onChange={(event) =>
+              setNewProposal({ ...newProposal, clientName: event.target.value })
+            }
+            placeholder="Client name *"
+            className="w-full p-4 rounded bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
         </div>
         <div>
           <textarea
