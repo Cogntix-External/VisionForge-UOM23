@@ -54,7 +54,7 @@ public class SecurityConfig {
                         // role-based routes
                         .requestMatchers("/api/client/**").hasRole("CLIENT")
                         .requestMatchers("/api/company/**").hasRole("COMPANY")
-
+                         
                         // everything else needs auth
                         .anyRequest().authenticated()
                 )

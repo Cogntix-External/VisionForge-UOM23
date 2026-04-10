@@ -125,6 +125,38 @@ export function createCompanyProposal(payload, companyId) {
     body: JSON.stringify(payload),
   });
 }
+// PRD management
+export function fetchPrds(token) {
+  return request("/v1/clients/prds", {
+    method: "GET",
+    cache: "no-store",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}
+
+export function createPrd(payload, token) {
+  return request("/v1/clients/prds", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchPrdById(id, token) {
+  return request(`/v1/clients/prds/${encodeURIComponent(id)}?ts=${Date.now()}`, {
+    method: "GET",
+    cache: "no-store",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}
+
+export function updatePrd(id, payload, token) {
+  return request(`/v1/clients/prds/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: JSON.stringify(payload),
+  });
+}
 
 function getCompanyId(passedId) {
   if (passedId) return passedId;
