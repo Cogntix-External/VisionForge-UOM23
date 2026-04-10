@@ -19,6 +19,7 @@ const clientItems = [
 const companyItems = [
   { href: "/company/DashboardSection", label: "Dashboard" },
   { href: "/company/PrdRepository", label: "PRD Repository" },
+  { href: "/company/Prd-details&Editor", label: "PRD Details & Editor" },
   { href: "/company/ProposalsListSection", label: "Proposals" },
   { href: "/company/CreateProposalSection", label: "Create Proposal" },
   { href: "/company/ProposalDetailsSection", label: "Proposal Details" },
@@ -50,7 +51,7 @@ export default function AppSidebar({ section = "client" }) {
         </div>
       </div>
 
-      <nav className="flex-1 flex flex-col py-4 space-y-3 px-4">
+      <nav className="flex-1 flex flex-col py-4 space-y-3 px-4 overflow-y-auto">
         {menuItems.map((item) => {
           const active = isActivePath(pathname, item.href);
           return (
