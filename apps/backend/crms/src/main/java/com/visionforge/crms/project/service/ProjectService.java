@@ -30,10 +30,19 @@ public class ProjectService {
                 .description(proposal.getDescription())
                 .proposalId(proposal.getId())
                 .clientId(proposal.getClientId())
+            .clientName(proposal.getClientName())
                 .companyId(proposal.getCompanyId())
                 .build();
 
         return mapToResponse(projectRepository.save(project));
+    }
+
+    public void ensureProjectExistsForProposal(Proposal proposal) {
+        projectRepository.findByProposalId(proposal.getId())
+                .ifPresentOrElse(
+                        existing -> {},
+                        () -> createProjectFromProposal(proposal)
+                );
     }
 
     // ── Company: Get All Projects ───────────────────────────────────
@@ -61,6 +70,7 @@ public class ProjectService {
                 .description(project.getDescription())
                 .proposalId(project.getProposalId())
                 .clientId(project.getClientId())
+                .clientName(project.getClientName())
                 .companyId(project.getCompanyId())
                 .status(project.getStatus())
                 .createdAt(project.getCreatedAt())

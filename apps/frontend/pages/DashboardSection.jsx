@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Bell,
   ChevronLeft,
@@ -14,6 +14,42 @@ import {
 import { cn } from "../utils/cn.js";
 
 export default function DashboardSection({ projects = [], onCreate = () => {} }) {
+  const dashboardStats = useMemo(() => {
+    const totalProjects = projects.length;
+    const activeProjects = projects.filter(
+      (project) => String(project.state || project.status || "").toUpperCase() === "ACTIVE",
+    ).length;
+    const completedProjects = projects.filter(
+      (project) => String(project.state || project.status || "").toUpperCase() === "COMPLETED",
+    ).length;
+    const updatedThisWeek = projects.filter((project) => {
+      if (!project.lastUpdated) return false;
+      const updatedAt = new Date(project.lastUpdated);
+      if (Number.isNaN(updatedAt.getTime())) return false;
+
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      return updatedAt >= oneWeekAgo;
+    }).length;
+
+    return {
+      totalProjects,
+      activeProjects,
+      completedProjects,
+      updatedThisWeek,
+    };
+  }, [projects]);
+
+  const recentProjects = useMemo(
+    () =>
+      [...projects].sort((left, right) => {
+        const leftDate = new Date(left.lastUpdated || left.createdAt || 0).getTime();
+        const rightDate = new Date(right.lastUpdated || right.createdAt || 0).getTime();
+        return rightDate - leftDate;
+      }),
+    [projects],
+  );
+
   return (
     <div className="p-8 max-w-7xl mx-auto w-full">
       <div className="flex justify-between items-center mb-8">
@@ -30,7 +66,7 @@ export default function DashboardSection({ projects = [], onCreate = () => {} })
           </div>
           <div>
             <p className="text-xs text-slate-400 uppercase font-bold">Total Projects</p>
-            <p className="text-2xl font-bold">125</p>
+            <p className="text-2xl font-bold">{dashboardStats.totalProjects}</p>
           </div>
         </div>
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
@@ -39,9 +75,9 @@ export default function DashboardSection({ projects = [], onCreate = () => {} })
           </div>
           <div>
             <p className="text-xs text-slate-400 uppercase font-bold">
-              Pending Approvals
+              Active Projects
             </p>
-            <p className="text-2xl font-bold">20</p>
+            <p className="text-2xl font-bold">{dashboardStats.activeProjects}</p>
           </div>
         </div>
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
@@ -50,11 +86,9 @@ export default function DashboardSection({ projects = [], onCreate = () => {} })
           </div>
           <div>
             <p className="text-xs text-slate-400 uppercase font-bold">
-              Task Due This Week
+              Updated This Week
             </p>
-            <p className="text-2xl font-bold text-slate-700">
-              4 <span className="text-sm font-normal">days</span>
-            </p>
+            <p className="text-2xl font-bold text-slate-700">{dashboardStats.updatedThisWeek}</p>
           </div>
         </div>
         <button
@@ -91,39 +125,41 @@ export default function DashboardSection({ projects = [], onCreate = () => {} })
             <tr className="text-slate-300 text-xs uppercase tracking-wider border-b border-slate-50">
               <th className="pb-4 font-bold">Project Name</th>
               <th className="pb-4 font-bold">Status</th>
-              <th className="pb-4 font-bold">Owner</th>
+              <th className="pb-4 font-bold">Client ID</th>
+              <th className="pb-4 font-bold">Client Name</th>
               <th className="pb-4 font-bold">Last Updated</th>
               <th className="pb-4 font-bold">Actions</th>
             </tr>
           </thead>
           <tbody className="text-sm">
-            {projects.map((proj) => (
+            {recentProjects.map((proj) => (
               <tr key={proj.id} className="border-b border-slate-50 last:border-0">
                 <td className="py-4 font-medium text-slate-700">{proj.title}</td>
                 <td className="py-4">
                   <span
                     className={cn(
                       "font-bold",
-                      proj.status === "Accepted" && "text-green-500",
-                      proj.status === "Completed" && "text-slate-800",
-                      proj.status === "Rejected" && "text-red-500"
+                      String(proj.state || proj.status || "").toUpperCase() === "ACTIVE" && "text-green-500",
+                      String(proj.state || proj.status || "").toUpperCase() === "COMPLETED" && "text-slate-800",
+                      String(proj.state || proj.status || "").toUpperCase() === "CANCELLED" && "text-red-500"
                     )}
                   >
-                    {proj.status}
+                    {proj.state || proj.status || "ACTIVE"}
                   </span>
                 </td>
                 <td className="py-4 text-slate-600">{proj.owner}</td>
+                <td className="py-4 text-slate-600">{proj.clientName || "-"}</td>
                 <td className="py-4 text-slate-400">{proj.lastUpdated}</td>
                 <td className="py-4">
                   <span
                     className={cn(
                       "font-bold",
-                      proj.state === "Active" && "text-green-600",
-                      proj.state === "Draft" && "text-teal-500",
-                      proj.state === "Inactive" && "text-red-500"
+                      String(proj.state || proj.status || "").toUpperCase() === "ACTIVE" && "text-green-600",
+                      String(proj.state || proj.status || "").toUpperCase() === "DRAFT" && "text-teal-500",
+                      String(proj.state || proj.status || "").toUpperCase() === "CANCELLED" && "text-red-500"
                     )}
                   >
-                    {proj.state}
+                    {proj.state || proj.status || "ACTIVE"}
                   </span>
                 </td>
               </tr>

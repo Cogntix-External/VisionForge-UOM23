@@ -71,8 +71,40 @@ export function rejectProposal(proposalId, rejectionReason) {
 
 // get registered clients
 export function getRegisteredClients() {
-  return request("/company/clients", {
+  return request("/v1/clients/list", {
     method: "GET",
+  });
+}
+
+// company proposals list
+export function getCompanyProposals(companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
+  return request("/company/proposals", {
+    method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
+  });
+}
+
+// company projects list
+export function getCompanyProjects(companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
+  return request("/company/projects", {
+    method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
   });
 }
 

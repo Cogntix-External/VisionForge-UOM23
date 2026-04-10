@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   getClientProposals,
+  getCompanyProposals,
   getClientProposalById,
   acceptProposal,
   rejectProposal,
@@ -21,12 +22,16 @@ const normalizeStatus = (rawStatus) => {
   return "Pending";
 };
 
-const formatProposal = (proposal) => ({
+const formatProposal = (proposal, role) => ({
   id: proposal.id,
   title: proposal.title,
   projectName: proposal.title || "Untitled Project",
-  companyName: proposal.companyId,
+  companyName:
+    role === "COMPANY"
+      ? proposal.clientId || "Unassigned Client"
+      : proposal.companyId,
   companyId: proposal.companyId,
+  clientId: proposal.clientId,
   description: proposal.description || "No description provided",
   submittedAt: proposal.createdAt
     ? new Date(proposal.createdAt).toLocaleDateString()
@@ -35,7 +40,7 @@ const formatProposal = (proposal) => ({
   rejectionReason: proposal.rejectionReason || "",
 });
 
-const Proposals = () => {
+const Proposals = ({ role }) => {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
@@ -44,16 +49,32 @@ const Proposals = () => {
   const [modalError, setModalError] = useState("");
   const [rejectReason, setRejectReason] = useState("");
 
+  const currentRole = useMemo(() => {
+    if (role) return String(role).toUpperCase();
+
+    if (typeof window === "undefined") return "CLIENT";
+
+    try {
+      const storedUser = JSON.parse(localStorage.getItem("crms_user") || "{}");
+      return String(storedUser.role || "CLIENT").toUpperCase();
+    } catch {
+      return "CLIENT";
+    }
+  }, [role]);
+
   useEffect(() => {
     fetchProposals();
-  }, []);
+  }, [currentRole]);
 
   const fetchProposals = async () => {
     try {
       setLoading(true);
       setPageError("");
-      const data = await getClientProposals();
-      setProposals(data.map(formatProposal));
+      const data =
+        currentRole === "COMPANY"
+          ? await getCompanyProposals()
+          : await getClientProposals();
+      setProposals(data.map((proposal) => formatProposal(proposal, currentRole)));
     } catch (error) {
       console.error(error);
       setPageError(error.message || "Failed to fetch proposals");
@@ -77,8 +98,15 @@ const Proposals = () => {
     try {
       setModalLoading(true);
       setModalError("");
+      if (currentRole === "COMPANY") {
+        setSelectedProposal(
+          proposals.find((proposal) => proposal.id === proposalId) || null,
+        );
+        return;
+      }
+
       const data = await getClientProposalById(proposalId);
-      setSelectedProposal(formatProposal(data));
+      setSelectedProposal(formatProposal(data, currentRole));
     } catch (error) {
       console.error(error);
       setModalError(error.message || "Failed to fetch proposal details");
@@ -97,7 +125,7 @@ const Proposals = () => {
       setModalLoading(true);
       setModalError("");
       const updated = await acceptProposal(selectedProposal.id);
-      const formatted = formatProposal(updated);
+      const formatted = formatProposal(updated, currentRole);
 
       setSelectedProposal(formatted);
       setProposals((prev) =>
@@ -121,7 +149,7 @@ const Proposals = () => {
         selectedProposal.id,
         rejectReason || "No reason provided",
       );
-      const formatted = formatProposal(updated);
+      const formatted = formatProposal(updated, currentRole);
 
       setSelectedProposal(formatted);
       setProposals((prev) =>
@@ -184,7 +212,7 @@ const Proposals = () => {
                 Title
               </th>
               <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
-                Company
+                {currentRole === "COMPANY" ? "Client" : "Company"}
               </th>
               <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
                 Submitted
@@ -312,7 +340,7 @@ const Proposals = () => {
                 }
               />
 
-              {selectedProposal.status === "Pending" && (
+              {currentRole !== "COMPANY" && selectedProposal.status === "Pending" && (
                 <div className="space-y-4">
                   <textarea
                     className="w-full border rounded-xl p-4"

@@ -23,6 +23,7 @@ public class Project {
     private String description;
     private String proposalId;
     private String clientId;
+    private String clientName;
     private String companyId;
 
     @Builder.Default
