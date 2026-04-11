@@ -7,30 +7,54 @@ function getToken() {
 }
 
 async function request(path, options = {}) {
-  const token = getToken();
+  const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...rest,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...customHeaders,
+      },
+    });
 
-  if (!response.ok) {
-    let message = `HTTP ${response.status}`;
-    try {
-      const data = await response.json();
-      message = data.message || data.error || message;
-    } catch (e) {
-      console.error("Error parsing response:", e);
+    if (!response.ok) {
+      let message = `HTTP ${response.status}`;
+      try {
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const errorData = await response.json();
+          message = errorData.message || errorData.error || message;
+        } else {
+          const text = await response.text();
+          message = text || message;
+        }
+      } catch (e) {
+        console.error("Error parsing error response:", e);
+      }
+      throw new Error(message);
     }
-    throw new Error(message);
-  }
-  return response.json();
-}
 
+    if (response.status === 204) {
+      return null;
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    }
+
+    const text = await response.text();
+    return text || null;
+  } catch (err) {
+    console.error(`Request failed for ${path}:`, err);
+    throw err;
+  }
+}
 function getCompanyId(passedId) {
   if (passedId) return passedId;
 
@@ -214,16 +238,72 @@ export function getClientProjects() {
   });
 }
 
-export function downloadDocument(documentId) {
+export async function downloadDocument(documentId) {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
 
-  return fetch(`${API_BASE}/documents/${documentId}/download`, {
-    method: "GET",
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+  try {
+    const response = await fetch(`${API_BASE}/documents/${documentId}/download`, {
+      method: "GET",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") || "";
+      let errorMessage = `HTTP ${response.status}`;
+      
+      if (contentType.includes("application/json")) {
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          console.error("Error parsing error response:", e);
+        }
+      } else {
+        try {
+          const text = await response.text();
+          errorMessage = text || errorMessage;
+        } catch (e) {
+          console.error("Error reading error response:", e);
+        }
+      }
+      
+      throw new Error(`Download failed: ${errorMessage}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    const contentLength = response.headers.get("content-length");
+    
+    if (!contentType && !contentLength) {
+      throw new Error("Invalid response: No content type or length provided");
+    }
+
+    const blob = await response.blob();
+    
+    if (blob.size === 0) {
+      throw new Error("Download failed: Received empty file");
+    }
+
+    return { blob, fileName: response.headers.get("content-disposition") };
+  } catch (err) {
+    console.error(`Download failed for document ${documentId}:`, err);
+    throw err;
+  }
+}
+
+// CLIENT CHANGE REQUESTS
+export function createClientChangeRequest(projectId, payload) {
+  return request(`/client/projects/${projectId}/change-requests`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 
+export function getClientChangeRequests() {
+  return request("/client/change-requests", {
+    method: "GET",
+  });
+}
 export { API_BASE };

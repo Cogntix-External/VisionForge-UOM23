@@ -4,6 +4,8 @@ import com.visionforge.crms.prd.dto.PrdResponse;
 import com.visionforge.crms.prd.service.PrdService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import com.visionforge.crms.prd.dto.CreatePrdRequest;
@@ -20,16 +22,24 @@ public class PrdController {
 
     // client side - get PRD by project id
     @GetMapping("/client/projects/{projectId}/prd")
-    public ResponseEntity<?> getClientProjectPrd(
-            @PathVariable String projectId
-    ) {
-        PrdResponse prd = prdService.getPrdByProjectId(projectId);
-        if (prd == null) {
-            return ResponseEntity.ok().build();
-        }
-        return ResponseEntity.ok(prd);
+    public ResponseEntity<PrdResponse> getClientProjectPrd(@PathVariable String projectId) {
+    PrdResponse response = prdService.getPrdByProjectId(projectId);
+    return ResponseEntity.ok(response);
+}
+    
+    // Download PRD document
+    @GetMapping("/documents/{documentId}/download")
+    public ResponseEntity<byte[]> downloadDocument(@PathVariable String documentId) {
+        byte[] content = prdService.generatePrdDocument(documentId);
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", documentId + ".pdf");
+        headers.setContentLength(content.length);
+        
+        return new ResponseEntity<>(content, headers, HttpStatus.OK);
     }
-
+    
     @GetMapping
     public ResponseEntity<List<PrdResponse>> getPrds() {
         return ResponseEntity.ok(prdService.getAllPrds());

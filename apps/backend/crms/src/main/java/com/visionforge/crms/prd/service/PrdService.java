@@ -268,4 +268,79 @@ public class PrdService {
                 .map(this::toResponse)
                 .orElse(null);
     }
+
+    public byte[] generatePrdDocument(String prdId) {
+        Prd prd = findPrd(prdId);
+        
+        StringBuilder content = new StringBuilder();
+        content.append("================================================================================\n");
+        content.append("PRODUCT REQUIREMENTS DOCUMENT (PRD)\n");
+        content.append("================================================================================\n\n");
+        
+        content.append("PROJECT INFORMATION\n");
+        content.append("-------------------\n");
+        content.append("Project Name: ").append(nvl(prd.getProjectName())).append("\n");
+        content.append("Project ID: ").append(nvl(prd.getProjectId())).append("\n");
+        content.append("Title: ").append(nvl(prd.getTitle())).append("\n");
+        content.append("Version: ").append(nvl(prd.getVersion())).append("\n");
+        content.append("Status: ").append(nvl(prd.getStatus())).append("\n");
+        content.append("Author: ").append(nvl(prd.getAuthor())).append("\n");
+        content.append("Date Submitted: ").append(nvl(prd.getDateSubmitted())).append("\n");
+        content.append("Reviewer: ").append(nvl(prd.getReviewerName())).append("\n\n");
+        
+        content.append("PURPOSE & GOALS\n");
+        content.append("---------------\n");
+        content.append("Purpose: ").append(nvl(prd.getPurpose())).append("\n");
+        content.append("Problem to Solve: ").append(nvl(prd.getProblemToSolve())).append("\n");
+        content.append("Project Goal: ").append(nvl(prd.getProjectGoal())).append("\n\n");
+        
+        if (prd.getStakeholders() != null && !prd.getStakeholders().isEmpty()) {
+            content.append("STAKEHOLDERS\n");
+            content.append("------------\n");
+            for (Prd.Stakeholder stakeholder : prd.getStakeholders()) {
+                content.append("Role: ").append(nvl(stakeholder.getRole())).append("\n");
+                content.append("Name: ").append(nvl(stakeholder.getName())).append("\n");
+                content.append("Responsibility: ").append(nvl(stakeholder.getResponsibility())).append("\n");
+                content.append("\n");
+            }
+        }
+        
+        content.append("SCOPE\n");
+        content.append("-----\n");
+        content.append("In Scope:\n").append(nvl(prd.getInScope())).append("\n\n");
+        content.append("Out of Scope:\n").append(nvl(prd.getOutOfScope())).append("\n\n");
+        
+        content.append("FEATURES & REQUIREMENTS\n");
+        content.append("----------------------\n");
+        content.append("Main Features:\n").append(nvl(prd.getMainFeatures())).append("\n\n");
+        content.append("Functional Requirements:\n").append(nvl(prd.getFunctionalRequirement())).append("\n\n");
+        content.append("Non-Functional Requirements:\n").append(nvl(prd.getNonFunctionalRequirement())).append("\n\n");
+        
+        content.append("USER ROLES & RISKS\n");
+        content.append("------------------\n");
+        content.append("User Roles:\n").append(nvl(prd.getUserRoles())).append("\n\n");
+        content.append("Risks & Dependencies:\n").append(nvl(prd.getRisksDependencies())).append("\n\n");
+        
+        if (prd.getMilestones() != null && !prd.getMilestones().isEmpty()) {
+            content.append("MILESTONES\n");
+            content.append("----------\n");
+            for (Prd.Milestone milestone : prd.getMilestones()) {
+                content.append("Phase: ").append(nvl(milestone.getPhase())).append("\n");
+                content.append("Task: ").append(nvl(milestone.getTask())).append("\n");
+                content.append("Duration: ").append(nvl(milestone.getDuration())).append("\n");
+                content.append("Responsibility: ").append(nvl(milestone.getResponsibility())).append("\n");
+                content.append("\n");
+            }
+        }
+        
+        content.append("================================================================================\n");
+        content.append("Document Generated: ").append(java.time.Instant.now()).append("\n");
+        content.append("================================================================================\n");
+        
+        return content.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+    
+    private String nvl(String value) {
+        return value == null || value.isBlank() ? "-" : value;
+    }
 }
