@@ -24,14 +24,12 @@ async function request(path, options = {}) {
       const data = await response.json();
       message = data.message || data.error || message;
     } catch (e) {
-      // ignore
+      console.error("Error parsing response:", e);
     }
     throw new Error(message);
   }
-
   return response.json();
 }
-
 // login
 export function login(payload) {
   return request("/auth/login", {
@@ -91,7 +89,12 @@ export function getCompanyProposals(companyId) {
     },
   });
 }
-
+//PRD viewer for client
+export function getClientProjectPrd(projectId) {
+  return request(`/client/projects/${projectId}/prd`, {
+    method: "GET",
+  });
+}
 // company projects list
 export function getCompanyProjects(companyId) {
   const resolvedCompanyId = getCompanyId(companyId);
@@ -157,7 +160,24 @@ export function updatePrd(id, payload, token) {
     body: JSON.stringify(payload),
   });
 }
+// get clients project
+export function getClientProjects() {
+  return request("/client/projects", {
+    method: "GET",
+  });
+}
 
+export function downloadDocument(documentId) {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
+
+  return fetch(`${API_BASE}/documents/${documentId}/download`, {
+    method: "GET",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+}
 function getCompanyId(passedId) {
   if (passedId) return passedId;
 

@@ -74,7 +74,9 @@ const Proposals = ({ role }) => {
         currentRole === "COMPANY"
           ? await getCompanyProposals()
           : await getClientProposals();
-      setProposals(data.map((proposal) => formatProposal(proposal, currentRole)));
+      setProposals(
+        data.map((proposal) => formatProposal(proposal, currentRole)),
+      );
     } catch (error) {
       console.error(error);
       setPageError(error.message || "Failed to fetch proposals");
@@ -202,40 +204,60 @@ const Proposals = ({ role }) => {
       </div>
 
       <div className="bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-x-auto">
-        <table className="min-w-[720px] w-full table-fixed">
-          <thead className="bg-[#f9fafb]">
+        <table className="w-full">
+          <thead className="bg-[#f9fafb] sticky top-0">
             <tr>
-              <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
+              <th className="px-6 py-5 text-left text-base font-bold text-gray-900 w-[16%]">
                 Proposal ID
               </th>
-              <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
+              <th className="px-6 py-5 text-left text-base font-bold text-gray-900 w-[24%]">
                 Title
               </th>
-              <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
+              <th className="px-6 py-5 text-left text-base font-bold text-gray-900 w-[20%]">
                 {currentRole === "COMPANY" ? "Client" : "Company"}
               </th>
-              <th className="px-6 py-4 text-left text-lg font-bold text-gray-900">
+              <th className="px-6 py-5 text-left text-base font-bold text-gray-900 w-[16%]">
                 Submitted
               </th>
-              <th className="px-6 py-4 text-center text-lg font-bold text-gray-900">
+              <th className="px-6 py-5 text-center text-base font-bold text-gray-900 w-[14%]">
                 Status
               </th>
-              <th className="px-6 py-4 text-center text-lg font-bold text-gray-900">
-                View
+              <th className="px-6 py-5 text-center text-base font-bold text-gray-900 w-[10%]">
+                Action
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
             {proposals.length > 0 ? (
               proposals.map((proposal) => (
-                <tr key={proposal.id}>
-                  <td className="px-6 py-4 font-bold">{proposal.id}</td>
-                  <td className="px-6 py-4">{proposal.title}</td>
-                  <td className="px-6 py-4">{proposal.companyName}</td>
-                  <td className="px-6 py-4">{proposal.submittedAt}</td>
+                <tr
+                  key={proposal.id}
+                  className="hover:bg-gray-50 transition-colors"
+                >
+                  <td
+                    className="px-6 py-4 font-semibold text-gray-900 truncate"
+                    title={proposal.id}
+                  >
+                    {proposal.id.substring(0, 12)}...
+                  </td>
+                  <td
+                    className="px-6 py-4 text-gray-700 truncate"
+                    title={proposal.title}
+                  >
+                    {proposal.title}
+                  </td>
+                  <td
+                    className="px-6 py-4 text-gray-700 truncate"
+                    title={proposal.companyName}
+                  >
+                    {proposal.companyName}
+                  </td>
+                  <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                    {proposal.submittedAt}
+                  </td>
                   <td className="px-6 py-4 text-center">
                     <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-bold ${
+                      className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-bold whitespace-nowrap ${
                         STATUS_STYLES[proposal.status]
                       }`}
                     >
@@ -246,7 +268,7 @@ const Proposals = ({ role }) => {
                     <button
                       type="button"
                       onClick={() => handleViewProposal(proposal.id)}
-                      className="inline-flex items-center justify-center px-4 py-2 bg-[#bbf7d0] text-[#166534] text-sm font-bold rounded-full hover:bg-[#86efac] transition-all"
+                      className="inline-flex items-center justify-center px-3 py-2 bg-[#bbf7d0] text-[#166534] text-xs font-bold rounded-full hover:bg-[#86efac] transition-all whitespace-nowrap"
                     >
                       View
                     </button>
@@ -340,35 +362,36 @@ const Proposals = ({ role }) => {
                 }
               />
 
-              {currentRole !== "COMPANY" && selectedProposal.status === "Pending" && (
-                <div className="space-y-4">
-                  <textarea
-                    className="w-full border rounded-xl p-4"
-                    rows={4}
-                    placeholder="Enter rejection reason (optional)"
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                  />
+              {currentRole !== "COMPANY" &&
+                selectedProposal.status === "Pending" && (
+                  <div className="space-y-4">
+                    <textarea
+                      className="w-full border rounded-xl p-4"
+                      rows={4}
+                      placeholder="Enter rejection reason (optional)"
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                    />
 
-                  <div className="flex gap-4">
-                    <button
-                      type="button"
-                      onClick={handleReject}
-                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700"
-                    >
-                      Reject Proposal
-                    </button>
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={handleReject}
+                        className="flex-1 px-4 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700"
+                      >
+                        Reject Proposal
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={handleAccept}
-                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700"
-                    >
-                      Accept Proposal
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleAccept}
+                        className="flex-1 px-4 py-3 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700"
+                      >
+                        Accept Proposal
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {selectedProposal.status === "Rejected" &&
                 selectedProposal.rejectionReason && (

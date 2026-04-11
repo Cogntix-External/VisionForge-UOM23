@@ -21,6 +21,7 @@ public class Prd {
     @Id
     private String id;
 
+    private String projectId;
     private String pid;
     private String title;
     private String status;

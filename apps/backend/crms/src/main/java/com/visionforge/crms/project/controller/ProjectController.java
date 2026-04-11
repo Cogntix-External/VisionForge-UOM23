@@ -32,4 +32,8 @@ public class ProjectController {
     ) {
         return ResponseEntity.ok(projectService.getProjectById(id));
     }
+     @GetMapping("/client/projects")
+    public ResponseEntity<List<ProjectResponse>> getClientProjects() {
+        return ResponseEntity.ok(projectService.getProjectsForCurrentClient());
+    }
 }
