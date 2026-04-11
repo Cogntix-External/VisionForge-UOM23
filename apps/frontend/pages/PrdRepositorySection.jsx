@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileEdit, FileText, History, Plus, Search, Trash2, X } from "lucide-react";
 import { cn } from "../utils/cn.js";
-import { createPrd, fetchPrds } from "@/services/api";
+import { createPrd, fetchPrds, getCompanyProjects } from "@/services/api";
 import { getToken } from "@/utils/auth";
 
 const emptyStakeholder = () => ({ role: "", name: "", responsibility: "" });
@@ -16,6 +16,7 @@ const emptyMilestone = () => ({
 });
 
 const createEmptyForm = () => ({
+  projectId: "",
   projectName: "",
   author: "",
   dateSubmitted: "",
@@ -37,6 +38,7 @@ const hasText = (value) => String(value || "").trim().length > 0;
 
 function validateForm(form) {
   const scalarFields = [
+    form.projectId,
     form.projectName,
     form.author,
     form.dateSubmitted,
@@ -213,10 +215,12 @@ function PrdRepositorySectionView({
 export default function CompanyPrdRepositorySection() {
   const router = useRouter();
   const [prdList, setPrdList] = useState([]);
+  const [companyProjects, setCompanyProjects] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(createEmptyForm);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
@@ -240,6 +244,30 @@ export default function CompanyPrdRepositorySection() {
     loadPrds();
   }, []);
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+
+    const loadProjects = async () => {
+      const token = getToken();
+      if (!token) return;
+
+      try {
+        setIsLoadingProjects(true);
+        const projects = await getCompanyProjects();
+        const acceptedProjects = Array.isArray(projects)
+          ? projects.filter((project) => String(project.status || "").toUpperCase() === "ACTIVE")
+          : [];
+        setCompanyProjects(acceptedProjects);
+      } catch {
+        setCompanyProjects([]);
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    };
+
+    loadProjects();
+  }, [isModalOpen]);
+
   const filteredPrds = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return prdList;
@@ -254,6 +282,21 @@ export default function CompanyPrdRepositorySection() {
   const resetForm = () => {
     setForm(createEmptyForm());
     setErrorMessage("");
+  };
+
+  const applyProjectSelection = (projectId) => {
+    const selectedProject = companyProjects.find((project) => project.id === projectId);
+
+    setForm((prev) => ({
+      ...prev,
+      projectId: selectedProject?.id || "",
+      projectName: selectedProject?.name || "",
+      author: selectedProject?.clientId || "",
+    }));
+
+    if (!selectedProject && projectId) {
+      setErrorMessage("Selected project is not available.");
+    }
   };
 
   const openCreateModal = async () => {
@@ -417,11 +460,29 @@ export default function CompanyPrdRepositorySection() {
             <div className="px-6 py-6 overflow-y-auto space-y-6">
               <section className="space-y-3">
                 <h3 className="text-lg font-bold text-slate-800 border-b border-slate-400 pb-2">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <input className="input" placeholder="Project Name" value={form.projectName} onChange={updateField("projectName")} />
-                  <input className="input" placeholder="Author" value={form.author} onChange={updateField("author")} />
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <select
+                    className="input"
+                    value={form.projectId}
+                    onChange={(event) => applyProjectSelection(event.target.value)}
+                  >
+                    <option value="">Select accepted project</option>
+                    {isLoadingProjects && <option value="">Loading projects...</option>}
+                    {companyProjects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name || project.id} ({project.clientName || project.clientId || "No client"})
+                      </option>
+                    ))}
+                  </select>
+                  <input className="input" placeholder="Project Name" value={form.projectName} readOnly />
+                  <input className="input" placeholder="Client ID" value={form.author} readOnly />
                   <input className="input" type="date" value={form.dateSubmitted} onChange={updateField("dateSubmitted")} />
                 </div>
+                {companyProjects.length === 0 && !isLoadingProjects && (
+                  <p className="text-sm text-amber-600 font-medium">
+                    No accepted projects found. Accept a proposal first, then create PRD from that project.
+                  </p>
+                )}
               </section>
 
               <section className="space-y-3">
