@@ -130,7 +130,7 @@ export function createCompanyProposal(payload, companyId) {
 }
 // PRD management
 export function fetchPrds(token) {
-  return request("/v1/clients/prds", {
+  return request("", {
     method: "GET",
     cache: "no-store",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -138,7 +138,7 @@ export function fetchPrds(token) {
 }
 
 export function createPrd(payload, token) {
-  return request("/v1/clients/prds", {
+  return request("", {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: JSON.stringify(payload),
@@ -146,7 +146,7 @@ export function createPrd(payload, token) {
 }
 
 export function fetchPrdById(id, token) {
-  return request(`/v1/clients/prds/${encodeURIComponent(id)}?ts=${Date.now()}`, {
+  return request(`/${encodeURIComponent(id)}?ts=${Date.now()}`, {
     method: "GET",
     cache: "no-store",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -154,7 +154,7 @@ export function fetchPrdById(id, token) {
 }
 
 export function updatePrd(id, payload, token) {
-  return request(`/v1/clients/prds/${encodeURIComponent(id)}`, {
+  return request(`/${encodeURIComponent(id)}`, {
     method: "PUT",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: JSON.stringify(payload),
