@@ -18,4 +18,7 @@ public interface ProjectRepository extends MongoRepository<Project, String> {
 
     // 🔹 Link project with proposal
     Optional<Project> findByProposalId(String proposalId);
+
+    Optional<Project> findByIdAndClientId(String id, String clientId);
+    Optional<Project> findByIdAndCompanyId(String id, String companyId);
 }

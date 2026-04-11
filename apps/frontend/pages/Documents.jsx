@@ -55,29 +55,52 @@ const Documents = () => {
   };
 
   const handleDownload = async () => {
-    if (!prdData?.id) return;
+    if (!prdData?.id) {
+      alert("No document to download");
+      return;
+    }
 
     try {
-      const response = await downloadDocument(prdData.id);
+      setError("");
+      const { blob, fileName: contentDisposition } = await downloadDocument(
+        prdData.id,
+      );
 
-      if (!response.ok) {
-        throw new Error("Download failed");
+      if (!blob || blob.size === 0) {
+        throw new Error("Received empty file from server");
       }
 
-      const blob = await response.blob();
+      // Extract filename from content-disposition header or use default
+      let downloadFileName = prdData.fileName || "prd-document";
+      if (contentDisposition) {
+        const match = contentDisposition.match(
+          /filename[^;=\n]*=(['\"]?)([^'\"\n;]*)/i,
+        );
+        if (match && match[2]) {
+          downloadFileName = match[2];
+        }
+      }
+
+      // Add file extension if missing
+      if (!downloadFileName.includes(".")) {
+        downloadFileName += ".pdf";
+      }
+
       const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = downloadFileName;
+      document.body.appendChild(link);
+      link.click();
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = prdData.fileName || "prd-document";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      window.URL.revokeObjectURL(url);
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
     } catch (err) {
-      console.error(err);
-      alert(err.message || "Failed to download PRD");
+      console.error("Download error:", err);
+      setError(err.message || "Failed to download PRD. Please try again.");
     }
   };
 

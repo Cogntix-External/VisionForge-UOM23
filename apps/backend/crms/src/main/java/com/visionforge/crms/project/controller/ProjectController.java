@@ -36,4 +36,6 @@ public class ProjectController {
     public ResponseEntity<List<ProjectResponse>> getClientProjects() {
         return ResponseEntity.ok(projectService.getProjectsForCurrentClient());
     }
+
+    
 }

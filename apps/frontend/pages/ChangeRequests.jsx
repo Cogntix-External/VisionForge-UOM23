@@ -1,120 +1,71 @@
-import React, { useEffect, useState } from "react";
-import { CR_API_BASE, Icons } from "../constants";
-
-const MOCK_CRS = [
-  {
-    id: "CR-2025-001",
-    displayId: "CR-2025-001",
-    projectId: "1",
-    projectName: "SmartCore",
-    title: "Add dark mode",
-    description: "Enable theme switching for better accessibility",
-    status: "Approved",
-    budget: 1500,
-    timeline: "2 weeks",
-    createdAt: "Feb 15, 2025",
-    priority: "High",
-  },
-  {
-    id: "CR-2025-002",
-    displayId: "CR-2025-002",
-    projectId: "2",
-    projectName: "AppNest",
-    title: "Stripe Integration",
-    description: "Support multi-currency payments",
-    status: "Proposed",
-    budget: 3000,
-    timeline: "4 weeks",
-    createdAt: "Mar 01, 2025",
-    priority: "Medium",
-  },
-  {
-    id: "CR-2025-003",
-    displayId: "CR-2025-003",
-    projectId: "1",
-    projectName: "SmartCore",
-    title: "Social Auth",
-    description: "Add Google login support",
-    status: "Pending",
-    budget: 2000,
-    timeline: "3 weeks",
-    createdAt: "Mar 05, 2025",
-    priority: "High",
-  },
-];
-
-const PROJECT_OPTIONS = ["SmartCore", "AppNest", "NexaFlow", "SecureGate"];
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  createClientChangeRequest,
+  getClientChangeRequests,
+  getClientProjects,
+} from "../services/api";
+import { Icons } from "../constants";
 
 const API_TO_UI_STATUS = {
-  PENDING_REVIEW: "Pending",
-  PROPOSAL_SENT: "Proposed",
-  APPROVED: "Approved",
+  PENDING: "Pending",
+  ACCEPTED: "Approved",
   REJECTED: "Rejected",
 };
 
-const UI_TO_API_STATUS = {
-  Pending: "PENDING_REVIEW",
-  Proposed: "PROPOSAL_SENT",
-  Approved: "APPROVED",
-  Rejected: "REJECTED",
-};
-
-const generateDisplayId = () => {
-  const year = new Date().getFullYear();
-  const seed = Date.now().toString().slice(-4);
-  return `CR-${year}-${seed}`;
-};
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem("crms_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+const STATUS_STYLES = {
+  Pending: "bg-amber-100 text-amber-700",
+  Approved: "bg-green-100 text-green-700",
+  Rejected: "bg-red-100 text-red-700",
 };
 
 const formatDate = (value) => {
-  if (!value) return new Date().toLocaleDateString();
+  if (!value) return "-";
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return new Date().toLocaleDateString();
-  }
+  if (Number.isNaN(parsed.getTime())) return "-";
   return parsed.toLocaleDateString();
 };
 
-const mapCrFromApi = (cr) => ({
-  id: cr.id || `CR-${Date.now()}`,
-  displayId: cr.displayId || "",
-  projectId: cr.projectId,
-  projectName: cr.projectName || cr.projectId || "Unknown",
-  title: cr.title || "Untitled",
-  description: cr.description || "",
-  status: API_TO_UI_STATUS[cr.status] || cr.status || "Pending",
-  budget: Number(cr.requestedBudget ?? cr.proposedBudget ?? 0),
-  timeline:
-    cr.requestedTimeline ||
-    (cr.proposedTimelineDays ? `${cr.proposedTimelineDays} days` : ""),
-  createdAt: formatDate(cr.createdAt),
-  priority: cr.priority || "Medium",
-});
+const mapCrFromApi = (cr, projects = []) => {
+  const matchedProject = projects.find((p) => p.id === cr.projectId);
 
-const mapCrToApi = (formData) => ({
-  displayId: formData.displayId || generateDisplayId(),
-  title: formData.title.trim(),
-  description: formData.description.trim(),
-  requestedBudget: Number(formData.budget) || 0,
-  requestedTimeline: formData.timeline.trim(),
-  priority: formData.priority,
-  projectName: formData.projectName,
-  status: UI_TO_API_STATUS.Pending,
-});
+  return {
+    id: cr.id,
+    displayId: cr.id,
+    projectId: cr.projectId,
+    projectName:
+      matchedProject?.name ||
+      matchedProject?.title ||
+      cr.projectId ||
+      "Unknown Project",
+    title: cr.title || "Untitled",
+    description: cr.description || "",
+    status: API_TO_UI_STATUS[cr.status] || cr.status || "Pending",
+    budget: Number(cr.budget || 0),
+    timeline: cr.timeline || "-",
+    createdAt: formatDate(cr.createdAt),
+    priority: cr.priority || "Medium",
+    rejectionReason: cr.rejectionReason || "",
+  };
+};
 
 const downloadCR = (cr) => {
-  const resolvedId = cr.displayId || "";
-  const content = `CHANGE REQUEST\nID: ${resolvedId}\nTitle: ${cr.title}\nProject: ${cr.projectName}\nStatus: ${cr.status}\nBudget: $${cr.budget}\nTimeline: ${cr.timeline}\nDescription: ${cr.description}`;
+  const content = `CHANGE REQUEST
+ID: ${cr.displayId}
+Title: ${cr.title}
+Project: ${cr.projectName}
+Status: ${cr.status}
+Budget: $${cr.budget}
+Timeline: ${cr.timeline}
+Priority: ${cr.priority}
+Description: ${cr.description}
+Rejection Reason: ${cr.rejectionReason || "-"}`;
+
   const element = document.createElement("a");
   element.setAttribute(
     "href",
     `data:text/plain;charset=utf-8,${encodeURIComponent(content)}`,
   );
-  element.setAttribute("download", `${resolvedId || "change-request"}.txt`);
+  element.setAttribute("download", `${cr.displayId || "change-request"}.txt`);
   document.body.appendChild(element);
   element.click();
   document.body.removeChild(element);
@@ -122,6 +73,7 @@ const downloadCR = (cr) => {
 
 const CRViewerModal = ({ cr, onClose }) => {
   if (!cr) return null;
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -151,37 +103,18 @@ const CRViewerModal = ({ cr, onClose }) => {
             ✕
           </button>
         </div>
+
         <div className="p-8 space-y-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-100 p-4 rounded-xl">
-              <p className="text-gray-600 text-sm font-bold">Status</p>
-              <p
-                className={`text-lg font-bold mt-1 ${cr.status === "Approved" ? "text-green-600" : cr.status === "Proposed" ? "text-blue-600" : "text-amber-600"}`}
-              >
-                {cr.status}
-              </p>
-            </div>
-            <div className="bg-gray-100 p-4 rounded-xl">
-              <p className="text-gray-600 text-sm font-bold">Budget</p>
-              <p className="text-lg font-bold text-green-600 mt-1">
-                ${cr.budget.toLocaleString()}
-              </p>
-            </div>
-            <div className="bg-gray-100 p-4 rounded-xl">
-              <p className="text-gray-600 text-sm font-bold">Timeline</p>
-              <p className="text-lg font-bold text-purple-600 mt-1">
-                {cr.timeline}
-              </p>
-            </div>
-            <div className="bg-gray-100 p-4 rounded-xl">
-              <p className="text-gray-600 text-sm font-bold">Priority</p>
-              <p
-                className={`text-lg font-bold mt-1 ${cr.priority === "High" ? "text-red-600" : "text-yellow-600"}`}
-              >
-                {cr.priority}
-              </p>
-            </div>
+            <InfoCard label="Status" value={cr.status} />
+            <InfoCard
+              label="Budget"
+              value={`$${Number(cr.budget || 0).toLocaleString()}`}
+            />
+            <InfoCard label="Timeline" value={cr.timeline} />
+            <InfoCard label="Priority" value={cr.priority} />
           </div>
+
           <div className="border-t pt-6">
             <h3 className="text-xl font-bold text-gray-900 mb-2">
               Description
@@ -190,18 +123,28 @@ const CRViewerModal = ({ cr, onClose }) => {
               {cr.description}
             </p>
           </div>
+
+          {cr.status === "Rejected" && cr.rejectionReason && (
+            <div className="border-t pt-6">
+              <h3 className="text-xl font-bold text-red-700 mb-2">
+                Rejection Reason
+              </h3>
+              <p className="text-red-600 text-lg leading-relaxed">
+                {cr.rejectionReason}
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-4 pt-6 border-t">
             <button
               onClick={() => downloadCR(cr)}
               className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition"
-              aria-label={`Download ${cr.title} CR`}
             >
-              ⬇️ Download PDF
+              ⬇️ Download
             </button>
             <button
               onClick={onClose}
               className="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 transition"
-              aria-label="Close"
             >
               Close
             </button>
@@ -212,22 +155,43 @@ const CRViewerModal = ({ cr, onClose }) => {
   );
 };
 
-const AddCRModal = ({ onClose, onAdd, isSubmitting, error }) => {
+const InfoCard = ({ label, value }) => (
+  <div className="bg-gray-100 p-4 rounded-xl">
+    <p className="text-gray-600 text-sm font-bold">{label}</p>
+    <p className="text-lg font-bold mt-1">{value}</p>
+  </div>
+);
+
+const AddCRModal = ({ projects, onClose, onAdd, isSubmitting, error }) => {
   const [formData, setFormData] = useState({
-    projectName: "SmartCore",
-    displayId: generateDisplayId(),
+    projectId: "",
     title: "",
     description: "",
     budget: "",
     timeline: "",
     priority: "Medium",
   });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.title || !formData.displayId.trim()) return;
+
+    if (!formData.projectId) {
+      alert("Please select a project");
+      return;
+    }
+
     const success = await onAdd(formData);
     if (success) onClose();
   };
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -245,65 +209,57 @@ const AddCRModal = ({ onClose, onAdd, isSubmitting, error }) => {
             Raise New Change Request
           </h2>
         </div>
+
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
           <div>
             <label className="block text-gray-700 font-bold mb-2">
               Project *
             </label>
             <select
+              name="projectId"
               required
-              value={formData.projectName}
-              onChange={(e) =>
-                setFormData({ ...formData, projectName: e.target.value })
-              }
+              value={formData.projectId}
+              onChange={handleChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
             >
-              {PROJECT_OPTIONS.map((project) => (
-                <option key={project}>{project}</option>
+              <option value="">-- Select Project --</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name || project.title || project.id}
+                </option>
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">CR ID</label>
-            <input
-              type="text"
-              value={formData.displayId}
-              onChange={(e) =>
-                setFormData({ ...formData, displayId: e.target.value })
-              }
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-              placeholder="CR-2026-001"
-            />
-          </div>
+
           <div>
             <label className="block text-gray-700 font-bold mb-2">
               Title *
             </label>
             <input
               type="text"
+              name="title"
               required
               value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
+              onChange={handleChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
               placeholder="e.g., Add dark mode support"
             />
           </div>
+
           <div>
             <label className="block text-gray-700 font-bold mb-2">
-              Description
+              Description *
             </label>
             <textarea
+              name="description"
+              required
               value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
+              onChange={handleChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none min-h-24"
               placeholder="Detailed description..."
             />
           </div>
+
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-gray-700 font-bold mb-2">
@@ -311,38 +267,37 @@ const AddCRModal = ({ onClose, onAdd, isSubmitting, error }) => {
               </label>
               <input
                 type="number"
+                name="budget"
                 value={formData.budget}
-                onChange={(e) =>
-                  setFormData({ ...formData, budget: e.target.value })
-                }
+                onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
                 placeholder="2000"
               />
             </div>
+
             <div>
               <label className="block text-gray-700 font-bold mb-2">
                 Timeline
               </label>
               <input
                 type="text"
+                name="timeline"
                 value={formData.timeline}
-                onChange={(e) =>
-                  setFormData({ ...formData, timeline: e.target.value })
-                }
+                onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
                 placeholder="e.g., 2 weeks"
               />
             </div>
           </div>
+
           <div>
             <label className="block text-gray-700 font-bold mb-2">
               Priority
             </label>
             <select
+              name="priority"
               value={formData.priority}
-              onChange={(e) =>
-                setFormData({ ...formData, priority: e.target.value })
-              }
+              onChange={handleChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
             >
               <option>Low</option>
@@ -350,9 +305,11 @@ const AddCRModal = ({ onClose, onAdd, isSubmitting, error }) => {
               <option>High</option>
             </select>
           </div>
+
           {error && (
             <p className="text-sm text-red-600 font-semibold">{error}</p>
           )}
+
           <div className="flex gap-4 pt-4">
             <button
               type="submit"
@@ -380,123 +337,86 @@ const ChangeRequests = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedCR, setSelectedCR] = useState(null);
-  const [crs, setCrs] = useState(MOCK_CRS);
+  const [crs, setCrs] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [filterStatus, setFilterStatus] = useState("All");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadChangeRequests = async () => {
-      setIsLoading(true);
-      setError("");
-
-      const results = await Promise.allSettled(
-        PROJECT_OPTIONS.map(async (projectId) => {
-          const response = await fetch(
-            `${CR_API_BASE}/${encodeURIComponent(projectId)}/change-requests`,
-            {
-              headers: {
-                ...getAuthHeaders(),
-              },
-            },
-          );
-
-          if (!response.ok) {
-            const message = await response.text();
-            if (response.status === 401) {
-              throw new Error("Please log in again to load change requests.");
-            }
-            throw new Error(message || `Failed to load ${projectId} CRs`);
-          }
-
-          return response.json();
-        }),
-      );
-
-      if (!isMounted) return;
-
-      const loaded = [];
-      const failures = [];
-
-      results.forEach((result, index) => {
-        if (result.status === "fulfilled") {
-          loaded.push(...result.value);
-        } else {
-          failures.push(PROJECT_OPTIONS[index]);
-        }
-      });
-
-      if (loaded.length > 0) {
-        setCrs(loaded.map(mapCrFromApi));
-      }
-
-      if (failures.length > 0) {
-        setError("Some change requests could not be loaded.");
-      }
-
-      setIsLoading(false);
-    };
-
-    loadChangeRequests();
-
-    return () => {
-      isMounted = false;
-    };
+    fetchProjectsAndRequests();
   }, []);
 
-  const filteredCRs = crs.filter((cr) => {
-    const normalizedTerm = searchTerm.trim().toLowerCase();
-    const matchesSearch =
-      cr.title.toLowerCase().includes(normalizedTerm) ||
-      cr.projectName.toLowerCase().includes(normalizedTerm) ||
-      cr.createdAt.toLowerCase().includes(normalizedTerm) ||
-      cr.id.toLowerCase().includes(normalizedTerm);
-    const matchesStatus = filterStatus === "All" || cr.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const fetchProjectsAndRequests = async () => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const [projectsData, crData] = await Promise.all([
+        getClientProjects(),
+        getClientChangeRequests(),
+      ]);
+
+      const safeProjects = Array.isArray(projectsData) ? projectsData : [];
+      const safeCRs = Array.isArray(crData) ? crData : [];
+
+      setProjects(safeProjects);
+      setCrs(safeCRs.map((cr) => mapCrFromApi(cr, safeProjects)));
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Some change requests could not be loaded.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAddCR = async (formData) => {
     setIsSubmitting(true);
     setError("");
 
     try {
-      const response = await fetch(
-        `${CR_API_BASE}/${encodeURIComponent(formData.projectName)}/change-requests`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...getAuthHeaders(),
-          },
-          body: JSON.stringify(mapCrToApi(formData)),
-        },
+      const payload = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        budget: formData.budget ? Number(formData.budget) : null,
+        timeline: formData.timeline.trim(),
+        priority: formData.priority,
+      };
+
+      const saved = await createClientChangeRequest(
+        formData.projectId,
+        payload,
       );
+      const newCR = mapCrFromApi(saved, projects);
 
-      if (!response.ok) {
-        const message = await response.text();
-        if (response.status === 401) {
-          throw new Error("Please log in again to submit a change request.");
-        }
-        throw new Error(message || "Failed to create change request");
-      }
-
-      const saved = await response.json();
-      const newCR = mapCrFromApi(saved);
-      if (!newCR.displayId) {
-        newCR.displayId = formData.displayId.trim();
-      }
       setCrs((prev) => [newCR, ...prev]);
       return true;
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || "Failed to create change request");
       return false;
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const filteredCRs = useMemo(() => {
+    const normalizedTerm = searchTerm.trim().toLowerCase();
+
+    return crs.filter((cr) => {
+      const matchesSearch =
+        cr.title.toLowerCase().includes(normalizedTerm) ||
+        cr.projectName.toLowerCase().includes(normalizedTerm) ||
+        cr.createdAt.toLowerCase().includes(normalizedTerm) ||
+        cr.id.toLowerCase().includes(normalizedTerm);
+
+      const matchesStatus =
+        filterStatus === "All" || cr.status === filterStatus;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [crs, filterStatus, searchTerm]);
 
   return (
     <div className="space-y-6 lg:space-y-8 -mt-6 relative z-10 px-2 sm:px-4 pb-10">
@@ -516,6 +436,7 @@ const ChangeRequests = () => {
             />
           </div>
         </div>
+
         <div className="flex flex-wrap gap-3">
           <select
             value={filterStatus}
@@ -525,14 +446,13 @@ const ChangeRequests = () => {
           >
             <option>All</option>
             <option>Approved</option>
-            <option>Proposed</option>
             <option>Pending</option>
             <option>Rejected</option>
           </select>
+
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center space-x-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-2xl hover:shadow-lg transition-all"
-            aria-label="Raise new change request"
           >
             <span className="text-2xl">+</span>
             <span>Raise CR</span>
@@ -554,94 +474,90 @@ const ChangeRequests = () => {
       )}
 
       <div className="bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-x-auto">
-        <table className="min-w-[520px] w-full table-fixed">
-          <colgroup>
-            <col className="w-[16%]" />
-            <col className="w-[26%]" />
-            <col className="w-[16%]" />
-            <col className="w-[14%]" />
-            <col className="w-[14%]" />
-            <col className="w-[14%]" />
-          </colgroup>
-          <thead className="bg-[#f9fafb]">
+        <table className="w-full">
+          <thead className="bg-[#f9fafb] border-b border-gray-200">
             <tr>
-              <th className="px-2 lg:px-10 py-2.5 lg:py-6 text-left align-middle text-[11px] sm:text-sm lg:text-xl font-medium text-gray-900">
+              <th className="px-4 lg:px-8 py-4 lg:py-6 text-left text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
                 ID / Date
               </th>
-              <th className="px-2 lg:px-10 py-2.5 lg:py-6 text-left align-middle text-[11px] sm:text-sm lg:text-xl font-medium text-gray-900">
+              <th className="px-4 lg:px-8 py-4 lg:py-6 text-left text-sm lg:text-base font-semibold text-gray-900">
                 Title & Project
               </th>
-              <th className="px-2 lg:px-10 py-2.5 lg:py-6 text-center align-middle text-[11px] sm:text-sm lg:text-xl font-medium text-gray-900">
+              <th className="px-4 lg:px-8 py-4 lg:py-6 text-center text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
                 Status
               </th>
-              <th className="px-2 lg:px-10 py-2.5 lg:py-6 text-right align-middle text-[11px] sm:text-sm lg:text-xl font-medium text-gray-900">
+              <th className="px-4 lg:px-8 py-4 lg:py-6 text-right text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
                 Budget
               </th>
-              <th className="px-2 lg:px-6 py-2.5 lg:py-6 text-center align-middle text-[11px] sm:text-sm lg:text-xl font-medium text-gray-900">
+              <th className="px-4 lg:px-8 py-4 lg:py-6 text-center text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
                 View
               </th>
-              <th className="px-2 lg:px-6 py-2.5 lg:py-6 text-center align-middle text-[11px] sm:text-sm lg:text-xl font-medium text-gray-900">
+              <th className="px-4 lg:px-8 py-4 lg:py-6 text-center text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
                 Download
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-50">
+
+          <tbody className="bg-white divide-y divide-gray-100">
             {filteredCRs.length > 0 ? (
               filteredCRs.map((cr) => (
-                <tr
-                  key={cr.id}
-                  className="hover:bg-gray-50/50 transition-colors"
-                >
-                  <td className="px-2 lg:px-10 py-3.5 lg:py-6 align-middle">
-                    <div className="flex flex-col leading-tight">
-                      <span className="text-gray-900 text-[11px] sm:text-sm lg:text-lg font-bold leading-tight break-all">
-                        {cr.displayId}
+                <tr key={cr.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 lg:px-8 py-4 lg:py-6">
+                    <div className="flex flex-col gap-1">
+                      <span
+                        className="text-gray-900 text-sm lg:text-base font-semibold cursor-help"
+                        title={cr.displayId}
+                      >
+                        {cr.displayId.substring(0, 6)}...
                       </span>
-                      <span className="text-gray-400 text-[11px] sm:text-sm font-bold leading-tight">
+                      <span className="text-gray-500 text-xs lg:text-sm">
                         {cr.createdAt}
                       </span>
                     </div>
                   </td>
-                  <td className="px-2 lg:px-10 py-3.5 lg:py-6 align-middle">
-                    <div className="flex flex-col gap-0.5 leading-tight">
-                      <span className="text-gray-900 text-[11px] sm:text-sm lg:text-lg font-bold break-words leading-tight">
+
+                  <td className="px-4 lg:px-8 py-4 lg:py-6">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-gray-900 text-sm lg:text-base font-semibold">
                         {cr.title}
                       </span>
-                      <span className="text-[#7c3aed] text-[9px] sm:text-xs lg:text-sm font-extrabold uppercase leading-tight">
+                      <span className="text-purple-600 text-xs lg:text-sm font-bold uppercase">
                         {cr.projectName}
                       </span>
                     </div>
                   </td>
-                  <td className="px-2 lg:px-10 py-3.5 lg:py-6 whitespace-nowrap text-center align-middle">
+
+                  <td className="px-4 lg:px-8 py-4 lg:py-6 text-center">
                     <span
-                      className={`px-2 lg:px-6 py-0.5 lg:py-1.5 rounded-full text-[9px] sm:text-xs lg:text-base font-bold ${cr.status === "Approved" ? "bg-green-100 text-green-700" : cr.status === "Proposed" ? "bg-blue-100 text-blue-700" : cr.status === "Pending" ? "bg-amber-100 text-amber-700" : cr.status === "Rejected" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}
+                      className={`inline-block px-3 lg:px-4 py-1 lg:py-2 rounded-full text-xs lg:text-sm font-semibold ${
+                        STATUS_STYLES[cr.status] || "bg-gray-100 text-gray-600"
+                      }`}
                     >
                       {cr.status}
                     </span>
                   </td>
-                  <td className="px-2 lg:px-10 py-3.5 lg:py-6 whitespace-nowrap text-right align-middle">
-                    <span className="text-gray-900 text-sm sm:text-base lg:text-2xl font-black leading-tight">
+
+                  <td className="px-4 lg:px-8 py-4 lg:py-6 text-right">
+                    <span className="text-gray-900 text-base lg:text-lg font-bold">
                       ${Number(cr.budget || 0).toLocaleString()}
                     </span>
                   </td>
-                  <td className="px-2 lg:px-6 py-3.5 lg:py-6 text-center align-middle">
+
+                  <td className="px-4 lg:px-8 py-4 lg:py-6 text-center">
                     <button
                       onClick={() => setSelectedCR(cr)}
-                      className="inline-flex items-center justify-center w-8 h-8 lg:w-9 lg:h-9 bg-green-100 text-green-700 text-base lg:text-lg font-bold rounded-lg hover:bg-green-200 transition leading-none"
-                      aria-label={`View ${cr.title}`}
-                      title="View"
+                      className="px-4 lg:px-6 py-2 lg:py-2.5 bg-green-600 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-green-700 transition-colors"
                     >
-                      👁️
+                      View
                     </button>
                   </td>
-                  <td className="px-2 lg:px-6 py-3.5 lg:py-6 text-center align-middle">
+
+                  <td className="px-4 lg:px-8 py-4 lg:py-6 text-center">
                     <button
                       onClick={() => downloadCR(cr)}
-                      className="inline-flex items-center justify-center w-8 h-8 lg:w-9 lg:h-9 bg-blue-100 text-blue-700 text-base lg:text-lg font-bold rounded-lg hover:bg-blue-200 transition leading-none"
-                      aria-label={`Download ${cr.title}`}
-                      title="Download"
+                      className="px-4 lg:px-6 py-2 lg:py-2.5 bg-blue-600 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      ⬇️
+                      Download
                     </button>
                   </td>
                 </tr>
@@ -650,7 +566,7 @@ const ChangeRequests = () => {
               <tr>
                 <td
                   colSpan={6}
-                  className="px-10 py-20 text-center text-xl font-bold text-gray-400"
+                  className="px-8 py-12 text-center text-base lg:text-lg font-semibold text-gray-400"
                 >
                   No change requests found
                 </td>
@@ -663,8 +579,10 @@ const ChangeRequests = () => {
       {selectedCR && (
         <CRViewerModal cr={selectedCR} onClose={() => setSelectedCR(null)} />
       )}
+
       {showAddModal && (
         <AddCRModal
+          projects={projects}
           onClose={() => setShowAddModal(false)}
           onAdd={handleAddCR}
           isSubmitting={isSubmitting}
