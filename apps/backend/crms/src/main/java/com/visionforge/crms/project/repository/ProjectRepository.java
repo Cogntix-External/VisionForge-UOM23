@@ -10,7 +10,12 @@ import java.util.Optional;
 @Repository
 public interface ProjectRepository extends MongoRepository<Project, String> {
 
-    List<Project> findByCompanyId(String companyId);
+    // 🔹 Client side
     List<Project> findByClientId(String clientId);
+
+    // 🔹 Company side
+    List<Project> findByCompanyId(String companyId);
+
+    // 🔹 Link project with proposal
     Optional<Project> findByProposalId(String proposalId);
 }

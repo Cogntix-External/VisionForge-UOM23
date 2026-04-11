@@ -30,11 +30,54 @@ async function request(path, options = {}) {
   }
   return response.json();
 }
+
+function getCompanyId(passedId) {
+  if (passedId) return passedId;
+
+  if (typeof window !== "undefined") {
+    const user = JSON.parse(localStorage.getItem("crms_user") || "{}");
+    return user?.id;
+  }
+
+  return null;
+}
+
 // login
 export function login(payload) {
   return request("/auth/login", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+// client dashboard
+export function getClientDashboard() {
+  const storedUser =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("crms_user") || "{}")
+      : {};
+
+  return request("/client/dashboard", {
+    method: "GET",
+    headers: {
+      "X-Client-Id": storedUser.id,
+    },
+  });
+}
+
+// company dashboard
+export function getCompanyDashboard(companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
+  return request("/company/dashboard", {
+    method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
   });
 }
 
@@ -89,12 +132,14 @@ export function getCompanyProposals(companyId) {
     },
   });
 }
-//PRD viewer for client
+
+// PRD viewer for client
 export function getClientProjectPrd(projectId) {
   return request(`/client/projects/${projectId}/prd`, {
     method: "GET",
   });
 }
+
 // company projects list
 export function getCompanyProjects(companyId) {
   const resolvedCompanyId = getCompanyId(companyId);
@@ -114,7 +159,7 @@ export function getCompanyProjects(companyId) {
 // create company proposal
 export function createCompanyProposal(payload, companyId) {
   const resolvedCompanyId =
-    companyId || JSON.parse(localStorage.getItem("crms_user"))?.id;
+    companyId || JSON.parse(localStorage.getItem("crms_user") || "{}")?.id;
 
   if (!resolvedCompanyId) {
     throw new Error("Company ID is required");
@@ -128,6 +173,7 @@ export function createCompanyProposal(payload, companyId) {
     body: JSON.stringify(payload),
   });
 }
+
 // PRD management
 export function fetchPrds(token) {
   return request("", {
@@ -160,7 +206,8 @@ export function updatePrd(id, payload, token) {
     body: JSON.stringify(payload),
   });
 }
-// get clients project
+
+// get client projects
 export function getClientProjects() {
   return request("/client/projects", {
     method: "GET",
@@ -178,14 +225,5 @@ export function downloadDocument(documentId) {
     },
   });
 }
-function getCompanyId(passedId) {
-  if (passedId) return passedId;
 
-  if (typeof window !== "undefined") {
-    const user = JSON.parse(localStorage.getItem("crms_user"));
-    return user?.id;
-  }
-
-  return null;
-}
 export { API_BASE };

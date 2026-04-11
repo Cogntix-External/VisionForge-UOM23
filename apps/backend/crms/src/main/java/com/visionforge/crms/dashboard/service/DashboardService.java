@@ -1,5 +1,6 @@
 package com.visionforge.crms.dashboard.service;
 
+import com.visionforge.crms.dashboard.dto.ClientDashboardResponse;
 import com.visionforge.crms.dashboard.dto.CompanyDashboardResponse;
 import com.visionforge.crms.dashboard.dto.CompanyDashboardResponse.ProjectTableRow;
 import com.visionforge.crms.project.model.Project;
@@ -24,71 +25,91 @@ public class DashboardService {
     private final ProposalRepository proposalRepository;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    // later add changeRequestRepository
+
+    public ClientDashboardResponse getClientDashboard(String clientId) {
+        List<Proposal> allClientProposals = proposalRepository.findByClientId(clientId);
+        List<Project> allClientProjects = projectRepository.findByClientId(clientId);
+
+        long pendingProposalsCount = allClientProposals.stream()
+                .filter(p -> p.getStatus() != null && p.getStatus() == ProposalStatus.PENDING)
+                .count();
+
+        long acceptedProjectsCount = allClientProjects.size();
+
+        long pendingChangeRequestsCount = 0;
+        long approvedChangeRequestsCount = 0;
+
+        List<Proposal> recentProposals = allClientProposals.stream()
+                .limit(5)
+                .toList();
+
+        List<Project> recentProjects = allClientProjects.stream()
+                .limit(5)
+                .toList();
+
+        return ClientDashboardResponse.builder()
+                .pendingProposalsCount(pendingProposalsCount)
+                .acceptedProjectsCount(acceptedProjectsCount)
+                .pendingChangeRequestsCount(pendingChangeRequestsCount)
+                .approvedChangeRequestsCount(approvedChangeRequestsCount)
+                .recentProposals(recentProposals)
+                .recentProjects(recentProjects)
+                .build();
+    }
 
     public CompanyDashboardResponse getCompanyDashboard(String companyId) {
-
-        // ── Proposals ───────────────────────────────────────────────
-        List<Proposal> proposals = proposalRepository
-                .findByCompanyId(companyId);
+        List<Proposal> proposals = proposalRepository.findByCompanyId(companyId);
 
         long totalProposals = proposals.size();
 
         long pendingApprovals = proposals.stream()
-                .filter(p -> p.getStatus() ==
-                        ProposalStatus.PENDING)
+                .filter(p -> p.getStatus() != null && p.getStatus() == ProposalStatus.PENDING)
                 .count();
 
         long acceptedProposals = proposals.stream()
-                .filter(p -> p.getStatus() ==
-                        ProposalStatus.ACCEPTED)
+                .filter(p -> p.getStatus() != null && p.getStatus() == ProposalStatus.ACCEPTED)
                 .count();
 
         long rejectedProposals = proposals.stream()
-                .filter(p -> p.getStatus() ==
-                        ProposalStatus.REJECTED)
+                .filter(p -> p.getStatus() != null && p.getStatus() == ProposalStatus.REJECTED)
                 .count();
 
-        // ── Projects ────────────────────────────────────────────────
-        List<Project> projects = projectRepository
-                .findByCompanyId(companyId);
+        List<Project> projects = projectRepository.findByCompanyId(companyId);
 
         long totalProjects = projects.size();
 
         long activeProjects = projects.stream()
-                .filter(p -> p.getStatus() ==
-                        Project.ProjectStatus.ACTIVE)
+                .filter(p -> p.getStatus() != null && p.getStatus() == Project.ProjectStatus.ACTIVE)
                 .count();
 
-        // ── Fetch User Names ─────────────────────────────────────────
         Map<String, String> userNameMap = userRepository
                 .findAllById(
-                    projects.stream()
-                        .map(Project::getCompanyId)
-                        .distinct()
-                        .collect(Collectors.toList())
+                        projects.stream()
+                                .map(Project::getCompanyId)
+                                .distinct()
+                                .collect(Collectors.toList())
                 )
                 .stream()
                 .collect(Collectors.toMap(
-                    User::getId,
-                    User::getName
+                        User::getId,
+                        User::getName
                 ));
 
-        // ── Table Rows ───────────────────────────────────────────────
-        DateTimeFormatter formatter = DateTimeFormatter
-                .ofPattern("yyyy-MM-dd");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
         List<ProjectTableRow> recentProjects = projects.stream()
                 .map(p -> ProjectTableRow.builder()
                         .id(p.getId())
                         .projectName(p.getName())
-                        .status(p.getStatus().name())
-                        .owner(userNameMap.getOrDefault(
-                            p.getCompanyId(), "Unknown"
-                        ))
+                        .status(p.getStatus() != null ? p.getStatus().name() : "UNKNOWN")
+                        .owner(userNameMap.getOrDefault(p.getCompanyId(), "Unknown"))
                         .lastUpdated(
-                            p.getUpdatedAt() != null
-                                ? p.getUpdatedAt().format(formatter)
-                                : p.getCreatedAt().format(formatter)
+                                p.getUpdatedAt() != null
+                                        ? p.getUpdatedAt().format(formatter)
+                                        : p.getCreatedAt() != null
+                                            ? p.getCreatedAt().format(formatter)
+                                            : ""
                         )
                         .build())
                 .collect(Collectors.toList());

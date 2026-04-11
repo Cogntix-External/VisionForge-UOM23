@@ -1,12 +1,12 @@
 package com.visionforge.crms.proposal.service;
 
+import com.visionforge.crms.project.service.ProjectService;
 import com.visionforge.crms.proposal.dto.CreateProposalRequest;
 import com.visionforge.crms.proposal.dto.ProposalDecisionRequest;
 import com.visionforge.crms.proposal.dto.ProposalResponse;
 import com.visionforge.crms.proposal.model.Proposal;
 import com.visionforge.crms.proposal.model.ProposalStatus;
 import com.visionforge.crms.proposal.repository.ProposalRepository;
-import com.visionforge.crms.project.service.ProjectService;
 import com.visionforge.crms.user.CurrentUserService;
 import com.visionforge.crms.user.Role;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,15 +24,15 @@ public class ProposalService {
     private final CurrentUserService currentUserService;
     private final ProjectService projectService;
 
-    // company create proposal
+    // Company create proposal
     public ProposalResponse createProposal(CreateProposalRequest request, String companyId) {
         Proposal proposal = Proposal.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .clientId(request.getClientId())
-            .clientName(request.getClientName())
-            .totalBudget(request.getTotalBudget())
-            .totalDurationDays(request.getTotalDurationDays())
+                .clientName(request.getClientName())
+                .totalBudget(request.getTotalBudget())
+                .totalDurationDays(request.getTotalDurationDays())
                 .companyId(companyId)
                 .status(ProposalStatus.PENDING)
                 .rejectionReason(null)
@@ -39,16 +40,19 @@ public class ProposalService {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        return mapToResponse(proposalRepository.save(proposal));
+        Proposal savedProposal = proposalRepository.save(proposal);
+        return mapToResponse(savedProposal);
     }
 
-    // company proposals
+    // Company proposals
     public List<ProposalResponse> getProposalsByCompany(String companyId) {
         return proposalRepository.findByCompanyId(companyId)
-                .stream().map(this::mapToResponse).collect(java.util.stream.Collectors.toList());
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
-    // client proposals - JWT based
+    // Client proposals - JWT based
     public List<ProposalResponse> getCurrentClientProposals() {
         if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
             throw new RuntimeException("Only client can access client proposals");
@@ -59,10 +63,10 @@ public class ProposalService {
         return proposalRepository.findByClientId(clientId)
                 .stream()
                 .map(this::mapToResponse)
-                .toList();
+                .collect(Collectors.toList());
     }
 
-    // single proposal detail for logged-in client only
+    // Single proposal detail for logged-in client only
     public ProposalResponse getCurrentClientProposalById(String proposalId) {
         if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
             throw new RuntimeException("Only client can view proposal details");
@@ -76,7 +80,7 @@ public class ProposalService {
         return mapToResponse(proposal);
     }
 
-    // accept proposal
+    // Accept proposal
     public ProposalResponse acceptCurrentClientProposal(String proposalId) {
         if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
             throw new RuntimeException("Only client can accept proposal");
@@ -96,12 +100,19 @@ public class ProposalService {
         proposal.setUpdatedAt(LocalDateTime.now());
 
         Proposal savedProposal = proposalRepository.save(proposal);
+
+        System.out.println("Accepted proposal ID: " + savedProposal.getId());
+        System.out.println("Creating project for client ID: " + savedProposal.getClientId());
+        System.out.println("Creating project for company ID: " + savedProposal.getCompanyId());
+
         projectService.createProjectFromProposal(savedProposal);
+
+        System.out.println("Project created successfully for proposal ID: " + savedProposal.getId());
 
         return mapToResponse(savedProposal);
     }
 
-    // reject proposal
+    // Reject proposal
     public ProposalResponse rejectCurrentClientProposal(String proposalId, ProposalDecisionRequest request) {
         if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
             throw new RuntimeException("Only client can reject proposal");
@@ -120,11 +131,11 @@ public class ProposalService {
         proposal.setRejectionReason(
                 request.getRejectionReason() == null || request.getRejectionReason().isBlank()
                         ? "No reason provided"
-                        : request.getRejectionReason()
-        );
+                        : request.getRejectionReason());
         proposal.setUpdatedAt(LocalDateTime.now());
 
-        return mapToResponse(proposalRepository.save(proposal));
+        Proposal savedProposal = proposalRepository.save(proposal);
+        return mapToResponse(savedProposal);
     }
 
     private ProposalResponse mapToResponse(Proposal proposal) {
