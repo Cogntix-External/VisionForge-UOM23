@@ -6,7 +6,7 @@ import com.visionforge.crms.project.repository.ProjectRepository;
 import com.visionforge.crms.proposal.model.Proposal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
+import com.visionforge.crms.user.CurrentUserService;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
+    private final CurrentUserService currentUserService;
 
     // ── Auto Create Project ─────────────────────────────────────────
     public ProjectResponse createProjectFromProposal(Proposal proposal) {
@@ -77,4 +78,19 @@ public class ProjectService {
                 .updatedAt(project.getUpdatedAt())
                 .build();
     }
+
+    public List<ProjectResponse> getProjectsForCurrentClient() {
+
+    String clientId = currentUserService.getCurrentUserId();
+
+    List<Project> projects = projectRepository.findByClientId(clientId);
+
+    return projects.stream()
+            .map(this::mapToResponse)
+            .collect(Collectors.toList());
+    }
+    public String getCurrentUserId() {
+        return currentUserService.getCurrentUserId();
+    }
+
 }

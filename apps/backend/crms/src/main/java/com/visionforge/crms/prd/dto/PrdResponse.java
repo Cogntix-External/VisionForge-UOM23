@@ -1,15 +1,19 @@
 package com.visionforge.crms.prd.dto;
-
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-
+import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor(force = true)
+@AllArgsConstructor
 public class PrdResponse {
 
     private String id;
+    private String projectId;
     private String pid;
     private String title;
     private String status;
@@ -44,6 +48,8 @@ public class PrdResponse {
 
     @Data
     @Builder
+    @NoArgsConstructor(force = true)
+    @AllArgsConstructor
     public static class StakeholderDto {
         private String role;
         private String name;
@@ -52,6 +58,8 @@ public class PrdResponse {
 
     @Data
     @Builder
+    @NoArgsConstructor(force = true)
+    @AllArgsConstructor
     public static class MilestoneDto {
         private String phase;
         private String task;

@@ -10,9 +10,9 @@ import { clearSession } from "../utils/auth";
 const clientItems = [
   { href: "/client/dashboard", label: "Dashboard" },
   { href: "/client/Project", label: "Projects" },
-  { href: "/client/ChangeRequest", label: "Change Requests" },
   { href: "/client/Proposal", label: "Proposals" },
   { href: "/client/Document", label: "Documents" },
+  { href: "/client/ChangeRequest", label: "Change Requests" },
   { href: "/client/Kanban", label: "Kanban" },
 ];
 
@@ -22,7 +22,6 @@ const companyItems = [
   { href: "/company/Prd-details&Editor", label: "PRD Details & Editor" },
   { href: "/company/ProposalsListSection", label: "Proposals" },
   { href: "/company/CreateProposalSection", label: "Create Proposal" },
-  { href: "/company/ProposalDetailsSection", label: "Proposal Details" },
   { href: "/company/KanbanBoardPage", label: "Kanban" },
   { href: "/company/Audit-trail", label: "Audit Trail" },
   { href: "/company/Version-history", label: "Version History" },

@@ -11,6 +11,6 @@ import java.util.Optional;
 public interface ProjectRepository extends MongoRepository<Project, String> {
 
     List<Project> findByCompanyId(String companyId);
-
+    List<Project> findByClientId(String clientId);
     Optional<Project> findByProposalId(String proposalId);
 }

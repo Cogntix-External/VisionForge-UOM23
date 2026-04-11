@@ -10,7 +10,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -38,6 +37,7 @@ public class PrdService {
 
     public PrdResponse createPrd(CreatePrdRequest request) {
         Prd prd = Prd.builder()
+                .projectId(request.getProjectId())
                 .pid(nextPid())
                 .title(request.getProjectName())
                 .status("In Review")
@@ -199,6 +199,7 @@ public class PrdService {
     private PrdResponse toResponse(Prd prd) {
         return PrdResponse.builder()
                 .id(prd.getId())
+                .projectId(prd.getProjectId())
                 .pid(prd.getPid())
                 .title(prd.getTitle())
                 .status(prd.getStatus())
@@ -261,5 +262,10 @@ public class PrdService {
         } catch (NumberFormatException ex) {
             return 0;
         }
+    }
+    public PrdResponse getPrdByProjectId(String projectId) {
+        return prdRepository.findByProjectId(projectId)
+                .map(this::toResponse)
+                .orElse(null);
     }
 }

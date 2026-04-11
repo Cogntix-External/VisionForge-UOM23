@@ -7,6 +7,7 @@ import java.util.List;
 @Data
 public class CreatePrdRequest {
 
+    private String projectId;
     private String projectName;
     private String author;
     private String dateSubmitted;
