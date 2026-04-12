@@ -16,6 +16,7 @@ public class ChangeRequestResponse {
 
     private String id;
     private String projectId;
+    private String prdId;
     private String clientId;
     private String companyId;
 
@@ -26,7 +27,13 @@ public class ChangeRequestResponse {
     private String priority;
 
     private ChangeRequestStatus status;
+    private String decisionReason;
+    private LocalDateTime decidedAt;
     private String rejectionReason;
+
+    private String implementedVersion;
+    private String implementationNotes;
+    private LocalDateTime implementedAt;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

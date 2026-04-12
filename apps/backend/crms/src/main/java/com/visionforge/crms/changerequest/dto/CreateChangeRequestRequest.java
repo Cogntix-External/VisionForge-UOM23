@@ -6,6 +6,8 @@ import lombok.Data;
 @Data
 public class CreateChangeRequestRequest {
 
+    private String prdId;
+
     @NotBlank(message = "Title is required")
     private String title;
 

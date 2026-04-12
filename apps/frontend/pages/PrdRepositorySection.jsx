@@ -134,7 +134,7 @@ function PrdRepositorySectionView({
           <table className="w-full text-left">
             <thead>
               <tr className="text-gray-400 text-sm uppercase tracking-wider border-b border-gray-50">
-                <th className="pb-4 font-semibold px-4">PID</th>
+                <th className="pb-4 font-semibold px-4">Project ID</th>
                 <th className="pb-4 font-semibold px-4">Title</th>
                 <th className="pb-4 font-semibold px-4">Status</th>
                 <th className="pb-4 font-semibold px-4">Created Date</th>
@@ -161,7 +161,7 @@ function PrdRepositorySectionView({
               {!isLoading &&
                 prdList.map((prd) => (
                   <tr key={prd.id || prd.pid} className="group hover:bg-gray-50/50 transition-colors">
-                    <td className="py-6 px-4 font-bold text-gray-700">{prd.pid}</td>
+                    <td className="py-6 px-4 font-bold text-gray-700">{prd.projectId || prd.pid}</td>
                     <td className="py-6 px-4 font-bold text-gray-800 max-w-xs">{prd.title}</td>
                     <td className="py-6 px-4">
                       <span className="font-medium text-gray-800">{prd.status}</span>
@@ -273,7 +273,7 @@ export default function CompanyPrdRepositorySection() {
     if (!query) return prdList;
 
     return prdList.filter((prd) => {
-      return [prd.pid, prd.title, prd.status, prd.createdDate]
+      return [prd.projectId, prd.pid, prd.title, prd.status, prd.createdDate]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
     });
