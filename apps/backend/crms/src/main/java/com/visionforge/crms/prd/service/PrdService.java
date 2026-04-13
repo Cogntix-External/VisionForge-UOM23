@@ -1,5 +1,6 @@
 package com.visionforge.crms.prd.service;
 
+import com.visionforge.crms.changerequest.service.ChangeRequestService;
 import com.visionforge.crms.prd.dto.CreatePrdRequest;
 import com.visionforge.crms.prd.dto.PrdResponse;
 import com.visionforge.crms.prd.dto.UpdatePrdRequest;
@@ -23,6 +24,7 @@ public class PrdService {
     private static final Pattern PID_TRAILING_NUMBER = Pattern.compile("(\\d+)$");
 
     private final PrdRepository prdRepository;
+    private final ChangeRequestService changeRequestService;
 
     public List<PrdResponse> getAllPrds() {
         return prdRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
@@ -64,7 +66,14 @@ public class PrdService {
                 .createdAt(Instant.now())
                 .build();
 
-        return toResponse(prdRepository.save(prd));
+        Prd savedPrd = prdRepository.save(prd);
+        changeRequestService.markLatestAcceptedAsImplementedForPrdUpdate(
+            savedPrd.getProjectId(),
+            savedPrd.getId(),
+            savedPrd.getVersion()
+        );
+
+        return toResponse(savedPrd);
     }
 
     public PrdResponse updatePrd(String id, UpdatePrdRequest request) {
