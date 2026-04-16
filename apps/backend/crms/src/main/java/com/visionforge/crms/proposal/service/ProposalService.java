@@ -1,7 +1,5 @@
 package com.visionforge.crms.proposal.service;
 
-import com.visionforge.crms.kanban.dto.CreateKanbanBoardRequest;
-import com.visionforge.crms.kanban.service.KanbanService;
 import com.visionforge.crms.project.service.ProjectService;
 import com.visionforge.crms.proposal.dto.CreateProposalRequest;
 import com.visionforge.crms.proposal.dto.ProposalDecisionRequest;
@@ -25,7 +23,6 @@ public class ProposalService {
     private final ProposalRepository proposalRepository;
     private final CurrentUserService currentUserService;
     private final ProjectService projectService;
-    private final KanbanService kanbanService;
 
     // Company create proposal
     public ProposalResponse createProposal(CreateProposalRequest request, String companyId) {
@@ -108,24 +105,9 @@ public class ProposalService {
         System.out.println("Creating project for client ID: " + savedProposal.getClientId());
         System.out.println("Creating project for company ID: " + savedProposal.getCompanyId());
 
-        // Create project from proposal
-        var projectResponse = projectService.createProjectFromProposal(savedProposal);
-        String projectId = projectResponse.getId();
+        projectService.createProjectFromProposal(savedProposal);
 
         System.out.println("Project created successfully for proposal ID: " + savedProposal.getId());
-
-        // Auto-create empty Kanban Board for the project
-        try {
-            CreateKanbanBoardRequest boardRequest = new CreateKanbanBoardRequest(
-                    savedProposal.getTitle() + " - Kanban Board",
-                    "Project kanban board for " + savedProposal.getTitle()
-            );
-            String userId = currentUserService.getCurrentUserId();
-            kanbanService.createKanbanBoard(projectId, savedProposal.getCompanyId(), boardRequest, userId);
-            System.out.println("Kanban board created automatically for project ID: " + projectId);
-        } catch (Exception e) {
-            System.err.println("Failed to create kanban board: " + e.getMessage());
-        }
 
         return mapToResponse(savedProposal);
     }

@@ -20,32 +20,6 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
         <script src="https://cdn.tailwindcss.com"></script>
-        <style>{`
-          * {
-            scrollbar-width: thin;
-            scrollbar-color: #cbd5e1 #f8fafc;
-          }
-
-          *::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-          }
-
-          *::-webkit-scrollbar-track {
-            background: #f8fafc;
-            border-radius: 999px;
-          }
-
-          *::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 999px;
-            border: 2px solid #f8fafc;
-          }
-
-          *::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-          }
-        `}</style>
       </head>
       <body
         style={{ fontFamily: "Inter, sans-serif", backgroundColor: "#f3f4f6" }}

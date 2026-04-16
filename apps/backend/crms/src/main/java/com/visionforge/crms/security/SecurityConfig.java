@@ -41,7 +41,6 @@ public class SecurityConfig {
                         // public auth endpoints
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/api/auth/register",
                                 "/api/auth/signup",
                                 "/api/v1/clients/login",
                                 "/api/v1/clients/signup",
@@ -53,10 +52,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // role-based routes
-                        // Require authentication for client/company API routes.
-                        // JWTs currently contain subject but not roles, so enforce authenticated() here.
-                        .requestMatchers("/api/client/**").authenticated()
-                        .requestMatchers("/api/company/**").authenticated()
+                        .requestMatchers("/api/client/**").hasRole("CLIENT")
+                        .requestMatchers("/api/company/**").hasRole("COMPANY")
                          
                         // everything else needs auth
                         .anyRequest().authenticated()
@@ -72,10 +69,10 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOriginPatterns(List.of(
-                "http://localhost:[*]",
-                "http://127.0.0.1:[*]",
-                "http://[::1]:[*]"
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "http://localhost:3001",
+                "http://localhost:3002"
         ));
 
         configuration.setAllowedMethods(List.of(
