@@ -1,288 +1,235 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  LogOut,
-  User,
-  Settings,
-  ChevronRight,
-  Palette,
-  Compass,
-  Users,
-} from "lucide-react";
-import EditProfileModal from "./EditProfile";
-
-const THEME_OPTIONS = [
-  {
-    id: "light",
-    label: "Light",
-    previewClassName:
-      "bg-white border border-slate-200 before:absolute before:inset-x-2 before:top-2 before:h-1.5 before:rounded-full before:bg-slate-200 after:absolute after:left-2 after:right-6 after:top-6 after:h-1 after:rounded-full after:bg-slate-300",
-  },
-  {
-    id: "dark",
-    label: "Dark",
-    previewClassName:
-      "bg-slate-900 border border-slate-700 before:absolute before:inset-x-2 before:top-2 before:h-1.5 before:rounded-full before:bg-slate-700 after:absolute after:left-2 after:right-6 after:top-6 after:h-1 after:rounded-full after:bg-slate-600",
-  },
-  {
-    id: "system",
-    label: "Match browser",
-    previewClassName:
-      "border border-slate-200 bg-[linear-gradient(90deg,#111827_0%,#111827_50%,#ffffff_50%,#ffffff_100%)] before:absolute before:left-2 before:right-[calc(50%+0.5rem)] before:top-2 before:h-1.5 before:rounded-full before:bg-slate-600 after:absolute after:left-[calc(50%+0.5rem)] after:right-2 after:top-2 after:h-1.5 after:rounded-full after:bg-slate-200",
-  },
-];
+import { LogOut, X, Pencil, Check, Undo2, Copy } from "lucide-react";
 
 const UserProfileDropdown = () => {
-  const router = useRouter();
-  const dropdownRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [toast, setToast] = useState("");
-  const [activePanel, setActivePanel] = useState(null);
-  const [selectedTheme, setSelectedTheme] = useState("light");
+  const dropdownRef = useRef(null);
 
+  // Mock user data (later replace with backend)
   const [userData, setUserData] = useState({
     userId: "234148X",
-    username: "Fathima Nuha",
+    username: "Shake william",
     email: "nuhamnf.23@uom.lk",
     role: "Project Manager",
   });
 
+  // Username edit states
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(userData.username);
+
+  // Small toast message (optional)
+  const [toast, setToast] = useState("");
+
+  const closeAll = () => {
+    setIsOpen(false);
+    setIsEditingName(false);
+    setNameDraft(userData.username);
+  };
+
+  // Close on outside click
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-        setActivePanel(null);
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        closeAll();
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData.username]);
 
-  const showToastMessage = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 1500);
-  };
+  // Keep draft synced when open
+  useEffect(() => {
+    if (isOpen) setNameDraft(userData.username);
+  }, [isOpen, userData.username]);
 
   const handleLogout = () => {
-    console.log("Logout clicked");
-    setIsOpen(false);
-    setActivePanel(null);
+    console.log("Logging out...");
+    closeAll();
   };
 
-  const handleThemeClick = () => {
-    setActivePanel((prev) => (prev === "theme" ? null : "theme"));
+  const startEdit = () => {
+    setIsEditingName(true);
+    setNameDraft(userData.username);
   };
 
-  const menuItemClass =
-    "flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-[15px] font-medium text-slate-700 transition hover:bg-slate-50";
+  const cancelEdit = () => {
+    setIsEditingName(false);
+    setNameDraft(userData.username);
+  };
+
+  const saveUsername = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      setToast("Username cannot be empty");
+      setTimeout(() => setToast(""), 1800);
+      return;
+    }
+
+    // update local state
+    setUserData((prev) => ({ ...prev, username: trimmed }));
+    setIsEditingName(false);
+
+    // Later: call backend API here
+    // await fetch("http://localhost:8080/api/users/me", {
+    //   method: "PUT",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({ username: trimmed }),
+    // });
+  };
+
+  const copyUserId = async () => {
+    try {
+      await navigator.clipboard.writeText(userData.userId);
+      setToast("User ID copied");
+      setTimeout(() => setToast(""), 1500);
+    } catch {
+      setToast("Copy failed");
+      setTimeout(() => setToast(""), 1500);
+    }
+  };
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Avatar Button */}
+      {/* Profile button */}
       <button
-        onClick={() => {
-          setIsOpen((prev) => {
-            const next = !prev;
-            if (!next) setActivePanel(null);
-            return next;
-          });
-        }}
-        className="rounded-full p-1.5 transition hover:bg-slate-100"
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className="flex items-center gap-2 p-1 rounded-full hover:bg-[var(--surface-muted)] transition-colors"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-sm font-semibold text-white shadow-[0_6px_14px_rgba(15,23,42,0.18)]">
-          {userData.username.charAt(0)}
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6c63ff] to-[#8b7bff] flex items-center justify-center text-white font-semibold text-sm">
+          {userData.username?.charAt(0)?.toUpperCase()}
         </div>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-3">
-          <div className="relative w-[340px] overflow-visible rounded-2xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.16)]">
-            {activePanel === "theme" && (
-              <div className="absolute left-0 top-[255px] z-10 h-[180px] w-[260px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.16)]">
-                <div className="p-1.5">
-                    {THEME_OPTIONS.map((option) => {
-                      const isSelected = selectedTheme === option.id;
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedTheme(option.id);
-                            showToastMessage(`${option.label} theme selected`);
-                          }}
-                          className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition ${
-                            isSelected ? "bg-blue-50" : "hover:bg-slate-50"
-                          }`}
-                        >
-                          <span
-                            className={`flex h-4 w-4 items-center justify-center rounded-full border ${
-                              isSelected ? "border-blue-600" : "border-slate-400"
-                            }`}
-                          >
-                            {isSelected && (
-                              <span className="h-2 w-2 rounded-full bg-blue-600" />
-                            )}
-                          </span>
-                          <span
-                            className={`relative h-9 w-12 shrink-0 overflow-hidden rounded-md ${option.previewClassName}`}
-                          />
-                          <span className="text-[14px] font-medium text-slate-700">
-                            {option.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                </div>
+        <div className="absolute right-0 mt-3 w-80 bg-[var(--surface)] rounded-xl shadow-2xl border border-[var(--border-soft)] z-50 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 bg-[var(--surface-muted)] border-b border-[var(--border-soft)]">
+            <h3 className="font-semibold text-gray-800">User Profile</h3>
+            <button
+              type="button"
+              onClick={closeAll}
+              className="p-1 hover:bg-white rounded-full transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-5 space-y-4">
+            {/* Top identity */}
+            <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6c63ff] to-[#8b7bff] flex items-center justify-center text-white font-bold text-xl">
+                {userData.username?.charAt(0)?.toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-gray-800">{userData.username}</p>
+                <p className="text-sm text-gray-500">{userData.role}</p>
+              </div>
+            </div>
+
+            {/* Optional toast */}
+            {toast && (
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+                {toast}
               </div>
             )}
 
-            <div className="p-3.5">
-              {/* Header */}
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[#5b4cc4] text-[28px] font-semibold text-white">
-                    {userData.username
-                      .split(" ")
-                      .map((word) => word[0])
-                      .join("")
-                      .slice(0, 2)}
-                  </div>
-
-                  <div className="min-w-0">
-                    <p className="truncate text-[18px] font-semibold text-slate-900">
-                      {userData.username}
-                    </p>
-                    <p className="mt-0.5 truncate text-[13px] text-slate-500">
-                      {userData.email}
-                    </p>
-                  </div>
+            {/* Professional fields */}
+            <div className="space-y-3">
+              {/* User ID (read-only + copy) */}
+              <div className="bg-[var(--surface-muted)] rounded-lg p-3 border border-[var(--border-soft)]">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500">User ID</p>
+                  <button
+                    type="button"
+                    onClick={copyUserId}
+                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+                    title="Copy User ID"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy
+                  </button>
                 </div>
+                <p className="mt-1 text-gray-800 font-medium text-sm">{userData.userId}</p>
               </div>
 
-              {/* Toast */}
-              {toast && (
-                <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-medium text-emerald-700">
-                  {toast}
-                </div>
-              )}
+              {/* Username (editable only) */}
+              <div className="rounded-lg border border-[var(--border-soft)] bg-white p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500">Username</p>
 
-              {/* Main Menu */}
-              <div className="mt-4 space-y-1">
-                <button
-                  onClick={() => {
-                    setIsEditOpen(true);
-                    setIsOpen(false);
-                    setActivePanel(null);
-                  }}
-                  className={menuItemClass}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-slate-700">
-                      <User size={16} />
-                    </div>
-                    <span>Profile</span>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-400" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    setActivePanel(null);
-                    router.push("/account-settings");
-                  }}
-                  className={menuItemClass}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-slate-700">
-                      <Settings size={16} />
-                    </div>
-                    <span>Account settings</span>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-400" />
-                </button>
-
-                <button
-                  onClick={handleThemeClick}
-                  className={`flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-[15px] font-medium transition ${
-                    activePanel === "theme"
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={
-                        activePanel === "theme" ? "text-blue-700" : "text-slate-700"
-                      }
+                  {!isEditingName ? (
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
                     >
-                      <Palette size={16} />
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={saveUsername}
+                        className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        Save
+                      </button>
                     </div>
-                    <span>Theme</span>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-400" />
-                </button>
+                  )}
+                </div>
 
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    setActivePanel(null);
-                    showToastMessage("Quickstart will open soon");
-                  }}
-                  className={menuItemClass}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-slate-700">
-                      <Compass size={16} />
-                    </div>
-                    <span>Open Quickstart</span>
-                  </div>
-                </button>
+                {!isEditingName ? (
+                  <p className="mt-1 text-sm font-medium text-gray-800">{userData.username}</p>
+                ) : (
+                  <input
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    className="mt-2 w-full h-10 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                    placeholder="Enter username"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveUsername();
+                      if (e.key === "Escape") cancelEdit();
+                    }}
+                  />
+                )}
               </div>
 
-              <div className="mt-4 border-t border-slate-200 pt-3">
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    setActivePanel(null);
-                    showToastMessage("Switch account will open soon");
-                  }}
-                  className="group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[15px] font-medium text-slate-900 transition hover:bg-slate-50"
-                >
-                  <div className="text-slate-700">
-                    <Users size={16} />
-                  </div>
-                  <span>Switch account</span>
-                </button>
-
-                <button
-                  onClick={handleLogout}
-                  className="group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[15px] font-medium text-slate-900 transition hover:bg-rose-50 hover:text-rose-700"
-                >
-                  <div className="text-slate-700 transition-colors group-hover:text-rose-600">
-                    <LogOut size={16} />
-                  </div>
-                  <span>Log out</span>
-                </button>
+              {/* Email (read-only) */}
+              <div className="bg-[var(--surface-muted)] rounded-lg p-3 border border-[var(--border-soft)]">
+                <p className="text-xs text-gray-500 mb-1">Email</p>
+                <p className="text-gray-800 font-medium text-sm">{userData.email}</p>
               </div>
             </div>
+
+            {/* Logout */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 bg-[var(--primary)] hover:bg-[var(--primary-600)] text-white font-medium py-3 px-4 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       )}
-
-      <EditProfileModal
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-        userData={userData}
-        onSave={(updatedUser) => {
-          setUserData(updatedUser);
-          showToastMessage("Profile updated!");
-        }}
-      />
     </div>
   );
 };

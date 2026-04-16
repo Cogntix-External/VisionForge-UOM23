@@ -1,6 +1,6 @@
 "use client";
 
-import KanbanOverviewPage from "@/pages/KanbanOverviewPage";
+import KanbanBoardOverview from "@/pages/KanbanOverviewPage";
 
 export default function CompanyKanbanOverviewPage() {
   return <KanbanOverviewPage />;

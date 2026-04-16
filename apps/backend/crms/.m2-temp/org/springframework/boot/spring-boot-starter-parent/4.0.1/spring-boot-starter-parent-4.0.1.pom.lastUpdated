@@ -1,4 +1,0 @@
-#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
-#Thu Apr 16 03:13:27 IST 2026
-@default-central-https\://repo.maven.apache.org/maven2/.lastUpdated=1776289407905
-https\://repo.maven.apache.org/maven2/.error=Could not transfer artifact org.springframework.boot\:spring-boot-starter-parent\:pom\:4.0.1 from/to central (https\://repo.maven.apache.org/maven2)\: C\:\\Users\\User\\OneDrive\\Desktop\\project2\\VisionForge-UOM23\\apps\\backend\\crms\\.m2-temp\\org\\springframework\\boot\\spring-boot-starter-parent\\4.0.1\\spring-boot-starter-parent-4.0.1.pom.16486816024618642478.tmp.12343633790048476252.tmp
