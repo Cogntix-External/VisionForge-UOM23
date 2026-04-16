@@ -22,7 +22,7 @@ const companyItems = [
   { href: "/company/Prd-details&Editor", label: "PRD Details & Editor" },
   { href: "/company/ProposalsListSection", label: "Proposals" },
   { href: "/company/CreateProposalSection", label: "Create Proposal" },
-  { href: "/company/KanbanBoardPage", label: "Kanban" },
+  { href: "/company/KanbanOverviewPage", label: "Kanban" },
   { href: "/company/Audit-trail", label: "Audit Trail" },
   { href: "/company/Version-history", label: "Version History" },
 ];

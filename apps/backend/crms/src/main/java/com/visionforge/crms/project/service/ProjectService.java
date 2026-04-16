@@ -5,6 +5,7 @@ import com.visionforge.crms.project.model.Project;
 import com.visionforge.crms.project.repository.ProjectRepository;
 import com.visionforge.crms.proposal.model.Proposal;
 import com.visionforge.crms.user.CurrentUserService;
+import com.visionforge.crms.user.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -54,6 +55,13 @@ public class ProjectService {
 
     // Company: Get All Projects
     public List<ProjectResponse> getProjectsByCompany(String companyId) {
+        if (currentUserService.getCurrentUserRole() == Role.COMPANY) {
+            return projectRepository.findAll()
+                    .stream()
+                    .map(this::mapToResponse)
+                    .collect(Collectors.toList());
+        }
+
         return projectRepository.findByCompanyId(companyId)
                 .stream()
                 .map(this::mapToResponse)

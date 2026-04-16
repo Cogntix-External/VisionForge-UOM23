@@ -7,7 +7,12 @@ function getToken() {
 }
 
 async function request(path, options = {}) {
-  const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
+  const {
+    baseUrl = API_BASE,
+    headers: customHeaders = {},
+    suppressErrorLog = false,
+    ...rest
+  } = options;
   const token =
     typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
 
@@ -51,8 +56,20 @@ async function request(path, options = {}) {
     const text = await response.text();
     return text || null;
   } catch (err) {
-    console.error(`Request failed for ${path}:`, err);
+    if (!suppressErrorLog) {
+      console.error(`Request failed for ${path}:`, err);
+    }
     throw err;
+  }
+}
+
+function getStoredUser() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    return JSON.parse(localStorage.getItem("crms_user") || "null");
+  } catch (e) {
+    return null;
   }
 }
 function getCompanyId(passedId) {
@@ -178,6 +195,50 @@ export function getCompanyProjects(companyId) {
       "X-Company-Id": resolvedCompanyId,
     },
   });
+}
+
+export function getProjectById(projectId) {
+  return request(`/projects/${projectId}`, {
+    method: "GET",
+  });
+}
+
+// fetch company users
+export async function getCompanyUsers(companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+  const storedUser = getStoredUser();
+  const fallbackUsers = storedUser?.id
+    ? [
+        {
+          id: storedUser.id,
+          name:
+            storedUser.fullName ||
+            storedUser.name ||
+            storedUser.email ||
+            "Current User",
+          email: storedUser.email || "",
+        },
+      ]
+    : [];
+
+  if (!resolvedCompanyId) {
+    // No company id available in client context — return empty list
+    return fallbackUsers;
+  }
+
+  try {
+    const users = await request("/company/users", {
+      method: "GET",
+      suppressErrorLog: true,
+      headers: {
+        "X-Company-Id": resolvedCompanyId,
+      },
+    });
+
+    return Array.isArray(users) && users.length ? users : fallbackUsers;
+  } catch (err) {
+    return fallbackUsers;
+  }
 }
 
 // create company proposal
