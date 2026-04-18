@@ -1,78 +1,14 @@
-import React, { useState } from "react";
-import { Icons } from "../constants";
+"use client";
 
-const MOCK_PROJECTS = [
-  {
-    id: "1",
-    name: "NexaFlow",
-    status: "In Development",
-    progress: 65,
-    startDate: "Jun 2024-Jan 2025",
-    manager: "Alice Smith",
-    budget: 95000,
-  },
-  {
-    id: "2",
-    name: "SmartCore",
-    status: "In Development",
-    progress: 100,
-    startDate: "Feb 2024-July 2024",
-    manager: "Alice Smith",
-    budget: 75000,
-  },
-  {
-    id: "3",
-    name: "AppNest",
-    status: "Testing",
-    progress: 80,
-    startDate: "Mar 2025-Dec 2025",
-    manager: "Bob Johnson",
-    budget: 50000,
-  },
-  {
-    id: "4",
-    name: "WebNexus",
-    status: "Requirements",
-    progress: 35,
-    startDate: "Aug 2025-Jan 2026",
-    manager: "Charlie Brown",
-    budget: 100000,
-  },
-  {
-    id: "5",
-    name: "SecureGate",
-    status: "In Development",
-    progress: 50,
-    startDate: "Aug 2025-Dec 2025",
-    manager: "David Wilson",
-    budget: 70000,
-  },
-  {
-    id: "6",
-    name: "AIFlow",
-    status: "In Development",
-    progress: 60,
-    startDate: "April 2025-July 2025",
-    manager: "Eve Miller",
-    budget: 82000,
-  },
-  {
-    id: "7",
-    name: "AppNest New",
-    status: "Testing",
-    progress: 30,
-    startDate: "Jan 2026-July 2026",
-    manager: "Frank Castle",
-    budget: 55000,
-  },
-];
+import React, { useState, useEffect } from "react";
+import { Icons } from "../constants";
 
 const Projects = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("All Projects");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [projects, setProjects] = useState(MOCK_PROJECTS);
+  const [projects, setProjects] = useState([]);
   const [activeTab, setActiveTab] = useState("changeRequests");
 
   const filters = [
@@ -84,10 +20,56 @@ const Projects = () => {
     "Progress: < 50%",
   ];
 
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/api/client/projects", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("crms_token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch projects");
+      }
+
+      const data = await res.json();
+
+      const formattedProjects = data.map((p) => ({
+        id: p.id,
+        name: p.name,
+        status:
+          p.status === "ACTIVE"
+            ? "In Development"
+            : p.status === "COMPLETED"
+              ? "Testing"
+              : p.status === "CANCELLED"
+                ? "Requirements"
+                : "In Development",
+        progress: p.progress || 0,
+        startDate: p.timeline || "N/A",
+        manager: p.clientName || "N/A",
+        budget: p.budget || 0,
+        description: p.description || "No description available.",
+      }));
+
+      setProjects(formattedProjects);
+    } catch (error) {
+      console.error("Failed to fetch projects:", error);
+      setProjects([]);
+    }
+  };
+
   const filteredProjects = projects.filter((project) => {
     const matchesSearch = project.name
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
+
     let matchesFilter = true;
 
     if (activeFilter === "Status: In Development")
@@ -106,7 +88,6 @@ const Projects = () => {
 
   return (
     <div className="space-y-6 -mt-6 relative z-10 px-8 pb-10">
-      {/* Search and Filter Bar */}
       <div className="flex items-center gap-4 relative">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-gray-400">
@@ -164,7 +145,6 @@ const Projects = () => {
         </div>
       </div>
 
-      {/* Projects Table */}
       <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -241,7 +221,6 @@ const Projects = () => {
         </div>
       </div>
 
-      {/* Project Detail Modal */}
       {selectedProject && (
         <div
           onClick={() => setSelectedProject(null)}
@@ -251,7 +230,6 @@ const Projects = () => {
             onClick={(e) => e.stopPropagation()}
             className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden relative cursor-default max-h-[90vh] overflow-y-auto"
           >
-            {/* Close Button */}
             <button
               onClick={() => setSelectedProject(null)}
               className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-all z-10"
@@ -272,17 +250,13 @@ const Projects = () => {
             </button>
 
             <div className="p-10">
-              {/* Project Header */}
               <h3 className="text-3xl font-bold text-gray-900 mb-3">
                 {selectedProject.name}
               </h3>
               <p className="text-base text-gray-600 mb-6 leading-relaxed">
-                A comprehensive platform development involving inventory
-                management, customer analytics, and high-performance secure gate
-                integration.
+                {selectedProject.description}
               </p>
 
-              {/* Timeline Badge */}
               <div className="inline-flex items-center gap-3 bg-gray-50 px-5 py-3 rounded-xl border border-gray-200 mb-6">
                 <div className="text-orange-500">
                   <svg
@@ -302,7 +276,6 @@ const Projects = () => {
                 </p>
               </div>
 
-              {/* Stats Grid */}
               <div className="grid grid-cols-4 gap-4 mb-6">
                 <StatCard
                   label="PROGRESS"
@@ -313,7 +286,6 @@ const Projects = () => {
                 <StatCard label="PENDING" value="3" icon="!" />
               </div>
 
-              {/* Tab Navigation */}
               <div className="bg-gray-100 p-1.5 rounded-2xl flex mb-6">
                 <button
                   onClick={() => setActiveTab("changeRequests")}
@@ -337,7 +309,6 @@ const Projects = () => {
                 </button>
               </div>
 
-              {/* Change Requests Table */}
               {activeTab === "changeRequests" && (
                 <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white">
                   <table className="w-full">
@@ -381,7 +352,6 @@ const Projects = () => {
                 </div>
               )}
 
-              {/* Documents Tab Content */}
               {activeTab === "documents" && (
                 <div className="border border-gray-200 rounded-2xl p-8 bg-gray-50 text-center">
                   <p className="text-gray-500 font-semibold">
@@ -397,7 +367,6 @@ const Projects = () => {
   );
 };
 
-// Stat Card Component for Modal
 const StatCard = ({ label, value, icon }) => (
   <div className="bg-gray-50 rounded-2xl p-5 text-center border border-gray-200">
     <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
@@ -410,7 +379,6 @@ const StatCard = ({ label, value, icon }) => (
   </div>
 );
 
-// Change Request Row Component
 const ChangeRequestRow = ({ id, title, date, status }) => (
   <tr className="hover:bg-gray-50">
     <td className="px-6 py-4 text-sm font-semibold text-gray-600">{id}</td>

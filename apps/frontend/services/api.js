@@ -1,11 +1,6 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
 
-function getToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("crms_token");
-}
-
 async function request(path, options = {}) {
   const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
   const token =
@@ -23,8 +18,10 @@ async function request(path, options = {}) {
 
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
+
       try {
         const contentType = response.headers.get("content-type") || "";
+
         if (contentType.includes("application/json")) {
           const errorData = await response.json();
           message = errorData.message || errorData.error || message;
@@ -35,6 +32,7 @@ async function request(path, options = {}) {
       } catch (e) {
         console.error("Error parsing error response:", e);
       }
+
       throw new Error(message);
     }
 
@@ -43,6 +41,7 @@ async function request(path, options = {}) {
     }
 
     const contentType = response.headers.get("content-type") || "";
+
     if (contentType.includes("application/json")) {
       const text = await response.text();
       return text ? JSON.parse(text) : null;
@@ -55,18 +54,19 @@ async function request(path, options = {}) {
     throw err;
   }
 }
-function getCompanyId(passedId) {
-  if (passedId) return passedId;
 
-  if (typeof window !== "undefined") {
-    const user = JSON.parse(localStorage.getItem("crms_user") || "{}");
-    return user?.id;
-  }
-
-  return null;
+function getStoredUser() {
+  if (typeof window === "undefined") return {};
+  return JSON.parse(localStorage.getItem("crms_user") || "{}");
 }
 
-// login
+function getCompanyId(passedId) {
+  if (passedId) return passedId;
+  const user = getStoredUser();
+  return user?.id || null;
+}
+
+// AUTH
 export function login(payload) {
   return request("/auth/login", {
     method: "POST",
@@ -74,22 +74,13 @@ export function login(payload) {
   });
 }
 
-// client dashboard
+// DASHBOARD
 export function getClientDashboard() {
-  const storedUser =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("crms_user") || "{}")
-      : {};
-
   return request("/client/dashboard", {
     method: "GET",
-    headers: {
-      "X-Client-Id": storedUser.id,
-    },
   });
 }
 
-// company dashboard
 export function getCompanyDashboard(companyId) {
   const resolvedCompanyId = getCompanyId(companyId);
 
@@ -105,28 +96,25 @@ export function getCompanyDashboard(companyId) {
   });
 }
 
-// client proposals list
+// PROPOSALS - CLIENT
 export function getClientProposals() {
   return request("/client/proposals", {
     method: "GET",
   });
 }
 
-// client single proposal detail
 export function getClientProposalById(proposalId) {
   return request(`/client/proposals/${proposalId}`, {
     method: "GET",
   });
 }
 
-// accept proposal
 export function acceptProposal(proposalId) {
   return request(`/client/proposals/${proposalId}/accept`, {
     method: "PATCH",
   });
 }
 
-// reject proposal
 export function rejectProposal(proposalId, rejectionReason) {
   return request(`/client/proposals/${proposalId}/reject`, {
     method: "PATCH",
@@ -134,14 +122,14 @@ export function rejectProposal(proposalId, rejectionReason) {
   });
 }
 
-// get registered clients
+// REGISTERED CLIENTS
 export function getRegisteredClients() {
   return request("/v1/clients/list", {
     method: "GET",
   });
 }
 
-// company proposals list
+// PROPOSALS - COMPANY
 export function getCompanyProposals(companyId) {
   const resolvedCompanyId = getCompanyId(companyId);
 
@@ -157,14 +145,36 @@ export function getCompanyProposals(companyId) {
   });
 }
 
-// PRD viewer for client
-export function getClientProjectPrd(projectId) {
-  return request(`/client/projects/${projectId}/prd`, {
+export function createCompanyProposal(payload, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
+  return request("/company/proposals", {
+    method: "POST",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+// PROJECTS - CLIENT
+export function getClientProjects() {
+  return request("/client/projects", {
     method: "GET",
   });
 }
 
-// company projects list
+export function getClientProjectById(projectId) {
+  return request(`/client/projects/${projectId}`, {
+    method: "GET",
+  });
+}
+
+// PROJECTS - COMPANY
 export function getCompanyProjects(companyId) {
   const resolvedCompanyId = getCompanyId(companyId);
 
@@ -180,60 +190,9 @@ export function getCompanyProjects(companyId) {
   });
 }
 
-// create company proposal
-export function createCompanyProposal(payload, companyId) {
-  const resolvedCompanyId =
-    companyId || JSON.parse(localStorage.getItem("crms_user") || "{}")?.id;
-
-  if (!resolvedCompanyId) {
-    throw new Error("Company ID is required");
-  }
-
-  return request("/company/proposals", {
-    method: "POST",
-    headers: {
-      "X-Company-Id": resolvedCompanyId,
-    },
-    body: JSON.stringify(payload),
-  });
-}
-
-// PRD management
-export function fetchPrds(token) {
-  return request("", {
-    method: "GET",
-    cache: "no-store",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-}
-
-export function createPrd(payload, token) {
-  return request("", {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: JSON.stringify(payload),
-  });
-}
-
-export function fetchPrdById(id, token) {
-  return request(`/${encodeURIComponent(id)}?ts=${Date.now()}`, {
-    method: "GET",
-    cache: "no-store",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-}
-
-export function updatePrd(id, payload, token) {
-  return request(`/${encodeURIComponent(id)}`, {
-    method: "PUT",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: JSON.stringify(payload),
-  });
-}
-
-// get client projects
-export function getClientProjects() {
-  return request("/client/projects", {
+// PRD / DOCUMENTS
+export function getClientProjectPrd(projectId) {
+  return request(`/client/projects/${projectId}/prd`, {
     method: "GET",
   });
 }
@@ -253,7 +212,7 @@ export async function downloadDocument(documentId) {
     if (!response.ok) {
       const contentType = response.headers.get("content-type") || "";
       let errorMessage = `HTTP ${response.status}`;
-      
+
       if (contentType.includes("application/json")) {
         try {
           const errorData = await response.json();
@@ -269,31 +228,27 @@ export async function downloadDocument(documentId) {
           console.error("Error reading error response:", e);
         }
       }
-      
+
       throw new Error(`Download failed: ${errorMessage}`);
     }
 
-    const contentType = response.headers.get("content-type") || "";
-    const contentLength = response.headers.get("content-length");
-    
-    if (!contentType && !contentLength) {
-      throw new Error("Invalid response: No content type or length provided");
-    }
-
     const blob = await response.blob();
-    
+
     if (blob.size === 0) {
       throw new Error("Download failed: Received empty file");
     }
 
-    return { blob, fileName: response.headers.get("content-disposition") };
+    return {
+      blob,
+      fileName: response.headers.get("content-disposition"),
+    };
   } catch (err) {
     console.error(`Download failed for document ${documentId}:`, err);
     throw err;
   }
 }
 
-// CLIENT CHANGE REQUESTS
+// CHANGE REQUESTS - CLIENT
 export function createClientChangeRequest(projectId, payload) {
   return request(`/client/projects/${projectId}/change-requests`, {
     method: "POST",
@@ -307,7 +262,7 @@ export function getClientChangeRequests() {
   });
 }
 
-// COMPANY CHANGE REQUESTS
+// CHANGE REQUESTS - COMPANY
 export function getCompanyChangeRequests() {
   return request("/company/change-requests", {
     method: "GET",
@@ -351,7 +306,7 @@ export async function downloadCompanyChangeRequest(changeRequestId) {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-    },
+    }
   );
 
   if (!response.ok) {
@@ -359,14 +314,18 @@ export async function downloadCompanyChangeRequest(changeRequestId) {
   }
 
   const blob = await response.blob();
+
   if (blob.size === 0) {
     throw new Error("Download failed: Received empty file");
   }
 
-  return { blob, fileName: response.headers.get("content-disposition") };
+  return {
+    blob,
+    fileName: response.headers.get("content-disposition"),
+  };
 }
 
-// COMPANY VERSION HISTORY
+// VERSION HISTORY - COMPANY
 export function getCompanyVersionHistory() {
   return request("/company/version-history", {
     method: "GET",

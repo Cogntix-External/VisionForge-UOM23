@@ -22,9 +22,16 @@ public class Project {
     private String name;
     private String description;
     private String proposalId;
+
     private String clientId;
     private String clientName;
+
     private String companyId;
+
+    // 🔥 NEW FIELDS (frontend project page ku)
+    private Double budget;        // ex: 95000
+    private String timeline;      // ex: "Jun 2024 - Jan 2025"
+    private Integer progress;     // ex: 65
 
     @Builder.Default
     private ProjectStatus status = ProjectStatus.ACTIVE;

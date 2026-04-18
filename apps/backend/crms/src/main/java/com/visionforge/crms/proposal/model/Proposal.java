@@ -21,11 +21,13 @@ public class Proposal {
 
     private String title;
     private String description;
+
     private String clientId;
     private String clientName;
+    private String companyId;
+
     private Double totalBudget;
     private Integer totalDurationDays;
-    private String companyId;
 
     private ProposalStatus status;
     private String rejectionReason;

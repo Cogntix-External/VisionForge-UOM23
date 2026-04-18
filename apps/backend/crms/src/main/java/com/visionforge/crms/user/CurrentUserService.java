@@ -11,6 +11,7 @@ public class CurrentUserService {
 
     private final UserRepository userRepository;
 
+    // 🔹 Get full user object
     public User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -24,10 +25,12 @@ public class CurrentUserService {
                 .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
     }
 
+    // 🔹 Get user ID
     public String getCurrentUserId() {
         return getCurrentUser().getId();
     }
 
+    // 🔹 Get user role
     public Role getCurrentUserRole() {
         return getCurrentUser().getRole();
     }
