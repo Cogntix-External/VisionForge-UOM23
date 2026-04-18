@@ -5,6 +5,7 @@ import com.visionforge.crms.project.model.Project;
 import com.visionforge.crms.project.repository.ProjectRepository;
 import com.visionforge.crms.proposal.model.Proposal;
 import com.visionforge.crms.user.CurrentUserService;
+import com.visionforge.crms.user.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +20,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final CurrentUserService currentUserService;
 
-    // Auto Create Project from accepted proposal
+    // Auto create project from accepted proposal
     public ProjectResponse createProjectFromProposal(Proposal proposal) {
         if (proposal == null) {
             throw new RuntimeException("Proposal cannot be null");
@@ -36,6 +37,17 @@ public class ProjectService {
                             .clientName(proposal.getClientName())
                             .companyId(proposal.getCompanyId())
                             .status(Project.ProjectStatus.ACTIVE)
+                            .budget(
+                                    proposal.getTotalBudget() != null
+                                            ? proposal.getTotalBudget()
+                                            : 0.0
+                            )
+                            .timeline(
+                                    proposal.getTotalDurationDays() != null
+                                            ? proposal.getTotalDurationDays() + " days"
+                                            : "Not defined"
+                            )
+                            .progress(0)
                             .createdAt(LocalDateTime.now())
                             .updatedAt(LocalDateTime.now())
                             .build();
@@ -52,7 +64,7 @@ public class ProjectService {
                 );
     }
 
-    // Company: Get All Projects
+    // Company side - all company projects
     public List<ProjectResponse> getProjectsByCompany(String companyId) {
         return projectRepository.findByCompanyId(companyId)
                 .stream()
@@ -60,17 +72,20 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
-    // Get Single Project
+    // Common project by id
     public ProjectResponse getProjectById(String projectId) {
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException(
-                        "Project not found: " + projectId
-                ));
+                .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
+
         return mapToResponse(project);
     }
 
-    // Client: Get Current Client Projects
+    // Client side - current logged-in client projects only
     public List<ProjectResponse> getProjectsForCurrentClient() {
+        if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
+            throw new RuntimeException("Only client can view client projects");
+        }
+
         String clientId = currentUserService.getCurrentUserId();
 
         List<Project> projects = projectRepository.findByClientId(clientId);
@@ -80,11 +95,25 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
+    // Client side - single project securely
+    public ProjectResponse getCurrentClientProjectById(String projectId) {
+        if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
+            throw new RuntimeException("Only client can view project details");
+        }
+
+        String clientId = currentUserService.getCurrentUserId();
+
+        Project project = projectRepository.findByIdAndClientId(projectId, clientId)
+                .orElseThrow(() -> new RuntimeException("Project not found for this client"));
+
+        return mapToResponse(project);
+    }
+
     public String getCurrentUserId() {
         return currentUserService.getCurrentUserId();
     }
 
-    // Private Helper
+    // Helper
     private ProjectResponse mapToResponse(Project project) {
         return ProjectResponse.builder()
                 .id(project.getId())
@@ -95,6 +124,9 @@ public class ProjectService {
                 .clientName(project.getClientName())
                 .companyId(project.getCompanyId())
                 .status(project.getStatus())
+                .budget(project.getBudget())
+                .timeline(project.getTimeline())
+                .progress(project.getProgress())
                 .createdAt(project.getCreatedAt())
                 .updatedAt(project.getUpdatedAt())
                 .build();

@@ -17,7 +17,13 @@ public class ProjectResponse {
     private String clientId;
     private String clientName;
     private String companyId;
+
+    // 🔥 important for frontend
     private ProjectStatus status;
+    private Double budget;
+    private String timeline;
+    private Integer progress;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -10,15 +10,19 @@ import java.util.Optional;
 @Repository
 public interface ProjectRepository extends MongoRepository<Project, String> {
 
-    // 🔹 Client side
+    // 🔹 Client side - current client projects
     List<Project> findByClientId(String clientId);
 
-    // 🔹 Company side
+    // 🔹 Company side - company projects
     List<Project> findByCompanyId(String companyId);
 
-    // 🔹 Link project with proposal
+    // 🔹 Proposal -> Project mapping
     Optional<Project> findByProposalId(String proposalId);
 
+    // 🔹 Secure fetch (important 🔥)
     Optional<Project> findByIdAndClientId(String id, String clientId);
     Optional<Project> findByIdAndCompanyId(String id, String companyId);
+
+    // 🔹 OPTIONAL (future use)
+    List<Project> findByStatus(Project.ProjectStatus status);
 }
