@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
+
 @Document(collection = "users")
 @Data
 @NoArgsConstructor
@@ -21,4 +23,12 @@ public class User {
     private String email;
     private String password;
     private Role role;
+
+    //  OTP verification fields
+    private String otp;
+    private boolean emailVerified;
+
+    //  Forgot Password fields
+    private String resetToken;
+    private LocalDateTime resetTokenExpiry;
 }

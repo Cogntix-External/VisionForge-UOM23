@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -33,20 +34,24 @@ public class AuthSecurityConfig {
     @Order(1)
     public SecurityFilterChain authSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/api/auth/**", "/api/client/**", "/api/company/**", "/api/projects/**")
+                .securityMatcher(
+                        "/api/auth/**",
+                        "/api/client/**",
+                        "/api/company/**",
+                        "/api/projects/**",
+                        "/api/user/**")
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/error", "/error/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/user/**").authenticated()
                         .requestMatchers("/api/client/**").hasRole("CLIENT")
                         .requestMatchers("/api/company/**").hasRole("COMPANY")
                         .requestMatchers("/api/projects/**").authenticated()
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -73,8 +78,9 @@ public class AuthSecurityConfig {
                 "http://localhost:*",
                 "http://127.0.0.1:*",
                 "https://localhost:*",
-                "https://127.0.0.1:*"
-        ));
+                "https://127.0.0.1:*",
+                "http://10.208.190.32:*",
+                "https://10.208.190.32:*"));
 
         config.setAllowedMethods(List.of(
                 "GET",
@@ -82,11 +88,12 @@ public class AuthSecurityConfig {
                 "PUT",
                 "PATCH",
                 "DELETE",
-                "OPTIONS"
-        ));
+                "OPTIONS"));
 
         config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

@@ -1,5 +1,10 @@
 import React, { useState } from "react";
 import { API_BASE } from "../constants";
+import {
+  validateEmail,
+  validatePassword,
+  getPasswordError,
+} from "../utils/validators";
 
 const normalizeRole = (rawRole) => {
   if (!rawRole) return "";
@@ -11,13 +16,22 @@ const normalizeRole = (rawRole) => {
 
 const Auth = ({ onLogin }) => {
   const [view, setView] = useState("login");
+
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+
   const [signupForm, setSignupForm] = useState({
     fullName: "",
     email: "",
     password: "",
     role: "CLIENT",
   });
+
+  const [otpForm, setOtpForm] = useState({
+    email: "",
+    otp: "",
+  });
+
+  const [forgotEmail, setForgotEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -32,11 +46,60 @@ const Auth = ({ onLogin }) => {
     }
   };
 
+  const storeSessionAndRedirect = (data, fallbackEmail = "") => {
+    const token = data?.token;
+    const resolvedRole = normalizeRole(data?.role);
+    const resolvedEmail = data?.email || fallbackEmail;
+    const resolvedName =
+      data?.fullName ||
+      data?.name ||
+      (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
+
+    if (token) {
+      localStorage.setItem("crms_token", token);
+    }
+
+    localStorage.setItem("crms_role", resolvedRole || "");
+    localStorage.setItem(
+      "crms_user",
+      JSON.stringify({
+        ...data,
+        email: resolvedEmail,
+        fullName: resolvedName,
+        role: resolvedRole,
+      })
+    );
+
+    if (resolvedRole === "COMPANY" && data?.id) {
+      localStorage.setItem("companyId", data.id);
+    }
+    if (resolvedRole === "CLIENT" && data?.id) {
+      localStorage.setItem("clientId", data.id);
+    }
+
+    onLogin?.({
+      ...data,
+      email: resolvedEmail,
+      fullName: resolvedName,
+      role: resolvedRole,
+    });
+
+    setTimeout(() => {
+      redirectByRole(resolvedRole);
+    }, 500);
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setSuccess("");
+
+    if (!validateEmail(loginForm.email.trim())) {
+      setError("Enter a valid email address");
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE}/api/auth/login`, {
@@ -62,48 +125,8 @@ const Auth = ({ onLogin }) => {
         throw new Error(data?.message || "Login failed");
       }
 
-      const token = data?.token;
-      const resolvedRole = normalizeRole(data?.role);
-      const resolvedEmail = data?.email || loginForm.email.trim();
-      const resolvedName =
-        data?.fullName ||
-        data?.name ||
-        (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
-
-      if (token) {
-        localStorage.setItem("crms_token", token);
-      }
-
-      localStorage.setItem("crms_role", resolvedRole || "");
-      localStorage.setItem(
-        "crms_user",
-        JSON.stringify({
-          ...data,
-          email: resolvedEmail,
-          fullName: resolvedName,
-          role: resolvedRole,
-        }),
-      );
-
-      if (resolvedRole === "COMPANY" && data?.id) {
-        localStorage.setItem("companyId", data.id);
-      }
-      if (resolvedRole === "CLIENT" && data?.id) {
-        localStorage.setItem("clientId", data.id);
-      }
-
       setSuccess("Logged in successfully");
-
-      onLogin?.({
-        ...data,
-        email: resolvedEmail,
-        fullName: resolvedName,
-        role: resolvedRole,
-      });
-
-      setTimeout(() => {
-        redirectByRole(resolvedRole);
-      }, 500);
+      storeSessionAndRedirect(data, loginForm.email.trim());
     } catch (err) {
       setError(err.message || "Login failed");
     } finally {
@@ -116,6 +139,24 @@ const Auth = ({ onLogin }) => {
     setLoading(true);
     setError("");
     setSuccess("");
+
+    if (!signupForm.fullName.trim()) {
+      setError("Full name is required");
+      setLoading(false);
+      return;
+    }
+
+    if (!validateEmail(signupForm.email.trim())) {
+      setError("Enter a valid email address");
+      setLoading(false);
+      return;
+    }
+
+    if (!validatePassword(signupForm.password)) {
+      setError(getPasswordError(signupForm.password));
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE}/api/auth/register`, {
@@ -136,60 +177,129 @@ const Auth = ({ onLogin }) => {
         data = await response.json();
       } else {
         const text = await response.text();
-        throw new Error(text || "Signup failed");
+        data = { message: text || "Signup failed" };
       }
 
       if (!response.ok) {
         throw new Error(
-          data?.message || data?.detail || data?.error || "Signup failed",
+          data?.message || data?.detail || data?.error || "Signup failed"
         );
       }
 
-      const token = data?.token;
-      const resolvedRole = normalizeRole(data?.role || signupForm.role);
-      const resolvedEmail = data?.email || signupForm.email.trim();
-      const resolvedName =
-        data?.fullName ||
-        data?.name ||
-        signupForm.fullName.trim() ||
-        (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
+      const signupEmail = signupForm.email.trim();
 
-      if (token) {
-        localStorage.setItem("crms_token", token);
-      }
-
-      localStorage.setItem("crms_role", resolvedRole || "");
-      localStorage.setItem(
-        "crms_user",
-        JSON.stringify({
-          ...data,
-          email: resolvedEmail,
-          fullName: resolvedName,
-          role: resolvedRole,
-        }),
-      );
-
-      if (resolvedRole === "COMPANY" && data?.id) {
-        localStorage.setItem("companyId", data.id);
-      }
-      if (resolvedRole === "CLIENT" && data?.id) {
-        localStorage.setItem("clientId", data.id);
-      }
-
-      setSuccess("Account created successfully");
-
-      onLogin?.({
-        ...data,
-        email: resolvedEmail,
-        fullName: resolvedName,
-        role: resolvedRole,
+      setOtpForm({
+        email: signupEmail,
+        otp: "",
       });
 
-      setTimeout(() => {
-        redirectByRole(resolvedRole);
-      }, 500);
+      localStorage.setItem("otp_email", signupEmail);
+      localStorage.setItem("otp_role", signupForm.role);
+
+      setSuccess(data?.message || "OTP sent to your email");
+      setError("");
+      setView("verifyOtp");
     } catch (err) {
       setError(err.message || "Signup failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    if (!validateEmail(otpForm.email.trim())) {
+      setError("Enter a valid email address");
+      setLoading(false);
+      return;
+    }
+
+    if (!otpForm.otp.trim()) {
+      setError("Enter OTP");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: otpForm.email.trim(),
+          otp: otpForm.otp.trim(),
+        }),
+      });
+
+      let data = null;
+      const contentType = response.headers.get("content-type");
+
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || "OTP verification failed");
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.message || "OTP verification failed");
+      }
+
+      localStorage.removeItem("otp_email");
+      localStorage.removeItem("otp_role");
+
+      setSuccess("Email verified successfully");
+      storeSessionAndRedirect(data, otpForm.email.trim());
+    } catch (err) {
+      setError(err.message || "OTP verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    if (!validateEmail(forgotEmail.trim())) {
+      setError("Enter a valid email address");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: forgotEmail.trim(),
+        }),
+      });
+
+      let data = null;
+      const contentType = response.headers.get("content-type");
+
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || "Failed to send reset link");
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to send reset link");
+      }
+
+      setSuccess(data?.message || "Reset link sent successfully");
+      setForgotEmail("");
+    } catch (err) {
+      setError(err.message || "Failed to send reset link");
     } finally {
       setLoading(false);
     }
@@ -238,10 +348,14 @@ const Auth = ({ onLogin }) => {
             </p>
           </div>
 
-          {view !== "forgot" && (
+          {view !== "forgot" && view !== "verifyOtp" && (
             <div className="bg-[#ede9ff] p-1 rounded-full flex mb-6 overflow-hidden">
               <button
-                onClick={() => setView("login")}
+                onClick={() => {
+                  setView("login");
+                  setError("");
+                  setSuccess("");
+                }}
                 className={`flex-1 py-3 text-base font-semibold rounded-full transition-all ${
                   view === "login"
                     ? "bg-white shadow-sm text-purple-800"
@@ -251,7 +365,11 @@ const Auth = ({ onLogin }) => {
                 Log in
               </button>
               <button
-                onClick={() => setView("signup")}
+                onClick={() => {
+                  setView("signup");
+                  setError("");
+                  setSuccess("");
+                }}
                 className={`flex-1 py-3 text-base font-semibold rounded-full transition-all ${
                   view === "signup"
                     ? "bg-white shadow-sm text-purple-800"
@@ -308,7 +426,11 @@ const Auth = ({ onLogin }) => {
                       </label>
                       <button
                         type="button"
-                        onClick={() => setView("forgot")}
+                        onClick={() => {
+                          setView("forgot");
+                          setError("");
+                          setSuccess("");
+                        }}
                         className="text-purple-600 text-sm font-medium hover:underline"
                       >
                         Forgot password?
@@ -354,7 +476,11 @@ const Auth = ({ onLogin }) => {
                     Do not have an account?{" "}
                     <button
                       type="button"
-                      onClick={() => setView("signup")}
+                      onClick={() => {
+                        setView("signup");
+                        setError("");
+                        setSuccess("");
+                      }}
                       className="text-purple-600 font-semibold hover:underline"
                     >
                       Register now
@@ -428,6 +554,12 @@ const Auth = ({ onLogin }) => {
                       }
                       required
                     />
+                    {signupForm.password &&
+                      !validatePassword(signupForm.password) && (
+                        <p className="text-red-500 text-sm mt-2">
+                          {getPasswordError(signupForm.password)}
+                        </p>
+                      )}
                   </div>
 
                   <div>
@@ -460,13 +592,84 @@ const Auth = ({ onLogin }) => {
                     Already have an account?{" "}
                     <button
                       type="button"
-                      onClick={() => setView("login")}
+                      onClick={() => {
+                        setView("login");
+                        setError("");
+                        setSuccess("");
+                      }}
                       className="text-purple-600 font-semibold hover:underline"
                     >
                       Login
                     </button>
                   </p>
                 </div>
+              </form>
+            )}
+
+            {view === "verifyOtp" && (
+              <form onSubmit={handleVerifyOtp} className="space-y-5">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                    Verify OTP
+                  </h2>
+                  <p className="text-gray-600 text-sm">
+                    Enter the OTP generated for your email to activate your
+                    account.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg outline-none"
+                      value={otpForm.email}
+                      onChange={(e) =>
+                        setOtpForm({ ...otpForm, email: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      OTP
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                      placeholder="Enter 6-digit OTP"
+                      value={otpForm.otp}
+                      onChange={(e) =>
+                        setOtpForm({ ...otpForm, otp: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Verifying..." : "Verify OTP"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setView("signup");
+                    setError("");
+                    setSuccess("");
+                  }}
+                  className="w-full text-purple-600 font-semibold hover:underline"
+                >
+                  Back to Sign up
+                </button>
               </form>
             )}
 
@@ -477,7 +680,7 @@ const Auth = ({ onLogin }) => {
                     Forgot Password
                   </h2>
                   <p className="text-gray-600 text-sm">
-                    No worries, we'll send you reset instructions
+                    No worries, we&apos;ll send you reset instructions
                   </p>
                 </div>
 
@@ -489,15 +692,28 @@ const Auth = ({ onLogin }) => {
                     type="email"
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
                     placeholder="Enter your email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
                   />
                 </div>
 
-                <button className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200">
-                  Send Reset Link
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                  className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Sending..." : "Send Reset Link"}
                 </button>
 
                 <button
-                  onClick={() => setView("login")}
+                  type="button"
+                  onClick={() => {
+                    setView("login");
+                    setError("");
+                    setSuccess("");
+                  }}
                   className="w-full text-purple-600 font-semibold hover:underline"
                 >
                   Back to Login

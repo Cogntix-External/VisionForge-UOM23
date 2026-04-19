@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 
 export const metadata = {
-  title: "CRMS Client Portal",
+  title: "CRMS ",
   description: "Change & Requirement Management System",
 };
 
