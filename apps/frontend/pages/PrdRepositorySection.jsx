@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileEdit, FileText, History, Plus, Search, Trash2, X } from "lucide-react";
 import { cn } from "../utils/cn.js";
-import { createPrd, fetchPrds, getCompanyProjects } from "@/services/api";
+import { createPrd, getAllPrds, getCompanyProjects } from "@/services/api";
 import { getToken } from "@/utils/auth";
 
 const emptyStakeholder = () => ({ role: "", name: "", responsibility: "" });
@@ -232,7 +232,7 @@ export default function CompanyPrdRepositorySection() {
 
       try {
         setIsLoading(true);
-        const list = await fetchPrds(token);
+        const list = await getAllPrds();
         setPrdList(Array.isArray(list) ? list : []);
       } catch {
         setPrdList([]);
@@ -400,7 +400,7 @@ export default function CompanyPrdRepositorySection() {
 
     try {
       setIsSaving(true);
-      const created = await createPrd(form, token);
+      const created = await createPrd(form.projectId, form);
       setPrdList((prev) => [created, ...prev]);
       setSubmitMessage("PRD submitted successfully.");
       closeModal();

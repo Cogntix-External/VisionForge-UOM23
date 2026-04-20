@@ -226,89 +226,56 @@ export function getClientProjectPrd(projectId) {
   });
 }
 
+export function getAllPrds() {
+  return request("", {
+    method: "GET",
+  });
+}
+
 // PRD / DOCUMENTS - COMPANY
-export function fetchPrds(projectId, companyId) {
-  const resolvedCompanyId = getCompanyId(companyId);
-
-  if (!resolvedCompanyId) {
-    throw new Error("Company ID is required");
-  }
+export async function fetchPrds(projectId) {
+  const list = await getAllPrds();
 
   if (!projectId) {
-    throw new Error("Project ID is required");
+    return list;
   }
 
-  return request(`/company/projects/${projectId}/prds`, {
-    method: "GET",
-    headers: {
-      "X-Company-Id": resolvedCompanyId,
-    },
-  });
+  return Array.isArray(list)
+    ? list.filter((item) => String(item.projectId || "") === String(projectId))
+    : [];
 }
 
-export function fetchPrdById(projectId, prdId, companyId) {
-  const resolvedCompanyId = getCompanyId(companyId);
-
-  if (!resolvedCompanyId) {
-    throw new Error("Company ID is required");
-  }
-
-  if (!projectId) {
-    throw new Error("Project ID is required");
-  }
-
+export function fetchPrdById(prdId) {
   if (!prdId) {
     throw new Error("PRD ID is required");
   }
 
-  return request(`/company/projects/${projectId}/prds/${prdId}`, {
+  return request(`/${prdId}`, {
     method: "GET",
-    headers: {
-      "X-Company-Id": resolvedCompanyId,
-    },
   });
 }
 
-export function createPrd(projectId, payload, companyId) {
-  const resolvedCompanyId = getCompanyId(companyId);
-
-  if (!resolvedCompanyId) {
-    throw new Error("Company ID is required");
-  }
-
+export function createPrd(projectId, payload) {
   if (!projectId) {
     throw new Error("Project ID is required");
   }
 
-  return request(`/company/projects/${projectId}/prds`, {
+  return request("", {
     method: "POST",
-    headers: {
-      "X-Company-Id": resolvedCompanyId,
-    },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      projectId,
+    }),
   });
 }
 
-export function updatePrd(projectId, prdId, payload, companyId) {
-  const resolvedCompanyId = getCompanyId(companyId);
-
-  if (!resolvedCompanyId) {
-    throw new Error("Company ID is required");
-  }
-
-  if (!projectId) {
-    throw new Error("Project ID is required");
-  }
-
+export function updatePrd(prdId, payload) {
   if (!prdId) {
     throw new Error("PRD ID is required");
   }
 
-  return request(`/company/projects/${projectId}/prds/${prdId}`, {
+  return request(`/${prdId}`, {
     method: "PUT",
-    headers: {
-      "X-Company-Id": resolvedCompanyId,
-    },
     body: JSON.stringify(payload),
   });
 }
