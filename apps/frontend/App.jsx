@@ -85,7 +85,7 @@ const PAGE_INFO = {
       subtitle: "Create and manage proposals sent to clients.",
     },
     kanban: {
-      title: "Project company side Kanban",
+      title: "Project Company-side Kanban",
       subtitle: "Manage tasks and monitor team progress visually.",
     },
     notifications: {
@@ -104,6 +104,14 @@ const DEFAULT_PAGE_BY_ROLE = {
   COMPANY: "dashboard",
 };
 
+const normalizeRole = (role) => {
+  if (!role) return "";
+  const value = String(role).trim().toUpperCase();
+  if (value === "ROLE_CLIENT") return "CLIENT";
+  if (value === "ROLE_COMPANY") return "COMPANY";
+  return value;
+};
+
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
@@ -114,20 +122,49 @@ const App = () => {
   useEffect(() => {
     const storedToken = localStorage.getItem("crms_token");
     const storedUser = localStorage.getItem("crms_user");
+    const savedSidebarMode = localStorage.getItem("crms_sidebar_mode");
+    const savedActivePage = localStorage.getItem("crms_active_page");
+
+    if (savedSidebarMode === "expanded" || savedSidebarMode === "collapsed") {
+      setSidebarMode(savedSidebarMode);
+    }
 
     if (storedToken && storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
 
         if (parsedUser?.role) {
-          setUser(parsedUser);
+          const normalizedRole = normalizeRole(parsedUser.role);
+          const safeDefaultPage =
+            DEFAULT_PAGE_BY_ROLE[normalizedRole] || "dashboard";
+
+          const safeUser = {
+            ...parsedUser,
+            role: normalizedRole,
+          };
+
+          setUser(safeUser);
           setIsLoggedIn(true);
-          setActivePage(DEFAULT_PAGE_BY_ROLE[parsedUser.role] || "dashboard");
+
+          if (
+            savedActivePage &&
+            typeof savedActivePage === "string" &&
+            PAGE_ACCESS[savedActivePage]?.includes(normalizedRole)
+          ) {
+            setActivePage(savedActivePage);
+          } else {
+            setActivePage(safeDefaultPage);
+            localStorage.setItem("crms_active_page", safeDefaultPage);
+          }
         }
       } catch (error) {
         console.error("Failed to parse stored user:", error);
         localStorage.removeItem("crms_token");
         localStorage.removeItem("crms_user");
+        localStorage.removeItem("crms_role");
+        localStorage.removeItem("crms_active_page");
+        localStorage.removeItem("companyId");
+        localStorage.removeItem("clientId");
       }
     }
   }, []);
@@ -144,27 +181,46 @@ const App = () => {
   const safeSetActivePage = (page) => {
     if (!currentRole) return;
 
+    if (typeof page !== "string") {
+      console.error("Invalid page value:", page);
+      return;
+    }
+
     if (PAGE_ACCESS[page]?.includes(currentRole)) {
       setActivePage(page);
+      localStorage.setItem("crms_active_page", page);
       setShowNotifications(false);
     } else {
-      setActivePage(DEFAULT_PAGE_BY_ROLE[currentRole] || "dashboard");
+      const fallbackPage = DEFAULT_PAGE_BY_ROLE[currentRole] || "dashboard";
+      setActivePage(fallbackPage);
+      localStorage.setItem("crms_active_page", fallbackPage);
+      setShowNotifications(false);
     }
   };
 
   useEffect(() => {
     if (!currentRole) return;
 
-    const isCurrentPageAllowed = PAGE_ACCESS[activePage]?.includes(currentRole);
+    const isCurrentPageAllowed =
+      typeof activePage === "string" &&
+      PAGE_ACCESS[activePage]?.includes(currentRole);
 
     if (!isCurrentPageAllowed) {
-      setActivePage(DEFAULT_PAGE_BY_ROLE[currentRole] || "dashboard");
+      const fallbackPage = DEFAULT_PAGE_BY_ROLE[currentRole] || "dashboard";
+      setActivePage(fallbackPage);
+      localStorage.setItem("crms_active_page", fallbackPage);
     }
   }, [activePage, currentRole]);
 
   const handleLogout = () => {
     localStorage.removeItem("crms_token");
     localStorage.removeItem("crms_user");
+    localStorage.removeItem("crms_role");
+    localStorage.removeItem("companyId");
+    localStorage.removeItem("clientId");
+    localStorage.removeItem("crms_active_page");
+    localStorage.removeItem("crms_sidebar_mode");
+
     setUser(null);
     setIsLoggedIn(false);
     setActivePage("dashboard");
@@ -172,20 +228,42 @@ const App = () => {
   };
 
   const handleLoginSuccess = (loginResponse) => {
+    const normalizedRole = normalizeRole(loginResponse.role);
+
     const loggedInUser = {
       id: loginResponse.id,
       name: loginResponse.name,
+      fullName: loginResponse.fullName || loginResponse.name,
       email: loginResponse.email,
-      role: loginResponse.role,
+      role: normalizedRole,
       token: loginResponse.token,
     };
 
     localStorage.setItem("crms_token", loginResponse.token);
+    localStorage.setItem("crms_role", normalizedRole);
     localStorage.setItem("crms_user", JSON.stringify(loggedInUser));
+
+    if (normalizedRole === ROLE.COMPANY && loginResponse.id) {
+      localStorage.setItem("companyId", loginResponse.id);
+    }
+
+    if (normalizedRole === ROLE.CLIENT && loginResponse.id) {
+      localStorage.setItem("clientId", loginResponse.id);
+    }
+
+    const defaultPage = DEFAULT_PAGE_BY_ROLE[normalizedRole] || "dashboard";
+    localStorage.setItem("crms_active_page", defaultPage);
 
     setUser(loggedInUser);
     setIsLoggedIn(true);
-    setActivePage(DEFAULT_PAGE_BY_ROLE[loggedInUser.role] || "dashboard");
+    setActivePage(defaultPage);
+    setShowNotifications(false);
+  };
+
+  const handleToggleSidebarMode = () => {
+    const nextMode = sidebarMode === "expanded" ? "collapsed" : "expanded";
+    setSidebarMode(nextMode);
+    localStorage.setItem("crms_sidebar_mode", nextMode);
   };
 
   if (!isLoggedIn) {
@@ -224,7 +302,7 @@ const App = () => {
     }
 
     return (
-      PAGE_INFO[currentRole][activePage] || {
+      PAGE_INFO[currentRole]?.[activePage] || {
         title: "Dashboard",
         subtitle: "",
       }
@@ -239,9 +317,7 @@ const App = () => {
         activePage={activePage}
         onNavigate={safeSetActivePage}
         mode={sidebarMode}
-        onToggleMode={() =>
-          setSidebarMode(sidebarMode === "expanded" ? "collapsed" : "expanded")
-        }
+        onToggleMode={handleToggleSidebarMode}
         onLogout={handleLogout}
         user={user}
         role={currentRole}
@@ -293,7 +369,7 @@ const App = () => {
                     isNew={true}
                   />
                   <NotificationCard
-                    title="New ChangeRequest"
+                    title="New Change Request"
                     message="A client has submitted a new change request for review."
                     time="3 hours ago"
                     isNew={false}
@@ -307,6 +383,7 @@ const App = () => {
     </div>
   );
 };
+
 const NotificationCard = ({ title, message, time, isNew }) => (
   <div className="bg-white rounded-xl shadow-2xl p-4 border-l-4 border-purple-500 transform transition-all animate-in slide-in-from-top-4 duration-300">
     <div className="flex justify-between items-start mb-1">

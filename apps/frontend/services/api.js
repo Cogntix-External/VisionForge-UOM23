@@ -1,6 +1,22 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
 
+async function parseResponse(response) {
+  if (response.status === 204) {
+    return null;
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  }
+
+  const text = await response.text();
+  return text || null;
+}
+
 async function request(path, options = {}) {
   const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
   const token =
@@ -20,14 +36,12 @@ async function request(path, options = {}) {
       let message = `HTTP ${response.status}`;
 
       try {
-        const contentType = response.headers.get("content-type") || "";
+        const errorData = await parseResponse(response);
 
-        if (contentType.includes("application/json")) {
-          const errorData = await response.json();
+        if (typeof errorData === "string") {
+          message = errorData || message;
+        } else if (errorData && typeof errorData === "object") {
           message = errorData.message || errorData.error || message;
-        } else {
-          const text = await response.text();
-          message = text || message;
         }
       } catch (e) {
         console.error("Error parsing error response:", e);
@@ -36,19 +50,7 @@ async function request(path, options = {}) {
       throw new Error(message);
     }
 
-    if (response.status === 204) {
-      return null;
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-
-    if (contentType.includes("application/json")) {
-      const text = await response.text();
-      return text ? JSON.parse(text) : null;
-    }
-
-    const text = await response.text();
-    return text || null;
+    return await parseResponse(response);
   } catch (err) {
     console.error(`Request failed for ${path}:`, err);
     throw err;
@@ -57,13 +59,19 @@ async function request(path, options = {}) {
 
 function getStoredUser() {
   if (typeof window === "undefined") return {};
-  return JSON.parse(localStorage.getItem("crms_user") || "{}");
+
+  try {
+    return JSON.parse(localStorage.getItem("crms_user") || "{}");
+  } catch (error) {
+    console.error("Failed to parse stored user:", error);
+    return {};
+  }
 }
 
 function getCompanyId(passedId) {
   if (passedId) return passedId;
   const user = getStoredUser();
-  return user?.id || null;
+  return user?.id || localStorage.getItem("companyId") || null;
 }
 
 // AUTH
@@ -71,6 +79,27 @@ export function login(payload) {
   return request("/auth/login", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function register(payload) {
+  return request("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function forgotPassword(email) {
+  return request("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function resetPassword(token, newPassword) {
+  return request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, newPassword }),
   });
 }
 
@@ -190,10 +219,97 @@ export function getCompanyProjects(companyId) {
   });
 }
 
-// PRD / DOCUMENTS
+// PRD / DOCUMENTS - CLIENT
 export function getClientProjectPrd(projectId) {
   return request(`/client/projects/${projectId}/prd`, {
     method: "GET",
+  });
+}
+
+// PRD / DOCUMENTS - COMPANY
+export function fetchPrds(projectId, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
+  if (!projectId) {
+    throw new Error("Project ID is required");
+  }
+
+  return request(`/company/projects/${projectId}/prds`, {
+    method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
+  });
+}
+
+export function fetchPrdById(projectId, prdId, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
+  if (!projectId) {
+    throw new Error("Project ID is required");
+  }
+
+  if (!prdId) {
+    throw new Error("PRD ID is required");
+  }
+
+  return request(`/company/projects/${projectId}/prds/${prdId}`, {
+    method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
+  });
+}
+
+export function createPrd(projectId, payload, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
+  if (!projectId) {
+    throw new Error("Project ID is required");
+  }
+
+  return request(`/company/projects/${projectId}/prds`, {
+    method: "POST",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updatePrd(projectId, prdId, payload, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
+  if (!projectId) {
+    throw new Error("Project ID is required");
+  }
+
+  if (!prdId) {
+    throw new Error("PRD ID is required");
+  }
+
+  return request(`/company/projects/${projectId}/prds/${prdId}`, {
+    method: "PUT",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
+    body: JSON.stringify(payload),
   });
 }
 
@@ -210,23 +326,21 @@ export async function downloadDocument(documentId) {
     });
 
     if (!response.ok) {
-      const contentType = response.headers.get("content-type") || "";
       let errorMessage = `HTTP ${response.status}`;
 
-      if (contentType.includes("application/json")) {
-        try {
+      try {
+        const contentType = response.headers.get("content-type") || "";
+
+        if (contentType.includes("application/json")) {
           const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (e) {
-          console.error("Error parsing error response:", e);
-        }
-      } else {
-        try {
+          errorMessage =
+            errorData.message || errorData.error || errorMessage;
+        } else {
           const text = await response.text();
           errorMessage = text || errorMessage;
-        } catch (e) {
-          console.error("Error reading error response:", e);
         }
+      } catch (e) {
+        console.error("Error parsing download error response:", e);
       }
 
       throw new Error(`Download failed: ${errorMessage}`);
@@ -263,34 +377,79 @@ export function getClientChangeRequests() {
 }
 
 // CHANGE REQUESTS - COMPANY
-export function getCompanyChangeRequests() {
+export function getCompanyChangeRequests(companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
   return request("/company/change-requests", {
     method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
   });
 }
 
-export function getCompanyChangeRequestsByProject(projectId) {
+export function getCompanyChangeRequestsByProject(projectId, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
   return request(`/company/projects/${projectId}/change-requests`, {
     method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
   });
 }
 
-export function getCompanyChangeRequestsByProjectAndPrd(projectId, prdId) {
+export function getCompanyChangeRequestsByProjectAndPrd(projectId, prdId, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
   return request(`/company/projects/${projectId}/prds/${prdId}/change-requests`, {
     method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
   });
 }
 
-export function decideCompanyChangeRequest(changeRequestId, payload) {
+export function decideCompanyChangeRequest(changeRequestId, payload, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
   return request(`/company/change-requests/${changeRequestId}/decision`, {
     method: "PATCH",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
     body: JSON.stringify(payload),
   });
 }
 
-export function markCompanyChangeRequestImplemented(changeRequestId, payload) {
+export function markCompanyChangeRequestImplemented(changeRequestId, payload, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
   return request(`/company/change-requests/${changeRequestId}/implemented`, {
     method: "PATCH",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
     body: JSON.stringify(payload),
   });
 }
@@ -326,15 +485,33 @@ export async function downloadCompanyChangeRequest(changeRequestId) {
 }
 
 // VERSION HISTORY - COMPANY
-export function getCompanyVersionHistory() {
+export function getCompanyVersionHistory(companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
   return request("/company/version-history", {
     method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
   });
 }
 
-export function getCompanyVersionHistoryEntries(projectId, prdId) {
+export function getCompanyVersionHistoryEntries(projectId, prdId, companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  if (!resolvedCompanyId) {
+    throw new Error("Company ID is required");
+  }
+
   return request(`/company/version-history/projects/${projectId}/prds/${prdId}`, {
     method: "GET",
+    headers: {
+      "X-Company-Id": resolvedCompanyId,
+    },
   });
 }
 
