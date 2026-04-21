@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Icons } from "../constants";
-import { getClientDashboard, getCompanyDashboard } from "../services/api";
+import {
+  getClientDashboard,
+  getCompanyDashboard,
+  getClientChangeRequests,
+} from "../services/api";
 
 const normalizeRole = (rawRole) => {
   if (!rawRole) return "";
@@ -47,6 +51,8 @@ const Dashboard = ({ user, role }) => {
   }, [user]);
 
   const [dashboardData, setDashboardData] = useState(null);
+  const [pendingCRs, setPendingCRs] = useState(0);
+  const [approvedCRs, setApprovedCRs] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -65,6 +71,7 @@ const Dashboard = ({ user, role }) => {
             ? await getCompanyDashboard()
             : await getClientDashboard();
 
+        console.log("Dashboard data:", data);
         setDashboardData(data || {});
       } catch (err) {
         console.error("Dashboard fetch error:", err);
@@ -76,6 +83,54 @@ const Dashboard = ({ user, role }) => {
 
     fetchDashboardData();
   }, [resolvedRole]);
+
+  useEffect(() => {
+    const fetchClientCRCounts = async () => {
+      if (resolvedRole !== "CLIENT") return;
+
+      try {
+        const crs = await getClientChangeRequests();
+        console.log("Client CRs:", crs);
+
+        let pending = 0;
+        let approved = 0;
+
+        (Array.isArray(crs) ? crs : []).forEach((cr) => {
+          const status = String(cr?.status || "").trim().toUpperCase();
+
+          console.log("CR STATUS:", status);
+
+          if (status.includes("PENDING")) {
+            pending++;
+          }
+
+          if (status.includes("APPROVED") || status.includes("ACCEPTED")) {
+            approved++;
+          }
+        });
+
+        setPendingCRs(pending);
+        setApprovedCRs(approved);
+      } catch (err) {
+        console.error("CR count fetch error:", err);
+        setPendingCRs(0);
+        setApprovedCRs(0);
+      }
+    };
+
+    fetchClientCRCounts();
+  }, [resolvedRole]);
+
+  const isCompany = resolvedRole === "COMPANY";
+  const safeData = dashboardData || {};
+
+  const recentProjects = Array.isArray(safeData.recentProjects)
+    ? safeData.recentProjects
+    : [];
+
+  const recentProposals = Array.isArray(safeData.recentProposals)
+    ? safeData.recentProposals
+    : [];
 
   if (loading) {
     return (
@@ -98,15 +153,6 @@ const Dashboard = ({ user, role }) => {
       </div>
     );
   }
-
-  const isCompany = resolvedRole === "COMPANY";
-  const safeData = dashboardData || {};
-  const recentProjects = Array.isArray(safeData.recentProjects)
-    ? safeData.recentProjects
-    : [];
-  const recentProposals = Array.isArray(safeData.recentProposals)
-    ? safeData.recentProposals
-    : [];
 
   return (
     <div className="space-y-10 -mt-6 relative z-10 px-4 pb-10">
@@ -165,13 +211,13 @@ const Dashboard = ({ user, role }) => {
             />
             <StatCard
               title="Pending CRs"
-              value={safeData.pendingChangeRequestsCount || 0}
+              value={pendingCRs}
               icon={<Icons.ChangeRequests />}
               color="from-amber-500 to-amber-600"
             />
             <StatCard
               title="Approved CRs"
-              value={safeData.approvedChangeRequestsCount || 0}
+              value={approvedCRs}
               icon={<Icons.Kanban />}
               color="from-emerald-500 to-emerald-600"
             />
@@ -199,7 +245,11 @@ const Dashboard = ({ user, role }) => {
                 recentProjects.map((project, index) => (
                   <ActivityItem
                     key={project?.id || index}
-                    title={project?.projectName || "Untitled Project"}
+                    title={
+                      project?.projectName ||
+                      project?.name ||
+                      "Untitled Project"
+                    }
                     desc={`Owner: ${project?.owner || "Unknown"} | Status: ${
                       project?.status || "UNKNOWN"
                     }`}
@@ -221,8 +271,8 @@ const Dashboard = ({ user, role }) => {
                     proposal?.updatedAt
                       ? new Date(proposal.updatedAt).toLocaleDateString()
                       : proposal?.createdAt
-                      ? new Date(proposal.createdAt).toLocaleDateString()
-                      : ""
+                        ? new Date(proposal.createdAt).toLocaleDateString()
+                        : ""
                   }
                 />
               ))
@@ -262,8 +312,18 @@ const Dashboard = ({ user, role }) => {
               recentProjects.map((project, index) => (
                 <HealthItem
                   key={project?.id || index}
-                  name={project?.name || project?.projectName || "Untitled Project"}
-                  progress={project?.status === "ACTIVE" ? 100 : 0}
+                  name={
+                    project?.name ||
+                    project?.projectName ||
+                    "Untitled Project"
+                  }
+                  progress={
+                    typeof project?.progress === "number"
+                      ? project.progress
+                      : project?.status === "ACTIVE"
+                        ? 100
+                        : 0
+                  }
                 />
               ))
             ) : (
