@@ -37,4 +37,6 @@ public class ChangeRequestResponse {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private String date;
 }

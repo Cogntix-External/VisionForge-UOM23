@@ -1,13 +1,19 @@
 package com.visionforge.crms.project.dto;
 
+import com.visionforge.crms.changerequest.dto.ChangeRequestResponse;
 import com.visionforge.crms.project.model.Project.ProjectStatus;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ProjectResponse {
 
     private String id;
@@ -18,7 +24,7 @@ public class ProjectResponse {
     private String clientName;
     private String companyId;
 
-    // 🔥 important for frontend
+    // important for frontend
     private ProjectStatus status;
     private Double budget;
     private String timeline;
@@ -26,4 +32,7 @@ public class ProjectResponse {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // 🔥 add this
+    private List<ChangeRequestResponse> changeRequests;
 }

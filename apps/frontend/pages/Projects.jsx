@@ -42,7 +42,7 @@ const Projects = () => {
 
       const formattedProjects = data.map((p) => ({
         id: p.id,
-        name: p.name,
+        name: p.name || "N/A",
         status:
           p.status === "ACTIVE"
             ? "In Development"
@@ -56,6 +56,16 @@ const Projects = () => {
         manager: p.clientName || "N/A",
         budget: p.budget || 0,
         description: p.description || "No description available.",
+
+        // Dynamic change requests from backend
+        changeRequests: Array.isArray(p.changeRequests)
+          ? p.changeRequests.map((cr, index) => ({
+              id: cr.id || `CR-${index + 1}`,
+              title: cr.title || cr.name || "Untitled Change Request",
+              date: cr.date || cr.createdAt || "N/A",
+              status: cr.status || "Pending",
+            }))
+          : [],
       }));
 
       setProjects(formattedProjects);
@@ -86,6 +96,18 @@ const Projects = () => {
     return matchesSearch && matchesFilter;
   });
 
+  const totalCRs = selectedProject?.changeRequests?.length || 0;
+
+  const completedCRs =
+    selectedProject?.changeRequests?.filter(
+      (cr) => String(cr.status).toLowerCase() === "completed"
+    ).length || 0;
+
+  const pendingCRs =
+    selectedProject?.changeRequests?.filter(
+      (cr) => String(cr.status).toLowerCase() !== "completed"
+    ).length || 0;
+
   return (
     <div className="space-y-6 -mt-6 relative z-10 px-8 pb-10">
       <div className="flex items-center gap-4 relative">
@@ -112,7 +134,9 @@ const Projects = () => {
               <span className="text-base">{activeFilter}</span>
             </div>
             <svg
-              className={`w-5 h-5 text-gray-500 transition-transform ${showFilterDropdown ? "rotate-180" : ""}`}
+              className={`w-5 h-5 text-gray-500 transition-transform ${
+                showFilterDropdown ? "rotate-180" : ""
+              }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -135,7 +159,11 @@ const Projects = () => {
                     setActiveFilter(filter);
                     setShowFilterDropdown(false);
                   }}
-                  className={`w-full text-left px-5 py-2.5 text-base font-semibold hover:bg-gray-50 transition-colors ${activeFilter === filter ? "text-[#7c3aed] bg-purple-50" : "text-gray-600"}`}
+                  className={`w-full text-left px-5 py-2.5 text-base font-semibold hover:bg-gray-50 transition-colors ${
+                    activeFilter === filter
+                      ? "text-[#7c3aed] bg-purple-50"
+                      : "text-gray-600"
+                  }`}
                 >
                   {filter}
                 </button>
@@ -167,6 +195,7 @@ const Projects = () => {
                 </th>
               </tr>
             </thead>
+
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredProjects.length > 0 ? (
                 filteredProjects.map((project) => (
@@ -177,6 +206,7 @@ const Projects = () => {
                     <td className="px-8 py-6 text-base font-semibold text-gray-900">
                       {project.name}
                     </td>
+
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-3">
                         <span className="text-base font-bold text-gray-900 min-w-[45px]">
@@ -190,15 +220,22 @@ const Projects = () => {
                         </div>
                       </div>
                     </td>
+
                     <td className="px-8 py-6 text-base font-semibold text-gray-900">
                       {project.startDate}
                     </td>
+
                     <td className="px-8 py-6 text-base font-bold text-gray-900">
-                      ${project.budget.toLocaleString()}
+                      ${Number(project.budget).toLocaleString()}
                     </td>
+
                     <td className="px-8 py-6 text-center">
                       <button
-                        onClick={() => setSelectedProject(project)}
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setActiveTab("changeRequests");
+                          console.log("SELECTED PROJECT =", project);
+                        }}
                         className="px-8 py-2 bg-[#bbf7d0] text-[#166534] text-base font-bold rounded-full hover:bg-[#86efac] transition-all shadow-sm active:scale-95"
                       >
                         view
@@ -253,6 +290,7 @@ const Projects = () => {
               <h3 className="text-3xl font-bold text-gray-900 mb-3">
                 {selectedProject.name}
               </h3>
+
               <p className="text-base text-gray-600 mb-6 leading-relaxed">
                 {selectedProject.description}
               </p>
@@ -281,9 +319,9 @@ const Projects = () => {
                   label="PROGRESS"
                   value={`${selectedProject.progress}%`}
                 />
-                <StatCard label="TOTAL CRS" value="12" icon="📄" />
-                <StatCard label="COMPLETED" value="9" icon="✓" />
-                <StatCard label="PENDING" value="3" icon="!" />
+                <StatCard label="TOTAL CRS" value={totalCRs} icon="📄" />
+                <StatCard label="COMPLETED" value={completedCRs} icon="✓" />
+                <StatCard label="PENDING" value={pendingCRs} icon="!" />
               </div>
 
               <div className="bg-gray-100 p-1.5 rounded-2xl flex mb-6">
@@ -297,6 +335,7 @@ const Projects = () => {
                 >
                   Change Requests
                 </button>
+
                 <button
                   onClick={() => setActiveTab("documents")}
                   className={`flex-1 py-3 text-base font-bold rounded-xl transition-all ${
@@ -328,25 +367,29 @@ const Projects = () => {
                         </th>
                       </tr>
                     </thead>
+
                     <tbody className="divide-y divide-gray-100">
-                      <ChangeRequestRow
-                        id="CR-001"
-                        title="Update Payment gateway"
-                        date="Oct 2024"
-                        status="completed"
-                      />
-                      <ChangeRequestRow
-                        id="CR-002"
-                        title="Add product filters"
-                        date="Nov 2025"
-                        status="In progress"
-                      />
-                      <ChangeRequestRow
-                        id="CR-003"
-                        title="Improve Checkout flow"
-                        date="July 2025"
-                        status="Approved"
-                      />
+                      {selectedProject.changeRequests &&
+                      selectedProject.changeRequests.length > 0 ? (
+                        selectedProject.changeRequests.map((cr, index) => (
+                          <ChangeRequestRow
+                            key={cr.id || index}
+                            id={cr.id || `CR-${index + 1}`}
+                            title={cr.title || "Untitled Change Request"}
+                            date={formatDate(cr.date)}
+                            status={cr.status || "Pending"}
+                          />
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-6 py-8 text-center text-sm font-semibold text-gray-400"
+                          >
+                            No Change Requests
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -379,25 +422,47 @@ const StatCard = ({ label, value, icon }) => (
   </div>
 );
 
-const ChangeRequestRow = ({ id, title, date, status }) => (
-  <tr className="hover:bg-gray-50">
-    <td className="px-6 py-4 text-sm font-semibold text-gray-600">{id}</td>
-    <td className="px-6 py-4 text-sm font-bold text-gray-900">{title}</td>
-    <td className="px-6 py-4 text-sm font-semibold text-gray-900">{date}</td>
-    <td className="px-6 py-4">
-      <span
-        className={`inline-block px-4 py-1.5 rounded-full text-xs font-bold ${
-          status === "completed"
-            ? "bg-green-100 text-green-800"
-            : status === "In progress"
-              ? "bg-orange-100 text-orange-800"
-              : "bg-blue-100 text-blue-800"
-        }`}
-      >
-        {status}
-      </span>
-    </td>
-  </tr>
-);
+const ChangeRequestRow = ({ id, title, date, status }) => {
+  const normalizedStatus = String(status).toLowerCase();
+
+  return (
+    <tr className="hover:bg-gray-50">
+      <td className="px-6 py-4 text-sm font-semibold text-gray-600">{id}</td>
+      <td className="px-6 py-4 text-sm font-bold text-gray-900">{title}</td>
+      <td className="px-6 py-4 text-sm font-semibold text-gray-900">{date}</td>
+      <td className="px-6 py-4">
+        <span
+          className={`inline-block px-4 py-1.5 rounded-full text-xs font-bold ${
+            normalizedStatus === "completed"
+              ? "bg-green-100 text-green-800"
+              : normalizedStatus === "in progress"
+                ? "bg-orange-100 text-orange-800"
+                : normalizedStatus === "approved"
+                  ? "bg-blue-100 text-blue-800"
+                  : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          {status}
+        </span>
+      </td>
+    </tr>
+  );
+};
+
+const formatDate = (dateValue) => {
+  if (!dateValue || dateValue === "N/A") return "N/A";
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateValue;
+  }
+
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
 
 export default Projects;

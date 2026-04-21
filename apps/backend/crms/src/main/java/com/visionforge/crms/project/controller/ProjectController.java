@@ -21,13 +21,15 @@ public class ProjectController {
     public ResponseEntity<List<ProjectResponse>> getCompanyProjects(
             @RequestHeader("X-Company-Id") String companyId
     ) {
-        return ResponseEntity.ok(projectService.getProjectsByCompany(companyId));
+        List<ProjectResponse> projects = projectService.getProjectsByCompany(companyId);
+        return ResponseEntity.ok(projects);
     }
 
     // Client side - get current logged-in client projects
     @GetMapping("/client/projects")
     public ResponseEntity<List<ProjectResponse>> getClientProjects() {
-        return ResponseEntity.ok(projectService.getProjectsForCurrentClient());
+        List<ProjectResponse> projects = projectService.getProjectsForCurrentClient();
+        return ResponseEntity.ok(projects);
     }
 
     // Client side - get single current client project
@@ -35,7 +37,8 @@ public class ProjectController {
     public ResponseEntity<ProjectResponse> getClientProjectById(
             @PathVariable String id
     ) {
-        return ResponseEntity.ok(projectService.getCurrentClientProjectById(id));
+        ProjectResponse project = projectService.getCurrentClientProjectById(id);
+        return ResponseEntity.ok(project);
     }
 
     // Common - get project by id
@@ -43,6 +46,7 @@ public class ProjectController {
     public ResponseEntity<ProjectResponse> getProjectById(
             @PathVariable String id
     ) {
-        return ResponseEntity.ok(projectService.getProjectById(id));
+        ProjectResponse project = projectService.getProjectById(id);
+        return ResponseEntity.ok(project);
     }
 }
