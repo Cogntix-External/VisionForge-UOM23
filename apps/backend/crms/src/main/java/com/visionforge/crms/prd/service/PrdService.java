@@ -1,16 +1,25 @@
 package com.visionforge.crms.prd.service;
 
 import com.visionforge.crms.changerequest.service.ChangeRequestService;
+import com.visionforge.crms.email.EmailService;
+import com.visionforge.crms.notification.model.NotificationType;
+import com.visionforge.crms.notification.service.NotificationService;
 import com.visionforge.crms.prd.dto.CreatePrdRequest;
 import com.visionforge.crms.prd.dto.PrdResponse;
 import com.visionforge.crms.prd.dto.UpdatePrdRequest;
 import com.visionforge.crms.prd.model.Prd;
 import com.visionforge.crms.prd.repository.PrdRepository;
+import com.visionforge.crms.project.model.Project;
+import com.visionforge.crms.project.repository.ProjectRepository;
+import com.visionforge.crms.user.User;
+import com.visionforge.crms.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -25,6 +34,10 @@ public class PrdService {
 
     private final PrdRepository prdRepository;
     private final ChangeRequestService changeRequestService;
+    private final NotificationService notificationService;
+    private final EmailService emailService;
+    private final ProjectRepository projectRepository;
+    private final UserRepository userRepository;
 
     public List<PrdResponse> getAllPrds() {
         return prdRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
@@ -67,11 +80,14 @@ public class PrdService {
                 .build();
 
         Prd savedPrd = prdRepository.save(prd);
+
         changeRequestService.markLatestAcceptedAsImplementedForPrdUpdate(
-            savedPrd.getProjectId(),
-            savedPrd.getId(),
-            savedPrd.getVersion()
+                savedPrd.getProjectId(),
+                savedPrd.getId(),
+                savedPrd.getVersion()
         );
+
+        notifyClientPrdUploaded(savedPrd);
 
         return toResponse(savedPrd);
     }
@@ -155,7 +171,43 @@ public class PrdService {
             }
         }
 
-        return toResponse(prdRepository.save(prd));
+        Prd savedPrd = prdRepository.save(prd);
+
+        // Optional: when PRD is approved / updated, notify client again
+        if ("APPROVE".equals(action) || "SAVE_CHANGES".equals(action)) {
+            notifyClientPrdUploaded(savedPrd);
+        }
+
+        return toResponse(savedPrd);
+    }
+
+    private void notifyClientPrdUploaded(Prd prd) {
+        try {
+            Project project = projectRepository.findById(prd.getProjectId())
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            String clientId = project.getClientId();
+
+            notificationService.createNotification(
+                    clientId,
+                    "New PRD Uploaded",
+                    "A new PRD has been uploaded for your project.",
+                    NotificationType.PRD_UPLOADED,
+                    prd.getId(),
+                    "PRD"
+            );
+
+            User client = userRepository.findById(clientId)
+                    .orElseThrow(() -> new RuntimeException("Client not found"));
+
+            emailService.sendEmail(
+                    client.getEmail(),
+                    "New PRD Uploaded",
+                    "A new PRD is available for your project. Please log in to view it."
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send PRD notification/email: " + e.getMessage());
+        }
     }
 
     private Prd findPrd(String id) {
@@ -272,6 +324,7 @@ public class PrdService {
             return 0;
         }
     }
+
     public PrdResponse getPrdByProjectId(String projectId) {
         return prdRepository.findByProjectId(projectId)
                 .map(this::toResponse)
@@ -280,12 +333,12 @@ public class PrdService {
 
     public byte[] generatePrdDocument(String prdId) {
         Prd prd = findPrd(prdId);
-        
+
         StringBuilder content = new StringBuilder();
         content.append("================================================================================\n");
         content.append("PRODUCT REQUIREMENTS DOCUMENT (PRD)\n");
         content.append("================================================================================\n\n");
-        
+
         content.append("PROJECT INFORMATION\n");
         content.append("-------------------\n");
         content.append("Project Name: ").append(nvl(prd.getProjectName())).append("\n");
@@ -296,13 +349,13 @@ public class PrdService {
         content.append("Author: ").append(nvl(prd.getAuthor())).append("\n");
         content.append("Date Submitted: ").append(nvl(prd.getDateSubmitted())).append("\n");
         content.append("Reviewer: ").append(nvl(prd.getReviewerName())).append("\n\n");
-        
+
         content.append("PURPOSE & GOALS\n");
         content.append("---------------\n");
         content.append("Purpose: ").append(nvl(prd.getPurpose())).append("\n");
         content.append("Problem to Solve: ").append(nvl(prd.getProblemToSolve())).append("\n");
         content.append("Project Goal: ").append(nvl(prd.getProjectGoal())).append("\n\n");
-        
+
         if (prd.getStakeholders() != null && !prd.getStakeholders().isEmpty()) {
             content.append("STAKEHOLDERS\n");
             content.append("------------\n");
@@ -313,23 +366,23 @@ public class PrdService {
                 content.append("\n");
             }
         }
-        
+
         content.append("SCOPE\n");
         content.append("-----\n");
         content.append("In Scope:\n").append(nvl(prd.getInScope())).append("\n\n");
         content.append("Out of Scope:\n").append(nvl(prd.getOutOfScope())).append("\n\n");
-        
+
         content.append("FEATURES & REQUIREMENTS\n");
         content.append("----------------------\n");
         content.append("Main Features:\n").append(nvl(prd.getMainFeatures())).append("\n\n");
         content.append("Functional Requirements:\n").append(nvl(prd.getFunctionalRequirement())).append("\n\n");
         content.append("Non-Functional Requirements:\n").append(nvl(prd.getNonFunctionalRequirement())).append("\n\n");
-        
+
         content.append("USER ROLES & RISKS\n");
         content.append("------------------\n");
         content.append("User Roles:\n").append(nvl(prd.getUserRoles())).append("\n\n");
         content.append("Risks & Dependencies:\n").append(nvl(prd.getRisksDependencies())).append("\n\n");
-        
+
         if (prd.getMilestones() != null && !prd.getMilestones().isEmpty()) {
             content.append("MILESTONES\n");
             content.append("----------\n");
@@ -341,14 +394,14 @@ public class PrdService {
                 content.append("\n");
             }
         }
-        
+
         content.append("================================================================================\n");
         content.append("Document Generated: ").append(java.time.Instant.now()).append("\n");
         content.append("================================================================================\n");
-        
-        return content.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+        return content.toString().getBytes(StandardCharsets.UTF_8);
     }
-    
+
     private String nvl(String value) {
         return value == null || value.isBlank() ? "-" : value;
     }

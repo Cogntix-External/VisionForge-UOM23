@@ -1,5 +1,8 @@
 package com.visionforge.crms.proposal.service;
 
+import com.visionforge.crms.email.EmailService;
+import com.visionforge.crms.notification.model.NotificationType;
+import com.visionforge.crms.notification.service.NotificationService;
 import com.visionforge.crms.project.service.ProjectService;
 import com.visionforge.crms.proposal.dto.CreateProposalRequest;
 import com.visionforge.crms.proposal.dto.ProposalDecisionRequest;
@@ -9,6 +12,8 @@ import com.visionforge.crms.proposal.model.ProposalStatus;
 import com.visionforge.crms.proposal.repository.ProposalRepository;
 import com.visionforge.crms.user.CurrentUserService;
 import com.visionforge.crms.user.Role;
+import com.visionforge.crms.user.User;
+import com.visionforge.crms.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +28,9 @@ public class ProposalService {
     private final ProposalRepository proposalRepository;
     private final CurrentUserService currentUserService;
     private final ProjectService projectService;
+    private final NotificationService notificationService;
+    private final EmailService emailService;
+    private final UserRepository userRepository;
 
     // Company create proposal
     public ProposalResponse createProposal(CreateProposalRequest request, String companyId) {
@@ -41,6 +49,9 @@ public class ProposalService {
                 .build();
 
         Proposal savedProposal = proposalRepository.save(proposal);
+
+        notifyClientNewProposal(savedProposal);
+
         return mapToResponse(savedProposal);
     }
 
@@ -101,13 +112,9 @@ public class ProposalService {
 
         Proposal savedProposal = proposalRepository.save(proposal);
 
-        System.out.println("Accepted proposal ID: " + savedProposal.getId());
-        System.out.println("Creating project for client ID: " + savedProposal.getClientId());
-        System.out.println("Creating project for company ID: " + savedProposal.getCompanyId());
-
         projectService.createProjectFromProposal(savedProposal);
 
-        System.out.println("Project created successfully for proposal ID: " + savedProposal.getId());
+        notifyCompanyProposalAccepted(savedProposal);
 
         return mapToResponse(savedProposal);
     }
@@ -127,15 +134,81 @@ public class ProposalService {
             throw new RuntimeException("Only pending proposals can be rejected");
         }
 
+        String reason = request.getRejectionReason() == null || request.getRejectionReason().isBlank()
+                ? "No reason provided"
+                : request.getRejectionReason();
+
         proposal.setStatus(ProposalStatus.REJECTED);
-        proposal.setRejectionReason(
-                request.getRejectionReason() == null || request.getRejectionReason().isBlank()
-                        ? "No reason provided"
-                        : request.getRejectionReason());
+        proposal.setRejectionReason(reason);
         proposal.setUpdatedAt(LocalDateTime.now());
 
         Proposal savedProposal = proposalRepository.save(proposal);
+
+        notifyCompanyProposalRejected(savedProposal);
+
         return mapToResponse(savedProposal);
+    }
+
+    private void notifyClientNewProposal(Proposal proposal) {
+        try {
+            notificationService.createNotification(
+                    proposal.getClientId(),
+                    "New Proposal Received",
+                    "A new project proposal has been sent to you.",
+                    NotificationType.NEW_PROPOSAL,
+                    proposal.getId(),
+                    "PROPOSAL"
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send proposal notification: " + e.getMessage());
+        }
+
+        try {
+            User client = userRepository.findById(proposal.getClientId())
+                    .orElseThrow(() -> new RuntimeException("Client not found"));
+
+            emailService.sendEmail(
+                    client.getEmail(),
+                    "New Proposal Received",
+                    "You have received a new project proposal. Please log in to review it."
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send proposal email: " + e.getMessage());
+        }
+    }
+
+    private void notifyCompanyProposalAccepted(Proposal proposal) {
+        try {
+            User company = userRepository.findById(proposal.getCompanyId())
+                    .orElseThrow(() -> new RuntimeException("Company user not found"));
+
+            emailService.sendEmail(
+                    company.getEmail(),
+                    "Proposal Accepted",
+                    "Your proposal has been accepted by the client. A project has been created."
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send proposal acceptance email to company: " + e.getMessage());
+        }
+    }
+
+    private void notifyCompanyProposalRejected(Proposal proposal) {
+        try {
+            User company = userRepository.findById(proposal.getCompanyId())
+                    .orElseThrow(() -> new RuntimeException("Company user not found"));
+
+            String reason = proposal.getRejectionReason() == null || proposal.getRejectionReason().isBlank()
+                    ? "No reason provided"
+                    : proposal.getRejectionReason();
+
+            emailService.sendEmail(
+                    company.getEmail(),
+                    "Proposal Rejected",
+                    "Your proposal has been rejected by the client.\nReason: " + reason
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send proposal rejection email to company: " + e.getMessage());
+        }
     }
 
     private ProposalResponse mapToResponse(Proposal proposal) {

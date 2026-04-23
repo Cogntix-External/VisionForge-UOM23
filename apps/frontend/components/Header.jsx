@@ -1,6 +1,6 @@
 import React from "react";
 import { Icons } from "../constants";
-
+import { getClientUnreadNotificationCount } from "../services/api";
 const Header = ({
   title,
   subtitle,
@@ -56,5 +56,4 @@ const Header = ({
     </header>
   );
 };
-
 export default Header;

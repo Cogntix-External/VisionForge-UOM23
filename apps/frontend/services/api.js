@@ -482,4 +482,23 @@ export function getCompanyVersionHistoryEntries(projectId, prdId, companyId) {
   });
 }
 
+//Notification Clientside
+export function getClientNotifications() {
+  return request("/client/notifications", {
+    method: "GET",
+  });
+}
+
+export function getClientUnreadNotificationCount() {
+  return request("/client/notifications/unread-count", {
+    method: "GET",
+  });
+}
+
+export function markNotificationAsRead(notificationId) {
+  return request(`/client/notifications/${notificationId}/read`, {
+    method: "PATCH",
+  });
+}
+
 export { API_BASE };
