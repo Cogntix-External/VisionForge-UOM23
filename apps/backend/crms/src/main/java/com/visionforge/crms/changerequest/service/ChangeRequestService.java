@@ -9,18 +9,23 @@ import com.visionforge.crms.changerequest.dto.VersionHistoryTableRowResponse;
 import com.visionforge.crms.changerequest.model.ChangeRequest;
 import com.visionforge.crms.changerequest.model.ChangeRequestStatus;
 import com.visionforge.crms.changerequest.repository.ChangeRequestRepository;
+import com.visionforge.crms.email.EmailService;
+import com.visionforge.crms.notification.model.NotificationType;
+import com.visionforge.crms.notification.service.NotificationService;
 import com.visionforge.crms.project.model.Project;
 import com.visionforge.crms.project.repository.ProjectRepository;
 import com.visionforge.crms.prd.model.Prd;
 import com.visionforge.crms.prd.repository.PrdRepository;
 import com.visionforge.crms.user.CurrentUserService;
 import com.visionforge.crms.user.Role;
+import com.visionforge.crms.user.User;
+import com.visionforge.crms.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +39,9 @@ public class ChangeRequestService {
     private final ProjectRepository projectRepository;
     private final PrdRepository prdRepository;
     private final CurrentUserService currentUserService;
+    private final NotificationService notificationService;
+    private final EmailService emailService;
+    private final UserRepository userRepository;
 
     // client creates change request
     public ChangeRequestResponse createChangeRequest(String projectId, CreateChangeRequestRequest request) {
@@ -49,13 +57,13 @@ public class ChangeRequestService {
         String resolvedPrdId = request.getPrdId();
         if (resolvedPrdId == null || resolvedPrdId.isBlank() || "-".equals(resolvedPrdId)) {
             resolvedPrdId = prdRepository.findByProjectId(project.getId())
-                .map(Prd::getId)
-                .orElse(null);
+                    .map(Prd::getId)
+                    .orElse(null);
         }
 
         ChangeRequest changeRequest = ChangeRequest.builder()
                 .projectId(project.getId())
-            .prdId(resolvedPrdId)
+                .prdId(resolvedPrdId)
                 .clientId(clientId)
                 .companyId(project.getCompanyId())
                 .title(request.getTitle())
@@ -74,7 +82,23 @@ public class ChangeRequestService {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        return mapToResponse(changeRequestRepository.save(changeRequest));
+        ChangeRequest saved = changeRequestRepository.save(changeRequest);
+
+        // optional: notify company that a new CR was raised
+        try {
+            notificationService.createNotification(
+                    saved.getCompanyId(),
+                    "New Change Request Submitted",
+                    "A client has submitted a new change request.",
+                    NotificationType.CHANGE_REQUEST_ACCEPTED, // keep enum set if you don't have NEW_CHANGE_REQUEST
+                    saved.getId(),
+                    "CHANGE_REQUEST"
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to create company notification for new change request: " + e.getMessage());
+        }
+
+        return mapToResponse(saved);
     }
 
     // client views own change requests
@@ -163,10 +187,16 @@ public class ChangeRequestService {
         }
 
         changeRequest.setStatus(ChangeRequestStatus.ACCEPTED);
+        changeRequest.setDecisionReason("Accepted by company");
+        changeRequest.setDecidedAt(LocalDateTime.now());
         changeRequest.setRejectionReason(null);
         changeRequest.setUpdatedAt(LocalDateTime.now());
 
-        return mapToResponse(changeRequestRepository.save(changeRequest));
+        ChangeRequest saved = changeRequestRepository.save(changeRequest);
+
+        notifyClientChangeRequestAccepted(saved);
+
+        return mapToResponse(saved);
     }
 
     // company rejects change request
@@ -184,15 +214,21 @@ public class ChangeRequestService {
             throw new RuntimeException("Only pending change requests can be rejected");
         }
 
+        String reason = request.getRejectionReason() == null || request.getRejectionReason().isBlank()
+                ? "No reason provided"
+                : request.getRejectionReason();
+
         changeRequest.setStatus(ChangeRequestStatus.REJECTED);
-        changeRequest.setRejectionReason(
-                request.getRejectionReason() == null || request.getRejectionReason().isBlank()
-                        ? "No reason provided"
-                        : request.getRejectionReason()
-        );
+        changeRequest.setDecisionReason(reason);
+        changeRequest.setDecidedAt(LocalDateTime.now());
+        changeRequest.setRejectionReason(reason);
         changeRequest.setUpdatedAt(LocalDateTime.now());
 
-        return mapToResponse(changeRequestRepository.save(changeRequest));
+        ChangeRequest saved = changeRequestRepository.save(changeRequest);
+
+        notifyClientChangeRequestRejected(saved);
+
+        return mapToResponse(saved);
     }
 
     // company accepts/rejects with reason in a single decision endpoint
@@ -234,7 +270,15 @@ public class ChangeRequestService {
         changeRequest.setDecidedAt(LocalDateTime.now());
         changeRequest.setUpdatedAt(LocalDateTime.now());
 
-        return mapToResponse(changeRequestRepository.save(changeRequest));
+        ChangeRequest saved = changeRequestRepository.save(changeRequest);
+
+        if (saved.getStatus() == ChangeRequestStatus.ACCEPTED) {
+            notifyClientChangeRequestAccepted(saved);
+        } else if (saved.getStatus() == ChangeRequestStatus.REJECTED) {
+            notifyClientChangeRequestRejected(saved);
+        }
+
+        return mapToResponse(saved);
     }
 
     // company marks accepted CR as implemented after PRD edit is done manually
@@ -248,7 +292,8 @@ public class ChangeRequestService {
         ChangeRequest changeRequest = changeRequestRepository.findByIdAndCompanyId(changeRequestId, companyId)
                 .orElseThrow(() -> new RuntimeException("Change request not found for this company"));
 
-        if (changeRequest.getStatus() != ChangeRequestStatus.ACCEPTED && changeRequest.getStatus() != ChangeRequestStatus.IMPLEMENTED) {
+        if (changeRequest.getStatus() != ChangeRequestStatus.ACCEPTED &&
+                changeRequest.getStatus() != ChangeRequestStatus.IMPLEMENTED) {
             throw new RuntimeException("Only accepted change requests can be marked implemented");
         }
 
@@ -347,7 +392,6 @@ public class ChangeRequestService {
                 filteredChangeRequests.stream().map(this::mapToVersionHistoryEntry).toList()
         );
 
-        // Fallback snapshot when historical rows are not yet captured but PRD exists.
         if (historyEntries.isEmpty()) {
             prdRepository.findByProjectId(projectId).ifPresent(prd -> {
                 historyEntries.add(VersionHistoryEntryResponse.builder()
@@ -389,12 +433,12 @@ public class ChangeRequestService {
 
         if (latestAccepted == null) {
             latestAccepted = changeRequestRepository
-                .findByProjectIdAndStatus(projectId, ChangeRequestStatus.ACCEPTED)
-                .stream()
-                .max(Comparator.comparing(
-                    cr -> cr.getDecidedAt() == null ? cr.getCreatedAt() : cr.getDecidedAt()
-                ))
-                .orElse(null);
+                    .findByProjectIdAndStatus(projectId, ChangeRequestStatus.ACCEPTED)
+                    .stream()
+                    .max(Comparator.comparing(
+                            cr -> cr.getDecidedAt() == null ? cr.getCreatedAt() : cr.getDecidedAt()
+                    ))
+                    .orElse(null);
         }
 
         if (latestAccepted == null) {
@@ -408,6 +452,66 @@ public class ChangeRequestService {
         latestAccepted.setUpdatedAt(LocalDateTime.now());
 
         changeRequestRepository.save(latestAccepted);
+    }
+
+    private void notifyClientChangeRequestAccepted(ChangeRequest changeRequest) {
+        try {
+            notificationService.createNotification(
+                    changeRequest.getClientId(),
+                    "Change Request Accepted",
+                    "Your change request has been accepted.",
+                    NotificationType.CHANGE_REQUEST_ACCEPTED,
+                    changeRequest.getId(),
+                    "CHANGE_REQUEST"
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send change request acceptance notification: " + e.getMessage());
+        }
+
+        try {
+            User client = userRepository.findById(changeRequest.getClientId())
+                    .orElseThrow(() -> new RuntimeException("Client not found"));
+
+            emailService.sendEmail(
+                    client.getEmail(),
+                    "Change Request Accepted",
+                    "Your change request has been accepted. Please log in to view the updated status."
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send acceptance email: " + e.getMessage());
+        }
+    }
+
+    private void notifyClientChangeRequestRejected(ChangeRequest changeRequest) {
+        try {
+            notificationService.createNotification(
+                    changeRequest.getClientId(),
+                    "Change Request Rejected",
+                    "Your change request has been rejected.",
+                    NotificationType.CHANGE_REQUEST_REJECTED,
+                    changeRequest.getId(),
+                    "CHANGE_REQUEST"
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send change request rejection notification: " + e.getMessage());
+        }
+
+        try {
+            User client = userRepository.findById(changeRequest.getClientId())
+                    .orElseThrow(() -> new RuntimeException("Client not found"));
+
+            String reason = changeRequest.getRejectionReason() == null || changeRequest.getRejectionReason().isBlank()
+                    ? "No reason provided"
+                    : changeRequest.getRejectionReason();
+
+            emailService.sendEmail(
+                    client.getEmail(),
+                    "Change Request Rejected",
+                    "Your change request has been rejected.\nReason: " + reason
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send rejection email: " + e.getMessage());
+        }
     }
 
     private VersionHistoryEntryResponse mapToVersionHistoryEntry(ChangeRequest changeRequest) {
