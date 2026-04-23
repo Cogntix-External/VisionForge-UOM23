@@ -63,7 +63,7 @@ const NotificationDropdown = () => {
       >
         <Bell className="w-6 h-6 text-[#636b7f]" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-[var(--accent-purple)] text-white text-xs rounded-full flex items-center justify-center font-medium">
+          <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold leading-none text-white shadow-sm ring-2 ring-white">
             {unreadCount}
           </span>
         )}
@@ -71,13 +71,13 @@ const NotificationDropdown = () => {
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 bg-[var(--surface)] rounded-xl shadow-2xl border border-[var(--border-soft)] z-50 overflow-hidden">
+        <div className="absolute right-0 mt-3 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl z-50">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-[var(--surface-muted)] border-b border-[var(--border-soft)]">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
             <h3 className="font-semibold text-gray-800">Layer Notification</h3>
             <button 
               onClick={() => setIsOpen(false)}
-              className="p-1 hover:bg-white rounded-full transition-colors"
+              className="p-1 hover:bg-slate-100 rounded-full transition-colors"
             >
               <X className="w-4 h-4 text-gray-500" />
             </button>
@@ -94,8 +94,8 @@ const NotificationDropdown = () => {
                 <div
                   key={notification.id}
                   onClick={() => markAsRead(notification.id)}
-                  className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-[var(--surface-muted)] transition-colors ${
-                    !notification.read ? 'bg-[var(--primary-100)]' : ''
+                  className={`p-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
+                    !notification.read ? 'bg-indigo-50' : 'bg-white'
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -113,7 +113,8 @@ const NotificationDropdown = () => {
                     </div>
                     <button
                       onClick={(e) => removeNotification(notification.id, e)}
-                      className="p-1 hover:bg-white rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                      className="rounded-full p-1 transition-colors hover:bg-slate-100"
+                      aria-label="Remove notification"
                     >
                       <X className="w-3 h-3 text-gray-400" />
                     </button>
@@ -125,12 +126,12 @@ const NotificationDropdown = () => {
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-3 bg-[var(--surface-muted)] border-t border-[var(--border-soft)]">
+            <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
               <button 
-                onClick={() => setNotifications(notifications.map(n => ({ ...n, read: true })))}
-                className="text-sm text-[var(--accent-purple)] hover:text-[var(--primary-600)] font-medium"
+                onClick={() => setNotifications([])}
+                className="text-sm font-medium text-red-600 hover:text-red-700"
               >
-                Mark all as read
+                Clear all
               </button>
             </div>
           )}
