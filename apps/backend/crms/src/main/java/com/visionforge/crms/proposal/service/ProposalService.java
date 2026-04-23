@@ -179,6 +179,19 @@ public class ProposalService {
 
     private void notifyCompanyProposalAccepted(Proposal proposal) {
         try {
+            notificationService.createNotification(
+                    proposal.getCompanyId(),
+                    "Proposal Accepted",
+                    "Your proposal has been accepted by the client. A project has been created.",
+                    NotificationType.PROPOSAL_ACCEPTED,
+                    proposal.getId(),
+                    "PROPOSAL"
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send proposal acceptance notification to company: " + e.getMessage());
+        }
+
+        try {
             User company = userRepository.findById(proposal.getCompanyId())
                     .orElseThrow(() -> new RuntimeException("Company user not found"));
 
@@ -193,13 +206,26 @@ public class ProposalService {
     }
 
     private void notifyCompanyProposalRejected(Proposal proposal) {
+        String reason = proposal.getRejectionReason() == null || proposal.getRejectionReason().isBlank()
+                ? "No reason provided"
+                : proposal.getRejectionReason();
+
+        try {
+            notificationService.createNotification(
+                    proposal.getCompanyId(),
+                    "Proposal Rejected",
+                    "Your proposal has been rejected by the client. Reason: " + reason,
+                    NotificationType.PROPOSAL_REJECTED,
+                    proposal.getId(),
+                    "PROPOSAL"
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send proposal rejection notification to company: " + e.getMessage());
+        }
+
         try {
             User company = userRepository.findById(proposal.getCompanyId())
                     .orElseThrow(() -> new RuntimeException("Company user not found"));
-
-            String reason = proposal.getRejectionReason() == null || proposal.getRejectionReason().isBlank()
-                    ? "No reason provided"
-                    : proposal.getRejectionReason();
 
             emailService.sendEmail(
                     company.getEmail(),

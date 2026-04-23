@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ProposalsListSection from "@/pages/ProposalsListSection";
 import { getCompanyProposals } from "@/services/api";
+import { mergeProposalWithCachedDetails } from "@/utils/proposalDetailsCache";
 
 const resolveCompanyId = () => {
   try {
@@ -34,16 +35,21 @@ const mapProposal = (proposal) => ({
   id: proposal.id,
   title: proposal.title || "Untitled Proposal",
   client: proposal.clientId || "Not assigned",
+  description: proposal.description || "No description provided",
   budget:
     typeof proposal.totalBudget === "number"
       ? `$${proposal.totalBudget.toFixed(2)}`
       : "$0.00",
+  totalBudget: proposal.totalBudget ?? null,
   duration:
     typeof proposal.totalDurationDays === "number"
       ? `${proposal.totalDurationDays} days`
       : "0 days",
+  totalDurationDays: proposal.totalDurationDays ?? null,
   status: String(proposal.status || "PENDING").toUpperCase(),
   createdAt: formatDate(proposal.createdAt),
+  submittedAt: formatDate(proposal.createdAt),
+  updatedAt: proposal.updatedAt || null,
   companyId: proposal.companyId,
   clientId: proposal.clientId,
   clientName: proposal.clientName || "",
@@ -72,7 +78,11 @@ export default function CompanyProposalsListSectionPage() {
         setLoading(true);
         setError("");
         const data = await getCompanyProposals(resolvedCompanyId);
-        const proposals = Array.isArray(data) ? data.map(mapProposal) : [];
+        const proposals = Array.isArray(data)
+          ? data.map((proposal) =>
+              mapProposal(mergeProposalWithCachedDetails(proposal)),
+            )
+          : [];
         setProjects(proposals);
       } catch (fetchError) {
         setError(fetchError.message || "Failed to fetch proposals");
@@ -116,7 +126,9 @@ export default function CompanyProposalsListSectionPage() {
             JSON.stringify(project),
           );
           window.sessionStorage.setItem("crms:companyId", companyId || "");
-          router.push("/company/ProposalDetailsSection");
+          router.push(
+            `/company/ProposalDetailsSection?proposalId=${encodeURIComponent(project.id)}`,
+          );
         }}
       />
     </div>

@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { Bell, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import UserProfileDropdown from "../pages/UserProfileDropdown";
 import {
-  getClientNotifications,
-  getClientUnreadNotificationCount,
+  getNotifications,
+  getUnreadNotificationCount,
   markNotificationAsRead,
 } from "../services/api";
 import NotificationPanel from "./NotificationPanel";
@@ -63,7 +63,7 @@ const TopNavbar = ({
 
   const loadUnreadCount = async () => {
     try {
-      const data = await getClientUnreadNotificationCount();
+      const data = await getUnreadNotificationCount();
       setNotificationCount(data?.count || 0);
     } catch (error) {
       console.error("Failed to load unread count:", error);
@@ -72,7 +72,7 @@ const TopNavbar = ({
 
   const loadNotifications = async () => {
     try {
-      const data = await getClientNotifications();
+      const data = await getNotifications();
       setNotifications(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to load notifications:", error);

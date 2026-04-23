@@ -85,18 +85,7 @@ public class ChangeRequestService {
         ChangeRequest saved = changeRequestRepository.save(changeRequest);
 
         // optional: notify company that a new CR was raised
-        try {
-            notificationService.createNotification(
-                    saved.getCompanyId(),
-                    "New Change Request Submitted",
-                    "A client has submitted a new change request.",
-                    NotificationType.CHANGE_REQUEST_ACCEPTED, // keep enum set if you don't have NEW_CHANGE_REQUEST
-                    saved.getId(),
-                    "CHANGE_REQUEST"
-            );
-        } catch (Exception e) {
-            System.err.println("Failed to create company notification for new change request: " + e.getMessage());
-        }
+        notifyCompanyNewChangeRequest(saved);
 
         return mapToResponse(saved);
     }
@@ -479,6 +468,34 @@ public class ChangeRequestService {
             );
         } catch (Exception e) {
             System.err.println("Failed to send acceptance email: " + e.getMessage());
+        }
+    }
+
+    private void notifyCompanyNewChangeRequest(ChangeRequest changeRequest) {
+        try {
+            notificationService.createNotification(
+                    changeRequest.getCompanyId(),
+                    "New Change Request Submitted",
+                    "A client has submitted a new change request.",
+                    NotificationType.NEW_CHANGE_REQUEST,
+                    changeRequest.getId(),
+                    "CHANGE_REQUEST"
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to create company notification for new change request: " + e.getMessage());
+        }
+
+        try {
+            User company = userRepository.findById(changeRequest.getCompanyId())
+                    .orElseThrow(() -> new RuntimeException("Company user not found"));
+
+            emailService.sendEmail(
+                    company.getEmail(),
+                    "New Change Request Submitted",
+                    "A client has submitted a new change request. Please log in to review it."
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send new change request email to company: " + e.getMessage());
         }
     }
 
