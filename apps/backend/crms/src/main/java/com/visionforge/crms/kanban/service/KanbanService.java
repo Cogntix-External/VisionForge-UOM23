@@ -1,0 +1,327 @@
+package com.visionforge.crms.kanban.service;
+
+import com.mongodb.client.gridfs.model.GridFSFile;
+import com.visionforge.crms.kanban.dto.CreateTaskRequestDto;
+import com.visionforge.crms.kanban.dto.KanbanAssigneeDto;
+import com.visionforge.crms.kanban.dto.KanbanProjectDto;
+import com.visionforge.crms.kanban.dto.UpdateTaskStatusDto;
+import com.visionforge.crms.kanban.model.KanbanAttachment;
+import com.visionforge.crms.kanban.model.KanbanBoard;
+import com.visionforge.crms.kanban.model.KanbanComment;
+import com.visionforge.crms.kanban.model.KanbanTask;
+import com.visionforge.crms.kanban.repository.KanbanBoardRepository;
+import com.visionforge.crms.kanban.repository.KanbanTaskRepository;
+import com.visionforge.crms.project.model.Project;
+import com.visionforge.crms.project.repository.ProjectRepository;
+import com.visionforge.crms.user.CurrentUserService;
+import com.visionforge.crms.user.Role;
+import com.visionforge.crms.user.User;
+import com.visionforge.crms.user.UserRepository;
+import org.bson.Document;
+import org.bson.types.ObjectId;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpStatus;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.gridfs.GridFsTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+public class KanbanService {
+
+    private final KanbanBoardRepository kanbanBoardRepository;
+    private final KanbanTaskRepository kanbanTaskRepository;
+    private final GridFsTemplate gridFsTemplate;
+    private final CurrentUserService currentUserService;
+    private final UserRepository userRepository;
+    private final ProjectRepository projectRepository;
+
+    public KanbanService(KanbanBoardRepository kanbanBoardRepository,
+                         KanbanTaskRepository kanbanTaskRepository,
+                         GridFsTemplate gridFsTemplate,
+                         CurrentUserService currentUserService,
+                         UserRepository userRepository,
+                         ProjectRepository projectRepository) {
+        this.kanbanBoardRepository = kanbanBoardRepository;
+        this.kanbanTaskRepository = kanbanTaskRepository;
+        this.gridFsTemplate = gridFsTemplate;
+        this.currentUserService = currentUserService;
+        this.userRepository = userRepository;
+        this.projectRepository = projectRepository;
+    }
+
+    // specific projectக்கு board எடுக்க
+    public List<KanbanAssigneeDto> getCompanyAssignees() {
+        return userRepository.findAll()
+                .stream()
+                .filter(user -> user.getRole() == Role.COMPANY && user.isEmailVerified())
+                .map(user -> new KanbanAssigneeDto(
+                        user.getId(),
+                        user.getName() != null && !user.getName().isBlank()
+                                ? user.getName()
+                                : user.getEmail(),
+                        user.getEmail()
+                ))
+                .toList();
+    }
+
+    public List<KanbanProjectDto> getAssignedProjectsForCurrentUser() {
+        User currentUser = currentUserService.getCurrentUser();
+        Map<String, KanbanProjectDto> projectsById = new LinkedHashMap<>();
+
+        kanbanTaskRepository.findByAssignedTo(currentUser.getId()).forEach(task -> {
+            String projectId = task.getProjectId();
+            if (projectId == null || projectId.isBlank() || projectsById.containsKey(projectId)) {
+                return;
+            }
+
+            String projectName = projectRepository.findById(projectId)
+                    .map(Project::getName)
+                    .filter(name -> name != null && !name.isBlank())
+                    .orElseGet(() -> kanbanBoardRepository.findByProjectId(projectId)
+                            .map(KanbanBoard::getTitle)
+                            .filter(title -> title != null && !title.isBlank())
+                            .orElse("Kanban Board"));
+
+            projectsById.put(projectId, new KanbanProjectDto(
+                    projectId,
+                    projectName,
+                    "Assigned Kanban board"
+            ));
+        });
+
+        return new ArrayList<>(projectsById.values());
+    }
+
+    public KanbanBoard getBoardByProjectId(String projectId) {
+        return createBoardForProject(projectId);
+    }
+
+    // specific projectக்கு எல்லா tasks எடுக்க
+    public List<KanbanTask> getTasksByProjectId(String projectId) {
+        return kanbanTaskRepository.findByProjectId(projectId);
+    }
+
+    // new task create பண்ண
+    public KanbanTask createTask(String projectId, CreateTaskRequestDto dto) {
+        KanbanBoard board = createBoardForProject(projectId);
+
+        KanbanTask task = new KanbanTask();
+        task.setBoardId(board.getId());
+        task.setProjectId(projectId);
+        task.setTitle(dto.getTitle());
+        task.setStatus(dto.getStatus());
+        task.setDueDate(dto.getDueDate());
+        task.setPriority(dto.getPriority());
+        task.setAssignedTo(dto.getAssignedTo());
+        task.setComments(new ArrayList<>());
+        task.setAttachments(new ArrayList<>());
+
+        return kanbanTaskRepository.save(task);
+    }
+
+    public KanbanTask updateTask(String projectId, String taskId, CreateTaskRequestDto dto) {
+        KanbanTask task = kanbanTaskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        if (!projectId.equals(task.getProjectId())) {
+            throw new RuntimeException("Task does not belong to the provided project");
+        }
+
+        task.setTitle(dto.getTitle());
+        task.setStatus(dto.getStatus());
+        task.setDueDate(dto.getDueDate());
+        task.setPriority(dto.getPriority());
+        task.setAssignedTo(dto.getAssignedTo());
+
+        return kanbanTaskRepository.save(task);
+    }
+
+    public KanbanTask uploadAttachments(String projectId, String taskId, MultipartFile[] files) throws IOException {
+        KanbanTask task = kanbanTaskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        if (!projectId.equals(task.getProjectId())) {
+            throw new RuntimeException("Task does not belong to the provided project");
+        }
+
+        List<KanbanAttachment> attachments = task.getAttachments() != null
+                ? new ArrayList<>(task.getAttachments())
+                : new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+
+            String originalFileName = file.getOriginalFilename() != null && !file.getOriginalFilename().isBlank()
+                    ? file.getOriginalFilename()
+                    : "attachment";
+            ObjectId gridFsId = storeAttachmentInMongo(projectId, taskId, originalFileName, file);
+
+            attachments.add(new KanbanAttachment(
+                    gridFsId.toHexString(),
+                    originalFileName,
+                    file.getContentType(),
+                    file.getSize(),
+                    Instant.now()
+            ));
+        }
+
+        task.setAttachments(attachments);
+        return kanbanTaskRepository.save(task);
+    }
+
+    public void deleteTask(String projectId, String taskId) {
+        KanbanTask task = kanbanTaskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        if (!projectId.equals(task.getProjectId())) {
+            throw new RuntimeException("Task does not belong to the provided project");
+        }
+
+        if (task.getAttachments() != null) {
+            task.getAttachments().forEach((attachment) -> {
+                deleteGridFsAttachmentIfPresent(attachment.getFileId());
+            });
+        }
+
+        kanbanTaskRepository.delete(task);
+    }
+
+    public KanbanAttachment getAttachmentMetadata(String projectId, String taskId, String attachmentId) {
+        KanbanTask task = kanbanTaskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        if (!projectId.equals(task.getProjectId())) {
+            throw new RuntimeException("Task does not belong to the provided project");
+        }
+
+        return (task.getAttachments() == null ? List.<KanbanAttachment>of() : task.getAttachments())
+                .stream()
+                .filter(attachment -> attachmentId.equals(attachment.getFileId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Attachment not found"));
+    }
+
+    public Resource getAttachmentResource(String projectId, String taskId, KanbanAttachment attachment) {
+        Resource gridFsResource = getGridFsResourceIfPresent(attachment.getFileId());
+        if (gridFsResource != null) {
+            return gridFsResource;
+        }
+
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Stored attachment not found");
+    }
+
+    // task status update பண்ண
+    public KanbanTask updateTaskStatus(String taskId, UpdateTaskStatusDto dto) {
+        KanbanTask task = kanbanTaskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        task.setStatus(dto.getStatus());
+        return kanbanTaskRepository.save(task);
+    }
+
+    public KanbanTask addComment(String projectId, String taskId, String commentText) {
+        KanbanTask task = kanbanTaskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        if (!projectId.equals(task.getProjectId())) {
+            throw new RuntimeException("Task does not belong to the provided project");
+        }
+
+        String normalizedComment = commentText == null ? "" : commentText.trim();
+        if (normalizedComment.isBlank()) {
+            throw new RuntimeException("Comment is required");
+        }
+
+        User currentUser = currentUserService.getCurrentUser();
+        List<KanbanComment> comments = task.getComments() != null
+                ? new ArrayList<>(task.getComments())
+                : new ArrayList<>();
+
+        comments.add(new KanbanComment(
+                UUID.randomUUID().toString(),
+                currentUser.getId(),
+                currentUser.getName() != null && !currentUser.getName().isBlank()
+                        ? currentUser.getName()
+                        : currentUser.getEmail(),
+                normalizedComment,
+                Instant.now()
+        ));
+
+        task.setComments(comments);
+        return kanbanTaskRepository.save(task);
+    }
+
+    // project create ஆனபோது default board create பண்ண
+    public KanbanBoard createBoardForProject(String projectId) {
+        return kanbanBoardRepository.findByProjectId(projectId)
+                .orElseGet(() -> {
+                    KanbanBoard board = new KanbanBoard();
+                    board.setProjectId(projectId);
+                    board.setTitle("Project Kanban Board");
+                    return kanbanBoardRepository.save(board);
+                });
+    }
+
+    private void deleteGridFsAttachmentIfPresent(String attachmentId) {
+        if (attachmentId == null || attachmentId.isBlank()) {
+            return;
+        }
+
+        try {
+            gridFsTemplate.delete(
+                    new Query(Criteria.where("_id").is(new ObjectId(attachmentId)))
+            );
+        } catch (IllegalArgumentException ignored) {
+            // Ignore malformed stored ids and continue deleting the task document.
+        }
+    }
+
+    private Resource getGridFsResourceIfPresent(String attachmentId) {
+        if (attachmentId == null || attachmentId.isBlank() || !ObjectId.isValid(attachmentId)) {
+            return null;
+        }
+
+        GridFSFile gridFile = gridFsTemplate.findOne(
+                new Query(Criteria.where("_id").is(new ObjectId(attachmentId)))
+        );
+
+        if (gridFile == null) {
+            return null;
+        }
+
+        return gridFsTemplate.getResource(gridFile);
+    }
+
+    private ObjectId storeAttachmentInMongo(String projectId,
+                                            String taskId,
+                                            String originalFileName,
+                                            MultipartFile file) throws IOException {
+        Document metadata = new Document()
+                .append("projectId", projectId)
+                .append("taskId", taskId)
+                .append("uploadedAt", Instant.now().toString());
+
+        try (InputStream inputStream = file.getInputStream()) {
+            return gridFsTemplate.store(
+                    inputStream,
+                    originalFileName,
+                    file.getContentType(),
+                    metadata
+            );
+        }
+    }
+}

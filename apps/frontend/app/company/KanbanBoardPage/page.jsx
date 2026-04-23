@@ -1,7 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import KanbanBoardPage from "@/pages/KanbanBoardPage";
-
-export default function CompanyKanbanBoardPage() {
-  return <KanbanBoardPage />;
+export default function CompanyKanbanBoardIndexPage() {
+  redirect("/company/KanbanOverviewPage");
 }

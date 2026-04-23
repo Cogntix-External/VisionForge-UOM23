@@ -501,4 +501,371 @@ export function markNotificationAsRead(notificationId) {
   });
 }
 
+// KANBAN HELPERS
+function getAuthToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("crms_token") || localStorage.getItem("token");
+}
+
+function normalizeKanbanUserRole(userRole) {
+  const normalizedRole = String(userRole || "").trim().toUpperCase();
+  return normalizedRole === "CLIENT" || normalizedRole === "ROLE_CLIENT"
+    ? "client"
+    : "company";
+}
+
+function buildKanbanRequestHeaders(endpoint) {
+  const headers = {};
+  const token = getAuthToken();
+  const companyId = getCompanyId();
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (companyId && endpoint.includes("/company/")) {
+    headers["X-Company-Id"] = companyId;
+  }
+
+  return headers;
+}
+
+async function parseKanbanResponse(response) {
+  if (!response.ok) {
+    const error = new Error(`Request failed with status code ${response.status}`);
+    error.response = {
+      status: response.status,
+      data: await response.text().catch(() => ""),
+    };
+    throw error;
+  }
+
+  if (response.status === 204) return null;
+
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  return response.text();
+}
+
+async function sendKanbanRequest(method, endpoint, data) {
+  const headers = buildKanbanRequestHeaders(endpoint);
+
+  const options = {
+    method,
+    credentials: "include",
+    headers,
+  };
+
+  if (data !== undefined) {
+    options.body = JSON.stringify(data);
+    options.headers = {
+      ...headers,
+      "Content-Type": "application/json",
+    };
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, options);
+  return parseKanbanResponse(response);
+}
+
+async function sendKanbanMultipartRequest(method, endpoint, formData) {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    method,
+    body: formData,
+    credentials: "include",
+    headers: buildKanbanRequestHeaders(endpoint),
+  });
+
+  return parseKanbanResponse(response);
+}
+
+export async function getCompanyUsers(companyId) {
+  const resolvedCompanyId = getCompanyId(companyId);
+
+  const endpoint = "/company/kanban/assignees";
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      ...buildKanbanRequestHeaders(endpoint),
+      ...(resolvedCompanyId ? { "X-Company-Id": resolvedCompanyId } : {}),
+    },
+  });
+
+  if (response.status === 404) {
+    return [];
+  }
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return (await parseKanbanResponse(response)) || [];
+}
+
+export async function getAssignedKanbanProjects() {
+  try {
+    return await sendKanbanRequest("GET", "/company/kanban/assigned-projects");
+  } catch (error) {
+    if ([401, 403, 404].includes(error?.response?.status)) {
+      return [];
+    }
+
+    return [];
+  }
+}
+
+function projectIdMatches(project, projectId) {
+  const normalizedProjectId = String(projectId || "").trim();
+  const candidateId = String(project?.id || project?.pid || "").trim();
+  return Boolean(normalizedProjectId) && candidateId === normalizedProjectId;
+}
+
+export async function getKanbanProjectById(projectId, userRole) {
+  if (!projectId) {
+    throw new Error("Project ID is required");
+  }
+
+  const role = normalizeKanbanUserRole(userRole);
+  const loaders =
+    role === "client"
+      ? [() => getClientProjects(), () => getAssignedKanbanProjects()]
+      : [() => getCompanyProjects(), () => getAssignedKanbanProjects()];
+
+  for (const loadProjects of loaders) {
+    try {
+      const projects = await loadProjects();
+      const matchedProject = Array.isArray(projects)
+        ? projects.find((project) => projectIdMatches(project, projectId))
+        : null;
+
+      if (matchedProject) {
+        return matchedProject;
+      }
+    } catch {
+      // Best-effort lookup for kanban title/description only.
+    }
+  }
+
+  return null;
+}
+
+export function getProjectById(projectId) {
+  if (!projectId) {
+    throw new Error("Project ID is required");
+  }
+
+  return request(`/projects/${projectId}`, {
+    method: "GET",
+  });
+}
+
+export async function createKanbanBoard(projectId, data) {
+  return sendKanbanRequest(
+    "POST",
+    `/company/kanban/${projectId}/board`,
+    data
+  );
+}
+
+export async function getKanbanBoard(projectId) {
+  try {
+    return await sendKanbanRequest("GET", `/company/kanban/${projectId}`);
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      return { tasksByStatus: [] };
+    }
+
+    throw error;
+  }
+}
+
+function normalizeTaskStatus(status) {
+  const normalized = String(status || "").trim().toUpperCase();
+
+  if (normalized === "INPROGRESS") return "IN_PROGRESS";
+  if (normalized === "REVIEW") return "IN_REVIEW";
+  if (normalized === "COMPLETE" || normalized === "COMPLETED") return "DONE";
+
+  if (
+    normalized === "TODO" ||
+    normalized === "IN_PROGRESS" ||
+    normalized === "IN_REVIEW" ||
+    normalized === "DONE"
+  ) {
+    return normalized;
+  }
+
+  return "TODO";
+}
+
+export async function getTasksByBoard(projectId) {
+  try {
+    return await sendKanbanRequest(
+      "GET",
+      `/company/kanban/${projectId}/tasks`
+    );
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+export async function getKanbanBoardWithTasks(projectId) {
+  const [board, tasks] = await Promise.all([
+    getKanbanBoard(projectId),
+    getTasksByBoard(projectId),
+  ]);
+
+  const groupedTasks = {
+    TODO: [],
+    IN_PROGRESS: [],
+    IN_REVIEW: [],
+    DONE: [],
+  };
+
+  (Array.isArray(tasks) ? tasks : []).forEach((task) => {
+    const normalizedStatus = normalizeTaskStatus(task?.status);
+    groupedTasks[normalizedStatus].push({
+      ...task,
+      status: normalizedStatus,
+    });
+  });
+
+  return {
+    ...(board || {}),
+    name: board?.name || board?.title || "Kanban Board",
+    tasksByStatus: Object.entries(groupedTasks).map(([status, taskList]) => ({
+      status,
+      tasks: taskList,
+    })),
+  };
+}
+
+export async function createTask(projectId, boardId, data) {
+  if (!projectId) throw new Error("Project ID is missing");
+
+  return sendKanbanRequest(
+    "POST",
+    `/company/kanban/${projectId}/tasks`,
+    data
+  );
+}
+
+export async function updateTask(projectId, taskId, data) {
+  if (!projectId) throw new Error("Project ID is missing");
+  if (!taskId) throw new Error("Task ID is missing");
+
+  return sendKanbanRequest(
+    "PUT",
+    `/company/kanban/${projectId}/tasks/${taskId}`,
+    data
+  );
+}
+
+export async function updateTaskStatus(projectId, taskId, data) {
+  if (!taskId) throw new Error("Task ID is missing");
+
+  return sendKanbanRequest(
+    "PUT",
+    `/company/kanban/tasks/${taskId}/status`,
+    data
+  );
+}
+
+export async function deleteTask(projectId, taskId) {
+  if (!projectId) throw new Error("Project ID is missing");
+  if (!taskId) throw new Error("Task ID is missing");
+
+  return sendKanbanRequest(
+    "DELETE",
+    `/company/kanban/${projectId}/tasks/${taskId}`
+  );
+}
+
+export async function addTaskComment(projectId, taskId, comment) {
+  if (!projectId) throw new Error("Project ID is missing");
+  if (!taskId) throw new Error("Task ID is missing");
+
+  return sendKanbanRequest(
+    "POST",
+    `/company/kanban/${projectId}/tasks/${taskId}/comments?comment=${encodeURIComponent(
+      comment
+    )}`
+  );
+}
+
+export async function uploadTaskAttachments(projectId, taskId, files) {
+  if (!Array.isArray(files) || files.length === 0) return null;
+
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  return sendKanbanMultipartRequest(
+    "POST",
+    `/company/kanban/${projectId}/tasks/${taskId}/attachments`,
+    formData
+  );
+}
+
+export async function downloadTaskAttachment(
+  projectId,
+  taskId,
+  attachmentId,
+  fileName
+) {
+  const companyId = getCompanyId();
+  const proxyPath =
+    `/api/company/kanban/${encodeURIComponent(
+      projectId
+    )}/tasks/${encodeURIComponent(taskId)}/attachments/${encodeURIComponent(
+      attachmentId
+    )}` +
+    (companyId ? `?companyId=${encodeURIComponent(companyId)}` : "");
+
+  const response = await fetch(proxyPath, {
+      method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return false;
+    }
+
+    throw new Error(`Request failed with status code ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const contentDisposition = response.headers.get("content-disposition") || "";
+  const matchedFileName = contentDisposition.match(
+    /filename\*?=(?:UTF-8'')?["']?([^;"']+)["']?/i
+  );
+  const resolvedFileName =
+    fileName ||
+    (matchedFileName?.[1] ? decodeURIComponent(matchedFileName[1]) : "") ||
+    "attachment";
+  const objectUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = objectUrl;
+  link.download = resolvedFileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  window.URL.revokeObjectURL(objectUrl);
+  return true;
+}
+
+
 export { API_BASE };
+

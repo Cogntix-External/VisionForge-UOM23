@@ -1,213 +1,500 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
-import { projects as allProjects } from "@/lib/projects";
+import {
+  Search,
+  Plus,
+  X,
+  Trash2,
+} from "lucide-react";
+import Layout from "./Layout";
+import { projects as seedProjects } from "@/lib/projects";
+import { getUser, normalizeRole } from "@/utils/auth";
+import {
+  getAssignedKanbanProjects,
+  getCompanyProjects,
+  getClientProjects,
+} from "@/services/api";
 
-const ITEMS_PER_PAGE = 4;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+
+const getAuthToken = () => {
+  if (typeof window !== "undefined") {
+    return (
+      localStorage.getItem("crms_token") ||
+      localStorage.getItem("authToken") ||
+      localStorage.getItem("token")
+    );
+  }
+  return null;
+};
+
+const normalizeProjectKey = (project) =>
+  String(project?.pid || project?.id || "")
+    .trim()
+    .toLowerCase();
+
+const dedupeProjects = (items) => {
+  const seen = new Set();
+
+  return (Array.isArray(items) ? items : []).filter((project) => {
+    const key = normalizeProjectKey(project);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const getStoredProjects = () => {
+  if (typeof window === "undefined") return seedProjects;
+
+  try {
+    return JSON.parse(localStorage.getItem("kanban_projects") || "[]");
+  } catch (error) {
+    return [];
+  }
+};
+
+const saveStoredProjects = (projects) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("kanban_projects", JSON.stringify(projects));
+};
+
+const getProjects = () => getStoredProjects();
+
+const canViewProject = () => true;
+
+const canDeleteProject = (role) =>
+  ["ADMIN", "MANAGER", "COMPANY"].includes(String(role || "").toUpperCase());
+
+const createProject = (data) => {
+  const pid = String(data?.pid || "").trim();
+  const name = String(data?.name || "").trim();
+
+  if (!pid || !name) {
+    throw new Error("Project ID and name are required");
+  }
+
+  const project = {
+    pid,
+    name,
+    description: data?.description || "",
+    accessRoles: data?.accessRoles || [],
+    isCustom: true,
+  };
+
+  saveStoredProjects(dedupeProjects([...getStoredProjects(), project]));
+  return project;
+};
+
+const deleteProject = (pid) => {
+  const key = String(pid || "").trim().toLowerCase();
+
+  saveStoredProjects(
+    getStoredProjects().filter(
+      (project) => String(project?.pid || "").trim().toLowerCase() !== key
+    )
+  );
+};
+
+const getLocalKanbanProjects = () =>
+  getProjects().filter((project) => Boolean(project?.isCustom));
 
 const KanbanOverviewPage = () => {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [formData, setFormData] = useState({
+    pid: "",
+    name: "",
+  });
+  const sessionUser = useMemo(() => {
+    const storedUser = getUser();
+
+    return {
+      role: normalizeRole(storedUser?.role) || "COMPANY",
+    };
+  }, []);
+  const userRole = sessionUser.role;
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        setLoading(true);
+        // Use shared API helpers that set required headers (X-Company-Id / auth)
+        let data = [];
+        if (userRole === "COMPANY") {
+          data = await getCompanyProjects();
+        } else if (userRole === "CLIENT") {
+          data = await getClientProjects();
+        } else {
+          // fallback to company projects
+          data = await getCompanyProjects();
+        }
+        
+        // Transform backend response to frontend format
+        const assignedKanbanProjects = await getAssignedKanbanProjects();
+
+        const transformedProjects = Array.isArray(data)
+          ? data.map((proj) => ({
+              pid: proj.id,
+              name: proj.name,
+              description: proj.description,
+              proposalId: proj.proposalId,
+              clientId: proj.clientId,
+              clientName: proj.clientName,
+              companyId: proj.companyId,
+              status: proj.status,
+              accessRoles: [userRole],
+              isCustom: false,
+              createdAt: proj.createdAt,
+              updatedAt: proj.updatedAt,
+            }))
+          : [];
+        const transformedAssignedProjects = Array.isArray(assignedKanbanProjects)
+          ? assignedKanbanProjects.map((project) => ({
+              pid: project.id || project.pid,
+              name: project.name || "Assigned Kanban Board",
+              description: project.description || "",
+              accessRoles: [userRole],
+              isCustom: false,
+              isAssignedKanban: true,
+            }))
+          : [];
+
+        // Merge backend projects with locally created kanban boards only.
+        // This avoids showing demo seed data from lib/projects in the kanban overview.
+        const local = getLocalKanbanProjects();
+        const remoteProjects = dedupeProjects([
+          ...transformedProjects,
+          ...transformedAssignedProjects,
+        ]);
+        const backendPidSet = new Set(remoteProjects.map((project) => normalizeProjectKey(project)));
+        const merged = dedupeProjects([
+          ...remoteProjects,
+          ...local.filter(
+            (project) => !backendPidSet.has(normalizeProjectKey(project))
+          ),
+        ]);
+
+        setProjects(merged);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching projects:", err);
+        setProjects(getLocalKanbanProjects());
+        setError(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [userRole]);
 
   const filteredProjects = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return allProjects;
+    const roleBasedProjects = projects.filter((project) =>
+      canViewProject(project, userRole)
+    );
 
-    // allow searching "001A" to match "001 A"
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return roleBasedProjects;
+
     const termNoSpace = term.replace(/\s+/g, "");
 
-    return allProjects.filter((project) => {
-      const pid = (project.pid || "").toLowerCase();
-      const pidNoSpace = pid.replace(/\s+/g, "");
+    return roleBasedProjects.filter((project) => {
+      const projectId = (project.pid || "").toLowerCase();
+      const projectIdNoSpace = projectId.replace(/\s+/g, "");
       const name = (project.name || "").toLowerCase();
       const desc = (project.description || "").toLowerCase();
 
       return (
-        pid.includes(term) ||
-        pidNoSpace.includes(termNoSpace) ||
+        projectId.includes(term) ||
+        projectIdNoSpace.includes(termNoSpace) ||
         name.includes(term) ||
         desc.includes(term)
       );
     });
-  }, [searchTerm]);
-
-  const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedProjects = filteredProjects.slice(
-    startIndex,
-    startIndex + ITEMS_PER_PAGE,
-  );
+  }, [projects, searchTerm, userRole]);
 
   const handleView = (project) => {
-    router.push(`/kanban-board/${encodeURIComponent(project.pid)}`);
+    router.push(`/company/KanbanBoardPage/${encodeURIComponent(project.pid)}`);
   };
 
-  const handlePageChange = (page) => {
-    if (page < 1 || page > totalPages) return;
-    setCurrentPage(page);
+  const handleDelete = (project) => {
+    if (!canDeleteProject(userRole)) return;
+
+    const shouldDelete = window.confirm(
+      `Delete the board "${project.name}" (${project.pid})?`
+    );
+    if (!shouldDelete) return;
+
+    deleteProject(project.pid);
+    setProjects((prev) =>
+      prev.filter(
+        (item) => normalizeProjectKey(item) !== normalizeProjectKey(project)
+      )
+    );
   };
 
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxVisible = 5;
+  const closeCreateModal = () => {
+    setIsCreateModalOpen(false);
+    setCreateError("");
+    setFormData({
+      pid: "",
+      name: "",
+    });
+  };
 
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i += 1) pages.push(i);
-    } else if (currentPage <= 3) {
-      for (let i = 1; i <= 4; i += 1) pages.push(i);
-      pages.push("...");
-      pages.push(totalPages);
-    } else if (currentPage >= totalPages - 2) {
-      pages.push(1);
-      pages.push("...");
-      for (let i = totalPages - 3; i <= totalPages; i += 1) pages.push(i);
-    } else {
-      pages.push(1);
-      pages.push("...");
-      for (let i = currentPage - 1; i <= currentPage + 1; i += 1) pages.push(i);
-      pages.push("...");
-      pages.push(totalPages);
+  const handleCreateBoard = () => {
+    try {
+      const newProject = createProject({
+        pid: formData.pid,
+        name: formData.name,
+        accessRoles: [userRole],
+      });
+
+      if (!newProject) return;
+
+      setProjects((prev) =>
+        dedupeProjects([...prev, newProject]).sort((a, b) =>
+          String(a?.name || "").localeCompare(String(b?.name || ""))
+        )
+      );
+      closeCreateModal();
+      router.push(
+        `/company/KanbanBoardPage/${encodeURIComponent(newProject.pid)}`
+      );
+    } catch (error) {
+      setCreateError(error.message || "Unable to create the Kanban board.");
     }
-
-    return pages;
   };
+
+  const isCreateDisabled =
+    !formData.pid.trim() || !formData.name.trim();
 
   return (
-    <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+    <Layout title="Kanban Board Overview">
+      <div className="mx-auto max-w-6xl">
+        {/* Search */}
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="relative w-full md:flex-1">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by PID or proposal name"
+              placeholder="Search"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setCurrentPage(1);
               }}
-              className="w-full pl-10 pr-4 py-3 bg-[var(--surface-muted)] border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--accent-purple)] focus:border-transparent transition-all"
+              className="h-10 w-full rounded-xl border border-[#94a3b8] bg-white pl-11 pr-4 text-sm text-slate-700 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-[#2563eb] focus:ring-2 focus:ring-[rgba(37,99,235,0.15)]"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-md bg-[#2563eb] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8]"
+          >
+            <Plus className="h-4 w-4" />
+            Create
+          </button>
         </div>
 
-        <div className="bg-[var(--surface)] rounded-2xl shadow-sm border border-[var(--border-soft)] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-[var(--surface-muted)] border-b border-[var(--border-soft)]">
-                  <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-                    PID
-                  </th>
-                  <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-                    Projects
-                  </th>
-                  <th className="text-center py-4 px-6 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-                    For more
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-gray-100">
-                {paginatedProjects.map((project) => (
-                  <tr
-                    key={project.pid}
-                    className="hover:bg-[var(--surface-muted)] transition-colors"
-                  >
-                    <td className="py-4 px-6 text-sm text-gray-600 font-medium">
-                      {project.pid}
-                    </td>
-
-                    <td className="py-4 px-6">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {project.name}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {project.description}
-                        </p>
-                      </div>
-                    </td>
-
-                    <td className="py-4 px-6 text-center">
-                      <button
-                        onClick={() => handleView(project)}
-                        className="inline-flex items-center px-4 py-2 bg-[var(--accent-purple-200)] hover:bg-[var(--accent-purple)] text-white text-sm font-medium rounded-lg transition-colors"
-                      >
-                        View
-                      </button>
-                    </td>
+        {/* Table Card */}
+        <div className="mt-10 overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <p className="text-base font-semibold text-slate-700">Loading projects...</p>
+              <p className="mt-1 text-sm text-slate-500">Please wait while we fetch your projects.</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <p className="text-base font-semibold text-red-700">{error}</p>
+              <p className="mt-1 text-sm text-red-500">Failed to load projects. Showing cached projects if available.</p>
+            </div>
+          ) : (
+            <div className="max-h-[520px] overflow-auto">
+              <table className="min-w-full table-fixed">
+                <colgroup>
+                  <col className="w-[130px]" />
+                  <col />
+                  <col className="w-[150px]" />
+                </colgroup>
+                <thead>
+                  <tr className="border-b border-slate-300 bg-slate-50">
+                    <th className="border-r border-slate-200 px-5 py-3 text-left text-sm font-medium text-slate-700">
+                      Project ID
+                    </th>
+                    <th className="border-r border-slate-200 px-5 py-3 text-left text-sm font-medium text-slate-700">
+                      Project
+                    </th>
+                    <th className="px-5 py-3 text-center text-sm font-medium text-slate-700">
+                      Action
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
 
-          {paginatedProjects.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="text-gray-500">
-                No projects found matching your search.
-              </p>
+                <tbody>
+                  {filteredProjects.map((project) => (
+                    <tr
+                      key={project.pid}
+                      className="border-b border-slate-200 transition-colors hover:bg-slate-50"
+                    >
+                      <td className="border-r border-slate-200 px-5 py-4 text-sm font-normal text-slate-700">
+                        {project.pid}
+                      </td>
+
+                      <td className="border-r border-slate-200 px-5 py-4">
+                        <div className="min-w-0">
+                          <p className="break-words text-base font-normal text-slate-900">
+                            {project.name}
+                          </p>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleView(project)}
+                            className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-all hover:bg-blue-100"
+                          >
+                            View
+                          </button>
+                          {canDeleteProject(userRole) && (
+                            <button
+                              onClick={() => handleDelete(project)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-700 transition-all hover:bg-red-100"
+                              title="Delete board"
+                              aria-label={`Delete ${project.name}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {filteredProjects.length === 0 && (
+                <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                  <div className="mb-3 rounded-full bg-[var(--surface-muted)] p-3">
+                    <Search className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <p className="text-base font-semibold text-slate-700">
+                    No projects found
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Try searching with another project ID or name.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--border-soft)] bg-[var(--surface-muted)]">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg hover:bg-[var(--surface)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-gray-600"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-
-            {getPageNumbers().map((page, index) => (
-              <button
-                key={`${page}-${index}`}
-                onClick={() =>
-                  typeof page === "number" && handlePageChange(page)
-                }
-                disabled={page === "..."}
-                className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors ${
-                  page === currentPage
-                    ? "bg-[var(--primary)] text-white"
-                    : page === "..."
-                      ? "cursor-default text-gray-400"
-                      : "hover:bg-[var(--surface)] text-gray-600"
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-lg hover:bg-[var(--surface)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-gray-600"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-          </div>
+          {/* Pagination */}
         </div>
+
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-slate-950/35"
+              onClick={closeCreateModal}
+            />
+
+            <div className="relative w-full max-w-xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
+              <div className="flex items-start justify-between border-b border-slate-200 bg-slate-50 px-6 py-5">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    Create Kanban Board
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeCreateModal}
+                  className="rounded-xl p-2 text-slate-500 transition hover:bg-white hover:text-slate-700"
+                  aria-label="Close create board modal"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-5 px-6 py-6">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Project ID
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.pid}
+                    onChange={(e) => {
+                      setCreateError("");
+                      setFormData((prev) => ({
+                        ...prev,
+                        pid: e.target.value,
+                      }));
+                    }}
+                    placeholder="e.g. 009 J"
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Project Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => {
+                      setCreateError("");
+                      setFormData((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }));
+                    }}
+                    placeholder="Name your board"
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                  />
+                </div>
+
+                {createError && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                    {createError}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-5 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeCreateModal}
+                  className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateBoard}
+                  disabled={isCreateDisabled}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#2563eb] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-100 disabled:shadow-none"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Board
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </Layout>
   );
 };
 
