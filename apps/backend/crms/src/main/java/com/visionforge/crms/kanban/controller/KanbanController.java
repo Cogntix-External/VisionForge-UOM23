@@ -2,6 +2,7 @@ package com.visionforge.crms.kanban.controller;
 
 import com.visionforge.crms.kanban.dto.CreateTaskRequestDto;
 import com.visionforge.crms.kanban.dto.KanbanAssigneeDto;
+import com.visionforge.crms.kanban.dto.KanbanBoardResponse;
 import com.visionforge.crms.kanban.dto.KanbanProjectDto;
 import com.visionforge.crms.kanban.dto.UpdateTaskStatusDto;
 import com.visionforge.crms.kanban.model.KanbanAttachment;
@@ -20,7 +21,7 @@ import java.io.IOException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/company/kanban")
+@RequestMapping("/api")
 @CrossOrigin(origins = "http://localhost:3000")
 public class KanbanController {
 
@@ -30,66 +31,93 @@ public class KanbanController {
         this.kanbanService = kanbanService;
     }
 
-    @GetMapping("/assignees")
+    @GetMapping("/client/projects/{projectId}/kanban")
+    public ResponseEntity<KanbanBoardResponse> getClientProjectKanban(
+            @PathVariable String projectId
+    ) {
+        return ResponseEntity.ok(kanbanService.getClientProjectKanbanBoard(projectId));
+    }
+
+    @GetMapping("/company/kanban/assignees")
     public ResponseEntity<List<KanbanAssigneeDto>> getCompanyAssignees() {
         return ResponseEntity.ok(kanbanService.getCompanyAssignees());
     }
 
-    @GetMapping("/assigned-projects")
+    @GetMapping("/company/kanban/assigned-projects")
     public ResponseEntity<List<KanbanProjectDto>> getAssignedProjects() {
         return ResponseEntity.ok(kanbanService.getAssignedProjectsForCurrentUser());
     }
 
-    @GetMapping("/{projectId}")
+    @GetMapping("/company/kanban/{projectId}")
     public ResponseEntity<KanbanBoard> getBoard(@PathVariable String projectId) {
         return ResponseEntity.ok(kanbanService.getBoardByProjectId(projectId));
     }
 
-    @GetMapping("/{projectId}/tasks")
+    @GetMapping("/company/kanban/{projectId}/tasks")
     public ResponseEntity<List<KanbanTask>> getTasks(@PathVariable String projectId) {
         return ResponseEntity.ok(kanbanService.getTasksByProjectId(projectId));
     }
 
-    @PostMapping("/{projectId}/tasks")
-    public ResponseEntity<KanbanTask> createTask(@PathVariable String projectId,
-                                                 @RequestBody CreateTaskRequestDto dto) {
+    @PostMapping("/company/kanban/{projectId}/tasks")
+    public ResponseEntity<KanbanTask> createTask(
+            @PathVariable String projectId,
+            @RequestBody CreateTaskRequestDto dto
+    ) {
         return ResponseEntity.ok(kanbanService.createTask(projectId, dto));
     }
 
-    @PutMapping("/{projectId}/tasks/{taskId}")
-    public ResponseEntity<KanbanTask> updateTask(@PathVariable String projectId,
-                                                 @PathVariable String taskId,
-                                                 @RequestBody CreateTaskRequestDto dto) {
+    @PutMapping("/company/kanban/{projectId}/tasks/{taskId}")
+    public ResponseEntity<KanbanTask> updateTask(
+            @PathVariable String projectId,
+            @PathVariable String taskId,
+            @RequestBody CreateTaskRequestDto dto
+    ) {
         return ResponseEntity.ok(kanbanService.updateTask(projectId, taskId, dto));
     }
 
-    @PostMapping(value = "/{projectId}/tasks/{taskId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<KanbanTask> uploadTaskAttachments(@PathVariable String projectId,
-                                                            @PathVariable String taskId,
-                                                            @RequestParam("files") MultipartFile[] files) throws IOException {
+    @PostMapping(
+            value = "/company/kanban/{projectId}/tasks/{taskId}/attachments",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<KanbanTask> uploadTaskAttachments(
+            @PathVariable String projectId,
+            @PathVariable String taskId,
+            @RequestParam("files") MultipartFile[] files
+    ) throws IOException {
         return ResponseEntity.ok(kanbanService.uploadAttachments(projectId, taskId, files));
     }
 
-    @PostMapping("/{projectId}/tasks/{taskId}/comments")
-    public ResponseEntity<KanbanTask> addTaskComment(@PathVariable String projectId,
-                                                     @PathVariable String taskId,
-                                                     @RequestParam("comment") String comment) {
+    @PostMapping("/company/kanban/{projectId}/tasks/{taskId}/comments")
+    public ResponseEntity<KanbanTask> addTaskComment(
+            @PathVariable String projectId,
+            @PathVariable String taskId,
+            @RequestParam("comment") String comment
+    ) {
         return ResponseEntity.ok(kanbanService.addComment(projectId, taskId, comment));
     }
 
-    @GetMapping("/{projectId}/tasks/{taskId}/attachments/{attachmentId}")
-    public ResponseEntity<Resource> downloadTaskAttachment(@PathVariable String projectId,
-                                                           @PathVariable String taskId,
-                                                           @PathVariable String attachmentId) throws IOException {
+    @GetMapping("/company/kanban/{projectId}/tasks/{taskId}/attachments/{attachmentId}")
+    public ResponseEntity<Resource> downloadTaskAttachment(
+            @PathVariable String projectId,
+            @PathVariable String taskId,
+            @PathVariable String attachmentId
+    ) throws IOException {
         KanbanAttachment attachment = kanbanService.getAttachmentMetadata(projectId, taskId, attachmentId);
         Resource resource = kanbanService.getAttachmentResource(projectId, taskId, attachment);
 
         MediaType mediaType = resolveAttachmentMediaType(attachment.getContentType());
+
         ResponseEntity.BodyBuilder response = ResponseEntity.ok()
                 .contentType(mediaType)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resolveAttachmentFileName(attachment) + "\"");
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + resolveAttachmentFileName(attachment) + "\""
+                );
 
-        long contentLength = attachment.getSize() > 0 ? attachment.getSize() : resource.contentLength();
+        long contentLength = attachment.getSize() > 0
+                ? attachment.getSize()
+                : resource.contentLength();
+
         if (contentLength > 0) {
             response.contentLength(contentLength);
         }
@@ -97,16 +125,20 @@ public class KanbanController {
         return response.body(resource);
     }
 
-    @DeleteMapping("/{projectId}/tasks/{taskId}")
-    public ResponseEntity<Void> deleteTask(@PathVariable String projectId,
-                                           @PathVariable String taskId) {
+    @DeleteMapping("/company/kanban/{projectId}/tasks/{taskId}")
+    public ResponseEntity<Void> deleteTask(
+            @PathVariable String projectId,
+            @PathVariable String taskId
+    ) {
         kanbanService.deleteTask(projectId, taskId);
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/tasks/{taskId}/status")
-    public ResponseEntity<KanbanTask> updateTaskStatus(@PathVariable String taskId,
-                                                       @RequestBody UpdateTaskStatusDto dto) {
+    @PutMapping("/company/kanban/tasks/{taskId}/status")
+    public ResponseEntity<KanbanTask> updateTaskStatus(
+            @PathVariable String taskId,
+            @RequestBody UpdateTaskStatusDto dto
+    ) {
         return ResponseEntity.ok(kanbanService.updateTaskStatus(taskId, dto));
     }
 
@@ -124,6 +156,7 @@ public class KanbanController {
 
     private String resolveAttachmentFileName(KanbanAttachment attachment) {
         String fileName = attachment.getFileName();
+
         if (fileName == null || fileName.isBlank()) {
             return "attachment";
         }

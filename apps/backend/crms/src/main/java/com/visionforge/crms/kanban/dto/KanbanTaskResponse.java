@@ -1,15 +1,14 @@
 package com.visionforge.crms.kanban.dto;
 
+import lombok.Builder;
 import lombok.Data;
 
 @Data
-public class CreateTaskRequestDto {
-
+@Builder
+public class KanbanTaskResponse {
+    private String id;
     private String title;
-    private String description; 
-
-    private String status;
-    private String dueDate;
+    private String description;
     private String priority;
     private String assignedTo;
 }

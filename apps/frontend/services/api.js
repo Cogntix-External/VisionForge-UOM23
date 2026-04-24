@@ -803,7 +803,11 @@ export async function addTaskComment(projectId, taskId, comment) {
     )}`
   );
 }
-
+export function getClientProjectKanban(projectId) {
+  return request(`/client/projects/${projectId}/kanban`, {
+    method: "GET",
+  });
+}
 export async function uploadTaskAttachments(projectId, taskId, files) {
   if (!Array.isArray(files) || files.length === 0) return null;
 
