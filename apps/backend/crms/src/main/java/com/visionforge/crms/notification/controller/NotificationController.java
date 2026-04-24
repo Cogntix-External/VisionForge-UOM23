@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/client/notifications")
+@RequestMapping("/api/notifications")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class NotificationController {

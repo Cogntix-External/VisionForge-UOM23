@@ -482,24 +482,27 @@ export function getCompanyVersionHistoryEntries(projectId, prdId, companyId) {
   });
 }
 
-//Notification Clientside
-export function getClientNotifications() {
-  return request("/client/notifications", {
+// NOTIFICATIONS
+export function getNotifications() {
+  return request("/notifications", {
     method: "GET",
   });
 }
 
-export function getClientUnreadNotificationCount() {
-  return request("/client/notifications/unread-count", {
+export function getUnreadNotificationCount() {
+  return request("/notifications/unread-count", {
     method: "GET",
   });
 }
 
 export function markNotificationAsRead(notificationId) {
-  return request(`/client/notifications/${notificationId}/read`, {
+  return request(`/notifications/${notificationId}/read`, {
     method: "PATCH",
   });
 }
+
+export const getClientNotifications = getNotifications;
+export const getClientUnreadNotificationCount = getUnreadNotificationCount;
 
 // KANBAN HELPERS
 function getAuthToken() {

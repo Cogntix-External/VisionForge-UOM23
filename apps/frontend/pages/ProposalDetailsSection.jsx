@@ -1,46 +1,95 @@
 "use client";
 
-import React, { useState } from "react";
-import { Paperclip } from "lucide-react";
-import {
-  acceptProposal,
-  rejectProposal,
-  acceptProposalByCompany,
-  rejectProposalByCompany,
-} from "@/services/api";
+import React, { useMemo, useState } from "react";
+import { acceptProposal, rejectProposal } from "@/services/api";
 
 const fallbackProject = {
   id: "N/A",
   title: "No proposal selected",
-  lastUpdated: "Not available",
   clientId: "Not assigned",
-  status: "Draft",
+  clientName: "",
+  companyId: "",
+  description: "No proposal was selected.",
+  status: "PENDING",
+  totalBudget: null,
+  totalDurationDays: null,
   budgetData: [],
   timelines: [],
 };
 
-const emptyBudgetRow = {
-  item: "",
-  description: "",
-  quantity: "",
-  unitPrice: "",
-  total: "",
-};
+function normalizeStatus(status) {
+  return String(status || "PENDING").trim().toUpperCase();
+}
 
-const emptyTimelineRow = {
-  phase: "",
-  startDate: "",
-  endDate: "",
-  duration: "",
-  assignedTo: "",
-  status: "",
-};
+function getStatusColor(status) {
+  switch (normalizeStatus(status)) {
+    case "ACCEPTED":
+      return "bg-green-100 text-green-800 border-green-300";
+    case "REJECTED":
+      return "bg-red-100 text-red-800 border-red-300";
+    default:
+      return "bg-yellow-100 text-yellow-800 border-yellow-300";
+  }
+}
 
-const emptyMilestoneRow = {
-  milestone: "",
-  targetDate: "",
-  paymentAmount: "",
-};
+function formatCurrency(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return String(value);
+  return `$${amount.toFixed(2)}`;
+}
+
+function buildBudgetRows(project, projectBudgetData) {
+  if (Array.isArray(projectBudgetData) && projectBudgetData.length > 0) {
+    return projectBudgetData;
+  }
+
+  if (Array.isArray(project.budgetData) && project.budgetData.length > 0) {
+    return project.budgetData;
+  }
+
+  if (project.totalBudget !== null && project.totalBudget !== undefined) {
+    return [
+      {
+        item: "Total Budget",
+        description: project.description || "Budget summary",
+        quantity: "-",
+        unitPrice: "-",
+        total: project.totalBudget,
+      },
+    ];
+  }
+
+  return [];
+}
+
+function buildTimelineRows(project, projectTimelineData) {
+  if (Array.isArray(projectTimelineData) && projectTimelineData.length > 0) {
+    return projectTimelineData;
+  }
+
+  if (Array.isArray(project.timelines) && project.timelines.length > 0) {
+    return project.timelines;
+  }
+
+  if (
+    project.totalDurationDays !== null &&
+    project.totalDurationDays !== undefined
+  ) {
+    return [
+      {
+        phase: "Overall Delivery",
+        startDate: "-",
+        endDate: "-",
+        duration: `${project.totalDurationDays} days`,
+        assignedTo: "-",
+        status: normalizeStatus(project.status),
+      },
+    ];
+  }
+
+  return [];
+}
 
 export default function ProposalDetailsSection({
   selectedProject,
@@ -48,13 +97,7 @@ export default function ProposalDetailsSection({
   detailsView = null,
   setDetailsView = () => {},
   projectBudgetData = [],
-  setProjectBudgetData = () => {},
   projectTimelineData = [],
-  setProjectTimelineData = () => {},
-  projectMilestoneData = [],
-  setProjectMilestoneData = () => {},
-  uploadedFile = null,
-  setUploadedFile = () => {},
   clientId = null,
   companyId = null,
   onProposalUpdate = () => {},
@@ -66,33 +109,32 @@ export default function ProposalDetailsSection({
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "ACCEPTED":
-        return "bg-green-100 text-green-800 border-green-300";
-      case "REJECTED":
-        return "bg-red-100 text-red-800 border-red-300";
-      default:
-        return "bg-slate-100 text-slate-800 border-slate-300";
-    }
-  };
+  const budgetRows = useMemo(
+    () => buildBudgetRows(project, projectBudgetData),
+    [project, projectBudgetData],
+  );
+  const timelineRows = useMemo(
+    () => buildTimelineRows(project, projectTimelineData),
+    [project, projectTimelineData],
+  );
+
+  const submittedDate = project.submittedAt
+    ? project.submittedAt
+    : project.createdAt
+      ? new Date(project.createdAt).toLocaleDateString()
+      : "-";
+  const updatedDate = project.updatedAt
+    ? new Date(project.updatedAt).toLocaleDateString()
+    : submittedDate;
 
   const handleAccept = async () => {
-    const userId = clientId || companyId;
-    if (!userId || !project.id) {
-      setError("Missing user ID or proposal ID");
-      return;
-    }
+    if (!clientId || !project.id || companyId) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const updatedProposal = companyId
-        ? await acceptProposalByCompany(project.id, companyId)
-        : await acceptProposal(project.id, clientId);
+      const updatedProposal = await acceptProposal(project.id);
       onProposalUpdate(updatedProposal);
       alert("Proposal accepted successfully!");
     } catch (err) {
@@ -103,11 +145,7 @@ export default function ProposalDetailsSection({
   };
 
   const handleRejectSubmit = async () => {
-    const userId = clientId || companyId;
-    if (!userId || !project.id) {
-      setError("Missing user ID or proposal ID");
-      return;
-    }
+    if (!clientId || !project.id || companyId) return;
 
     if (!rejectionReason.trim()) {
       setError("Please provide a rejection reason");
@@ -118,9 +156,10 @@ export default function ProposalDetailsSection({
     setError(null);
 
     try {
-      const updatedProposal = companyId
-        ? await rejectProposalByCompany(project.id, companyId, rejectionReason)
-        : await rejectProposal(project.id, clientId, rejectionReason);
+      const updatedProposal = await rejectProposal(
+        project.id,
+        rejectionReason.trim(),
+      );
       onProposalUpdate(updatedProposal);
       setShowRejectModal(false);
       setRejectionReason("");
@@ -130,21 +169,6 @@ export default function ProposalDetailsSection({
     } finally {
       setLoading(false);
     }
-  };
-
-  const addBudgetRow = () => {
-    setProjectBudgetData([...projectBudgetData, { ...emptyBudgetRow }]);
-  };
-
-  const addTimelineRow = () => {
-    setProjectTimelineData([...projectTimelineData, { ...emptyTimelineRow }]);
-  };
-
-  const addMilestoneRow = () => {
-    setProjectMilestoneData([
-      ...projectMilestoneData,
-      { ...emptyMilestoneRow },
-    ]);
   };
 
   return (
@@ -162,7 +186,6 @@ export default function ProposalDetailsSection({
       {isFallbackProject && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 mb-6">
           Open this page from the proposals list to view a specific proposal.
-          Placeholder data is shown until a proposal is selected.
         </div>
       )}
 
@@ -173,42 +196,62 @@ export default function ProposalDetailsSection({
       )}
 
       <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-        <div className="flex justify-between items-start mb-6">
-          <h2 className="text-lg font-bold text-slate-800">Proposal Details</h2>
-          {!isFallbackProject && project.status === "PENDING" && (
-            <div className="flex gap-3">
-              <button
-                onClick={handleAccept}
-                disabled={loading}
-                className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 font-semibold"
-              >
-                {loading ? "Processing..." : "Accept Proposal"}
-              </button>
-              <button
-                onClick={() => setShowRejectModal(true)}
-                disabled={loading}
-                className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 font-semibold"
-              >
-                {loading ? "Processing..." : "Reject Proposal"}
-              </button>
-            </div>
-          )}
+        <div className="flex justify-between items-start gap-4 mb-6">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">{project.title}</h2>
+            <p className="text-slate-600 mt-2">{project.description}</p>
+          </div>
+
+          {!isFallbackProject &&
+            !companyId &&
+            normalizeStatus(project.status) === "PENDING" && (
+              <div className="flex gap-3">
+                <button
+                  onClick={handleAccept}
+                  disabled={loading}
+                  className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 font-semibold"
+                >
+                  {loading ? "Processing..." : "Accept Proposal"}
+                </button>
+                <button
+                  onClick={() => setShowRejectModal(true)}
+                  disabled={loading}
+                  className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 font-semibold"
+                >
+                  {loading ? "Processing..." : "Reject Proposal"}
+                </button>
+              </div>
+            )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <InfoCard label="Project Title" value={project.title} />
-          <InfoCard label="Last Updater" value={project.lastUpdated} />
           <InfoCard label="Proposal ID" value={project.id} />
           <InfoCard
-            label="Client ID"
-            value={project.clientId || project.client || "Not assigned"}
+            label="Client"
+            value={project.clientName || project.clientId || project.client || "-"}
           />
+          <InfoCard label="Company ID" value={project.companyId || "-"} />
+          <InfoCard label="Submitted Date" value={submittedDate} />
+          <InfoCard label="Last Updated" value={updatedDate} />
           <InfoCard
             label="Status"
-            value={project.status}
+            value={normalizeStatus(project.status)}
             valueClassName={`inline-block border rounded px-3 py-1 ${getStatusColor(project.status)}`}
           />
-          {project.rejectionReason && project.status === "REJECTED" && (
+          <InfoCard
+            label="Total Budget"
+            value={formatCurrency(project.totalBudget)}
+          />
+          <InfoCard
+            label="Total Duration"
+            value={
+              project.totalDurationDays !== null &&
+              project.totalDurationDays !== undefined
+                ? `${project.totalDurationDays} days`
+                : "-"
+            }
+          />
+          {project.rejectionReason && normalizeStatus(project.status) === "REJECTED" && (
             <InfoCard
               label="Rejection Reason"
               value={project.rejectionReason}
@@ -219,12 +262,7 @@ export default function ProposalDetailsSection({
       </div>
 
       <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-        <p className="text-slate-600 leading-relaxed mb-6">
-          to help teams achieve timely and manageable results with intelligent
-          decision making.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={() => setDetailsView("budget")}
             className="px-4 py-3 bg-[#000066] text-white rounded hover:bg-blue-900 font-semibold"
@@ -237,106 +275,36 @@ export default function ProposalDetailsSection({
           >
             Estimated Timeline
           </button>
-          <button
-            onClick={() => setDetailsView("milestone")}
-            className="px-4 py-3 bg-[#000066] text-white rounded hover:bg-blue-900 font-semibold"
-          >
-            Payment Milestone
-          </button>
         </div>
       </div>
 
       {detailsView === "budget" && (
         <SectionCard title="Estimated Budget">
-          <EditableTable
-            headers={["Item", "Description", "Quantity", "Unit price", "Total"]}
-            rows={projectBudgetData}
+          <ReadOnlyTable
+            headers={["Item", "Description", "Quantity", "Unit Price", "Total"]}
+            rows={budgetRows}
+            emptyMessage="No budget details available."
             renderRow={(row, idx) => (
-              <tr key={idx}>
+              <tr key={`${row.item || "budget"}-${idx}`}>
+                <TableCell>{row.item || "-"}</TableCell>
+                <TableCell>{row.description || "-"}</TableCell>
+                <TableCell>{row.quantity || "-"}</TableCell>
                 <TableCell>
-                  <TextInput
-                    value={row.item}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectBudgetData,
-                        projectBudgetData,
-                        idx,
-                        "item",
-                        value,
-                      )
-                    }
-                  />
+                  {row.unitPrice && row.unitPrice !== "-"
+                    ? formatCurrency(row.unitPrice)
+                    : "-"}
                 </TableCell>
-                <TableCell>
-                  <TextInput
-                    value={row.description}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectBudgetData,
-                        projectBudgetData,
-                        idx,
-                        "description",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <NumberInput
-                    value={row.quantity}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectBudgetData,
-                        projectBudgetData,
-                        idx,
-                        "quantity",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <NumberInput
-                    value={row.unitPrice}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectBudgetData,
-                        projectBudgetData,
-                        idx,
-                        "unitPrice",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <NumberInput
-                    value={row.total}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectBudgetData,
-                        projectBudgetData,
-                        idx,
-                        "total",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
+                <TableCell>{formatCurrency(row.total)}</TableCell>
               </tr>
             )}
           />
-          <ActionRow
-            onAdd={addBudgetRow}
-            onBack={() => setDetailsView(null)}
-            onSave={() => {}}
-          />
+          <BackRow onBack={() => setDetailsView(null)} />
         </SectionCard>
       )}
 
       {detailsView === "timeline" && (
         <SectionCard title="Estimated Timeline">
-          <EditableTable
+          <ReadOnlyTable
             headers={[
               "Phase",
               "Start Date",
@@ -345,201 +313,30 @@ export default function ProposalDetailsSection({
               "Assigned To",
               "Status",
             ]}
-            rows={projectTimelineData}
+            rows={timelineRows}
+            emptyMessage="No timeline details available."
             renderRow={(row, idx) => (
-              <tr key={idx}>
-                <TableCell>
-                  <TextInput
-                    value={row.phase}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectTimelineData,
-                        projectTimelineData,
-                        idx,
-                        "phase",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <DateInput
-                    value={row.startDate}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectTimelineData,
-                        projectTimelineData,
-                        idx,
-                        "startDate",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <DateInput
-                    value={row.endDate}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectTimelineData,
-                        projectTimelineData,
-                        idx,
-                        "endDate",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextInput
-                    value={row.duration}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectTimelineData,
-                        projectTimelineData,
-                        idx,
-                        "duration",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextInput
-                    value={row.assignedTo}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectTimelineData,
-                        projectTimelineData,
-                        idx,
-                        "assignedTo",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextInput
-                    value={row.status}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectTimelineData,
-                        projectTimelineData,
-                        idx,
-                        "status",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
+              <tr key={`${row.phase || "timeline"}-${idx}`}>
+                <TableCell>{row.phase || "-"}</TableCell>
+                <TableCell>{row.startDate || "-"}</TableCell>
+                <TableCell>{row.endDate || "-"}</TableCell>
+                <TableCell>{row.duration || "-"}</TableCell>
+                <TableCell>{row.assignedTo || "-"}</TableCell>
+                <TableCell>{row.status || "-"}</TableCell>
               </tr>
             )}
           />
-          <ActionRow
-            onAdd={addTimelineRow}
-            onBack={() => setDetailsView(null)}
-            onSave={() => {}}
-          />
-        </SectionCard>
-      )}
-
-      {detailsView === "milestone" && (
-        <SectionCard title="Payment Milestone Structure">
-          <EditableTable
-            headers={["Milestone", "Target Date", "Payment Amount"]}
-            rows={projectMilestoneData}
-            renderRow={(row, idx) => (
-              <tr key={idx}>
-                <TableCell>
-                  <TextInput
-                    value={row.milestone}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectMilestoneData,
-                        projectMilestoneData,
-                        idx,
-                        "milestone",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <DateInput
-                    value={row.targetDate}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectMilestoneData,
-                        projectMilestoneData,
-                        idx,
-                        "targetDate",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextInput
-                    value={row.paymentAmount}
-                    onChange={(value) =>
-                      updateRow(
-                        setProjectMilestoneData,
-                        projectMilestoneData,
-                        idx,
-                        "paymentAmount",
-                        value,
-                      )
-                    }
-                  />
-                </TableCell>
-              </tr>
-            )}
-          />
-          <ActionRow
-            onAdd={addMilestoneRow}
-            onBack={() => setDetailsView(null)}
-            onSave={() => {}}
-          />
+          <BackRow onBack={() => setDetailsView(null)} />
         </SectionCard>
       )}
 
       {detailsView === null && (
         <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100">
-          <h2 className="text-lg font-bold text-slate-800 mb-6">
-            Technical Specifications
-          </h2>
-          <div className="space-y-4 mb-6">
-            <p className="font-semibold text-slate-700">
-              Required Technologies
-            </p>
-            <p className="font-semibold text-slate-700">
-              Required Milestone Structure
-            </p>
-            <p className="font-semibold text-slate-700">Additional teamwork</p>
-          </div>
-          <div className="flex items-center gap-4 flex-wrap">
-            <input
-              type="file"
-              id="fileInput"
-              onChange={(event) =>
-                setUploadedFile(event.target.files?.[0] || null)
-              }
-              style={{ display: "none" }}
-              accept="*/*"
-            />
-            <button
-              onClick={() => document.getElementById("fileInput")?.click()}
-              className="px-6 py-3 bg-slate-600 text-white rounded hover:bg-slate-700 font-semibold flex items-center gap-2"
-            >
-              <Paperclip className="w-4 h-4" />
-              {uploadedFile ? uploadedFile.name : "Attach: Technical Document"}
-            </button>
-            {uploadedFile && (
-              <span className="text-sm text-green-600 font-semibold">
-                File attached: {uploadedFile.name}
-              </span>
-            )}
-          </div>
+          <h2 className="text-lg font-bold text-slate-800 mb-4">Overview</h2>
+          <p className="text-slate-600 leading-relaxed">
+            Use the buttons above to view the submitted budget and timeline
+            details for this proposal.
+          </p>
         </div>
       )}
 
@@ -550,8 +347,7 @@ export default function ProposalDetailsSection({
               Reject Proposal
             </h3>
             <p className="text-slate-600 mb-6">
-              Please provide a reason for rejecting this proposal. This will be
-              saved for your records.
+              Please provide a reason for rejecting this proposal.
             </p>
             <textarea
               value={rejectionReason}
@@ -607,7 +403,7 @@ function SectionCard({ title, children }) {
   );
 }
 
-function EditableTable({ headers, rows, renderRow }) {
+function ReadOnlyTable({ headers, rows, renderRow, emptyMessage }) {
   return (
     <div className="overflow-x-auto mb-6">
       <table className="w-full text-sm border-collapse">
@@ -623,32 +419,33 @@ function EditableTable({ headers, rows, renderRow }) {
             ))}
           </tr>
         </thead>
-        <tbody>{rows.map(renderRow)}</tbody>
+        <tbody>
+          {rows.length > 0 ? (
+            rows.map(renderRow)
+          ) : (
+            <tr>
+              <td
+                colSpan={headers.length}
+                className="border border-slate-200 p-4 text-center text-slate-500"
+              >
+                {emptyMessage}
+              </td>
+            </tr>
+          )}
+        </tbody>
       </table>
     </div>
   );
 }
 
-function ActionRow({ onAdd, onBack, onSave }) {
+function BackRow({ onBack }) {
   return (
     <div className="flex gap-3 flex-wrap">
-      <button
-        onClick={onAdd}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"
-      >
-        Add a Row
-      </button>
       <button
         onClick={onBack}
         className="px-4 py-2 bg-slate-400 text-white rounded hover:bg-slate-500 font-bold"
       >
-        Move Back
-      </button>
-      <button
-        onClick={onSave}
-        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold"
-      >
-        Save Changes
+        Back
       </button>
     </div>
   );
@@ -656,43 +453,4 @@ function ActionRow({ onAdd, onBack, onSave }) {
 
 function TableCell({ children }) {
   return <td className="border border-slate-200 p-3">{children}</td>;
-}
-
-function TextInput({ value, onChange }) {
-  return (
-    <input
-      type="text"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="w-full p-2 bg-slate-50 rounded border border-slate-200"
-    />
-  );
-}
-
-function NumberInput({ value, onChange }) {
-  return (
-    <input
-      type="number"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="w-full p-2 bg-slate-50 rounded border border-slate-200"
-    />
-  );
-}
-
-function DateInput({ value, onChange }) {
-  return (
-    <input
-      type="date"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="w-full p-2 bg-slate-50 rounded border border-slate-200"
-    />
-  );
-}
-
-function updateRow(setter, rows, index, key, value) {
-  const nextRows = [...rows];
-  nextRows[index] = { ...nextRows[index], [key]: value };
-  setter(nextRows);
 }

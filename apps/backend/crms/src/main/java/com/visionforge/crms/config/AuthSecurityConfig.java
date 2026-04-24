@@ -36,6 +36,7 @@ public class AuthSecurityConfig {
         http
                 .securityMatcher(
                         "/api/auth/**",
+                        "/api/notifications/**",
                         "/api/client/**",
                         "/api/company/**",
                         "/api/projects/**",
@@ -47,6 +48,7 @@ public class AuthSecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/error", "/error/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/user/**").authenticated()
                         .requestMatchers("/api/client/**").hasRole("CLIENT")
                         .requestMatchers("/api/company/**").hasRole("COMPANY")

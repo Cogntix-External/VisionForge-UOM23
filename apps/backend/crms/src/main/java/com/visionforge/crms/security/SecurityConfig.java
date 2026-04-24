@@ -51,6 +51,8 @@ public class SecurityConfig {
                         // preflight request allow
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        .requestMatchers("/api/notifications/**").authenticated()
+
                         // role-based routes
                         .requestMatchers("/api/client/**").hasRole("CLIENT")
                         .requestMatchers("/api/company/**").hasRole("COMPANY")

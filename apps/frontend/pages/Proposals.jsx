@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getClientProposals,
   getCompanyProposals,
-  getClientProposalById,
-  acceptProposal,
-  rejectProposal,
 } from "../services/api";
+import { mergeProposalWithCachedDetails } from "../utils/proposalDetailsCache";
 
 const STATUS_STYLES = {
   Pending: "bg-amber-100 text-amber-700 border-amber-200",
@@ -24,30 +23,34 @@ const normalizeStatus = (rawStatus) => {
 
 const formatProposal = (proposal, role) => ({
   id: proposal.id,
-  title: proposal.title,
-  projectName: proposal.title || "Untitled Project",
+  title: proposal.title || "Untitled Proposal",
   companyName:
     role === "COMPANY"
-      ? proposal.clientId || "Unassigned Client"
-      : proposal.companyId,
-  companyId: proposal.companyId,
-  clientId: proposal.clientId,
+      ? proposal.clientName || proposal.clientId || "Unassigned Client"
+      : proposal.companyId || "Unknown Company",
+  companyId: proposal.companyId || "",
+  clientId: proposal.clientId || "",
+  clientName: proposal.clientName || "",
   description: proposal.description || "No description provided",
   submittedAt: proposal.createdAt
     ? new Date(proposal.createdAt).toLocaleDateString()
     : "-",
+  createdAt: proposal.createdAt || null,
+  updatedAt: proposal.updatedAt || null,
+  totalBudget: proposal.totalBudget ?? null,
+  totalDurationDays: proposal.totalDurationDays ?? null,
+  budgetData: proposal.budgetData || [],
+  timelines: proposal.timelines || [],
   status: normalizeStatus(proposal.status),
+  rawStatus: String(proposal.status || "PENDING").toUpperCase(),
   rejectionReason: proposal.rejectionReason || "",
 });
 
 const Proposals = ({ role }) => {
+  const router = useRouter();
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
-  const [selectedProposal, setSelectedProposal] = useState(null);
-  const [modalLoading, setModalLoading] = useState(false);
-  const [modalError, setModalError] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
 
   const currentRole = useMemo(() => {
     if (role) return String(role).toUpperCase();
@@ -63,27 +66,33 @@ const Proposals = ({ role }) => {
   }, [role]);
 
   useEffect(() => {
+    const fetchProposals = async () => {
+      try {
+        setLoading(true);
+        setPageError("");
+        const data =
+          currentRole === "COMPANY"
+            ? await getCompanyProposals()
+            : await getClientProposals();
+
+        setProposals(
+          (Array.isArray(data) ? data : []).map((proposal) =>
+            formatProposal(
+              mergeProposalWithCachedDetails(proposal),
+              currentRole,
+            ),
+          ),
+        );
+      } catch (error) {
+        console.error(error);
+        setPageError(error.message || "Failed to fetch proposals");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchProposals();
   }, [currentRole]);
-
-  const fetchProposals = async () => {
-    try {
-      setLoading(true);
-      setPageError("");
-      const data =
-        currentRole === "COMPANY"
-          ? await getCompanyProposals()
-          : await getClientProposals();
-      setProposals(
-        data.map((proposal) => formatProposal(proposal, currentRole)),
-      );
-    } catch (error) {
-      console.error(error);
-      setPageError(error.message || "Failed to fetch proposals");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const statusCounts = useMemo(() => {
     return proposals.reduce(
@@ -96,74 +105,23 @@ const Proposals = ({ role }) => {
     );
   }, [proposals]);
 
-  const handleViewProposal = async (proposalId) => {
-    try {
-      setModalLoading(true);
-      setModalError("");
-      if (currentRole === "COMPANY") {
-        setSelectedProposal(
-          proposals.find((proposal) => proposal.id === proposalId) || null,
-        );
-        return;
-      }
+  const handleViewProposal = (proposalId) => {
+    const selected =
+      proposals.find((proposal) => proposal.id === proposalId) || null;
 
-      const data = await getClientProposalById(proposalId);
-      setSelectedProposal(formatProposal(data, currentRole));
-    } catch (error) {
-      console.error(error);
-      setModalError(error.message || "Failed to fetch proposal details");
-      setSelectedProposal((prev) =>
-        prev ? prev : proposals.find((p) => p.id === proposalId) || null,
+    if (typeof window !== "undefined" && selected) {
+      window.sessionStorage.setItem(
+        "crms:selectedProposal",
+        JSON.stringify(selected),
       );
-    } finally {
-      setModalLoading(false);
     }
-  };
 
-  const handleAccept = async () => {
-    if (!selectedProposal) return;
+    const basePath =
+      currentRole === "COMPANY"
+        ? "/company/ProposalDetailsSection"
+        : "/client/ProposalDetailsSection";
 
-    try {
-      setModalLoading(true);
-      setModalError("");
-      const updated = await acceptProposal(selectedProposal.id);
-      const formatted = formatProposal(updated, currentRole);
-
-      setSelectedProposal(formatted);
-      setProposals((prev) =>
-        prev.map((p) => (p.id === formatted.id ? formatted : p)),
-      );
-    } catch (error) {
-      console.error(error);
-      setModalError(error.message || "Failed to accept proposal");
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!selectedProposal) return;
-
-    try {
-      setModalLoading(true);
-      setModalError("");
-      const updated = await rejectProposal(
-        selectedProposal.id,
-        rejectReason || "No reason provided",
-      );
-      const formatted = formatProposal(updated, currentRole);
-
-      setSelectedProposal(formatted);
-      setProposals((prev) =>
-        prev.map((p) => (p.id === formatted.id ? formatted : p)),
-      );
-      setRejectReason("");
-    } catch (error) {
-      console.error(error);
-      setModalError(error.message || "Failed to reject proposal");
-    } finally {
-      setModalLoading(false);
-    }
+    router.push(`${basePath}?proposalId=${encodeURIComponent(proposalId)}`);
   };
 
   if (loading) {
@@ -270,7 +228,7 @@ const Proposals = ({ role }) => {
                       onClick={() => handleViewProposal(proposal.id)}
                       className="inline-flex items-center justify-center px-3 py-2 bg-[#bbf7d0] text-[#166534] text-xs font-bold rounded-full hover:bg-[#86efac] transition-all whitespace-nowrap"
                     >
-                      View
+                      View More
                     </button>
                   </td>
                 </tr>
@@ -288,122 +246,6 @@ const Proposals = ({ role }) => {
           </tbody>
         </table>
       </div>
-
-      {selectedProposal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => {
-            setSelectedProposal(null);
-            setModalError("");
-            setRejectReason("");
-          }}
-        >
-          <div
-            className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-8 border-b flex items-center justify-between">
-              <h2 className="text-3xl font-bold text-gray-900">
-                Proposal Details
-              </h2>
-              <button
-                onClick={() => {
-                  setSelectedProposal(null);
-                  setModalError("");
-                  setRejectReason("");
-                }}
-                className="text-3xl text-gray-500"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="p-8 space-y-6">
-              {modalError && (
-                <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-                  {modalError}
-                </div>
-              )}
-
-              {modalLoading && (
-                <div className="p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg">
-                  Processing...
-                </div>
-              )}
-
-              <span
-                className={`inline-flex items-center px-3 py-1 rounded-full border text-sm font-bold ${
-                  STATUS_STYLES[selectedProposal.status]
-                }`}
-              >
-                {selectedProposal.status}
-              </span>
-
-              <div className="grid grid-cols-2 gap-6">
-                <DetailBlock
-                  label="Project Title"
-                  value={selectedProposal.title}
-                />
-                <DetailBlock label="Proposal ID" value={selectedProposal.id} />
-                <DetailBlock
-                  label="Company Name"
-                  value={selectedProposal.companyName}
-                />
-                <DetailBlock
-                  label="Submitted Date"
-                  value={selectedProposal.submittedAt}
-                />
-              </div>
-
-              <DetailBlock
-                label="Description"
-                value={
-                  selectedProposal.description || "No description provided"
-                }
-              />
-
-              {currentRole !== "COMPANY" &&
-                selectedProposal.status === "Pending" && (
-                  <div className="space-y-4">
-                    <textarea
-                      className="w-full border rounded-xl p-4"
-                      rows={4}
-                      placeholder="Enter rejection reason (optional)"
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                    />
-
-                    <div className="flex gap-4">
-                      <button
-                        type="button"
-                        onClick={handleReject}
-                        className="flex-1 px-4 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700"
-                      >
-                        Reject Proposal
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleAccept}
-                        className="flex-1 px-4 py-3 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700"
-                      >
-                        Accept Proposal
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-              {selectedProposal.status === "Rejected" &&
-                selectedProposal.rejectionReason && (
-                  <DetailBlock
-                    label="Rejection Reason"
-                    value={selectedProposal.rejectionReason}
-                  />
-                )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -429,12 +271,5 @@ const SummaryCard = ({ label, value, tone }) => {
     </div>
   );
 };
-
-const DetailBlock = ({ label, value }) => (
-  <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
-    <p className="text-sm font-bold text-gray-600">{label}</p>
-    <p className="text-gray-900 text-lg mt-2">{value}</p>
-  </div>
-);
 
 export default Proposals;

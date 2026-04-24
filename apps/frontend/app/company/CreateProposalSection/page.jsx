@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import CreateProposalSection from "@/pages/CreateProposalSection";
 import { createCompanyProposal, getRegisteredClients } from "@/services/api";
+import { cacheProposalDetails } from "@/utils/proposalDetailsCache";
 
 const emptyTimelineRow = {
   phase: "",
@@ -105,7 +106,7 @@ export default function CompanyCreateProposalSectionPage() {
         return sum + (Number.isFinite(value) ? value : 0);
       }, 0);
 
-      await createCompanyProposal(
+      const createdProposal = await createCompanyProposal(
         {
           title: newProposal.title.trim(),
           description: newProposal.description.trim(),
@@ -116,6 +117,11 @@ export default function CompanyCreateProposalSectionPage() {
         },
         companyId,
       );
+
+      cacheProposalDetails(createdProposal?.id, {
+        budgetData,
+        timelines: timelineData,
+      });
 
       handleClear();
       router.push("/company/ProposalsListSection");
