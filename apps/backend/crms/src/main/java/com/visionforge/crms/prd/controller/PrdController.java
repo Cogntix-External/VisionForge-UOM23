@@ -27,22 +27,25 @@ public class PrdController {
     return ResponseEntity.ok(response);
 }
     
-    // Download PRD document - client side
-    @GetMapping("/documents/{documentId}/download")
-    public ResponseEntity<byte[]> downloadDocument(@PathVariable String documentId) {
-        try {
-            byte[] content = prdService.generatePrdDocument(documentId);
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.TEXT_PLAIN);
-            headers.setContentDispositionFormData("attachment", documentId + ".txt");
-            headers.setContentLength(content.length);
-            
-            return new ResponseEntity<>(content, headers, HttpStatus.OK);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+// Downloads the generated PRD as a real PDF file
+@GetMapping("/documents/{documentId}/download")
+public ResponseEntity<byte[]> downloadDocument(@PathVariable String documentId) {
+    try {
+        byte[] content = prdService.generatePrdDocument(documentId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData(
+                "attachment",
+                "prd-document-" + documentId + ".pdf"
+        );
+        headers.setContentLength(content.length);
+
+        return new ResponseEntity<>(content, headers, HttpStatus.OK);
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
+}
     
     @GetMapping
     public ResponseEntity<List<PrdResponse>> getPrds() {
