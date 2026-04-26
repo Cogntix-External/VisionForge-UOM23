@@ -1,9 +1,10 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
 
-// Parses normal JSON/text API responses safely
 async function parseResponse(response) {
-  if (response.status === 204) return null;
+  if (response.status === 204) {
+    return null;
+  }
 
   const contentType = response.headers.get("content-type") || "";
 
@@ -16,7 +17,6 @@ async function parseResponse(response) {
   return text || null;
 }
 
-// Sends normal JSON API requests with JWT token
 async function request(path, options = {}) {
   const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
   const token =
@@ -41,11 +41,7 @@ async function request(path, options = {}) {
         if (typeof errorData === "string") {
           message = errorData || message;
         } else if (errorData && typeof errorData === "object") {
-          message =
-            errorData.message ||
-            errorData.error ||
-            errorData.detail ||
-            message;
+          message = errorData.message || errorData.error || message;
         }
       } catch (e) {
         console.error("Error parsing error response:", e);
@@ -61,7 +57,6 @@ async function request(path, options = {}) {
   }
 }
 
-// Reads logged-in user details from localStorage
 function getStoredUser() {
   if (typeof window === "undefined") return {};
 
@@ -73,108 +68,10 @@ function getStoredUser() {
   }
 }
 
-// Resolves company ID from parameter, logged-in user, or localStorage
 function getCompanyId(passedId) {
   if (passedId) return passedId;
-
   const user = getStoredUser();
   return user?.id || localStorage.getItem("companyId") || null;
-}
-
-// Reads auth token from localStorage
-function getAuthToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("crms_token") || localStorage.getItem("token");
-}
-
-// Extracts filename from Content-Disposition header
-function getFileNameFromContentDisposition(contentDisposition, fallbackName) {
-  if (!contentDisposition) return fallbackName;
-
-  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1].replace(/["']/g, ""));
-  }
-
-  const normalMatch = contentDisposition.match(
-    /filename[^;=\n]*=(['"]?)([^'"\n;]*)\1/i,
-  );
-
-  if (normalMatch?.[2]) {
-    return normalMatch[2];
-  }
-
-  return fallbackName;
-}
-
-// Downloads a blob response safely and prevents JSON error responses from being saved as files
-async function downloadBlobFile(url, fallbackName = "download.pdf") {
-  const token = getAuthToken();
-
-  const response = await fetch(url, {
-    method: "GET",
-    cache: "no-store",
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  const contentType = response.headers.get("content-type") || "";
-
-  if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}`;
-
-    try {
-      if (contentType.includes("application/json")) {
-        const errorData = await response.json();
-        errorMessage =
-          errorData.message ||
-          errorData.error ||
-          errorData.detail ||
-          errorMessage;
-      } else {
-        const text = await response.text();
-        errorMessage = text || errorMessage;
-      }
-    } catch (e) {
-      console.error("Error parsing download error response:", e);
-    }
-
-    throw new Error(`Download failed: ${errorMessage}`);
-  }
-
-  if (contentType.includes("application/json")) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message ||
-        errorData?.error ||
-        "Invalid file response: server returned JSON instead of a file",
-    );
-  }
-
-  const blob = await response.blob();
-
-  if (!blob || blob.size === 0) {
-    throw new Error("Download failed: Received empty file");
-  }
-
-  const contentDisposition = response.headers.get("content-disposition");
-  let fileName = getFileNameFromContentDisposition(
-    contentDisposition,
-    fallbackName,
-  );
-
-  if (!fileName.includes(".")) {
-    if (contentType.includes("pdf")) fileName += ".pdf";
-    else fileName += ".bin";
-  }
-
-  return {
-    blob,
-    fileName,
-    contentDisposition,
-    contentType,
-  };
 }
 
 // AUTH
@@ -329,13 +226,13 @@ export function getClientProjectPrd(projectId) {
   });
 }
 
-// PRD / DOCUMENTS - COMPANY
 export function getAllPrds() {
-  return request("/documents", {
+  return request("", {
     method: "GET",
   });
 }
 
+// PRD / DOCUMENTS - COMPANY
 export async function fetchPrds(projectId) {
   const list = await getAllPrds();
 
@@ -353,7 +250,7 @@ export function fetchPrdById(prdId) {
     throw new Error("PRD ID is required");
   }
 
-  return request(`/documents/${prdId}`, {
+  return request(`/${prdId}`, {
     method: "GET",
   });
 }
@@ -363,7 +260,7 @@ export function createPrd(projectId, payload) {
     throw new Error("Project ID is required");
   }
 
-  return request("/documents", {
+  return request("", {
     method: "POST",
     body: JSON.stringify({
       ...payload,
@@ -377,21 +274,59 @@ export function updatePrd(prdId, payload) {
     throw new Error("PRD ID is required");
   }
 
-  return request(`/documents/${prdId}`, {
+  return request(`/${prdId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
 
 export async function downloadDocument(documentId) {
-  if (!documentId) {
-    throw new Error("Document ID is required");
-  }
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
 
-  return downloadBlobFile(
-    `${API_BASE}/documents/${documentId}/download`,
-    "prd-document.pdf",
-  );
+  try {
+    const response = await fetch(`${API_BASE}/documents/${documentId}/download`, {
+      method: "GET",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+
+      try {
+        const contentType = response.headers.get("content-type") || "";
+
+        if (contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorMessage =
+            errorData.message || errorData.error || errorMessage;
+        } else {
+          const text = await response.text();
+          errorMessage = text || errorMessage;
+        }
+      } catch (e) {
+        console.error("Error parsing download error response:", e);
+      }
+
+      throw new Error(`Download failed: ${errorMessage}`);
+    }
+
+    const blob = await response.blob();
+
+    if (blob.size === 0) {
+      throw new Error("Download failed: Received empty file");
+    }
+
+    return {
+      blob,
+      fileName: response.headers.get("content-disposition"),
+    };
+  } catch (err) {
+    console.error(`Download failed for document ${documentId}:`, err);
+    throw err;
+  }
 }
 
 // CHANGE REQUESTS - CLIENT
@@ -439,11 +374,7 @@ export function getCompanyChangeRequestsByProject(projectId, companyId) {
   });
 }
 
-export function getCompanyChangeRequestsByProjectAndPrd(
-  projectId,
-  prdId,
-  companyId,
-) {
+export function getCompanyChangeRequestsByProjectAndPrd(projectId, prdId, companyId) {
   const resolvedCompanyId = getCompanyId(companyId);
 
   if (!resolvedCompanyId) {
@@ -474,11 +405,7 @@ export function decideCompanyChangeRequest(changeRequestId, payload, companyId) 
   });
 }
 
-export function markCompanyChangeRequestImplemented(
-  changeRequestId,
-  payload,
-  companyId,
-) {
+export function markCompanyChangeRequestImplemented(changeRequestId, payload, companyId) {
   const resolvedCompanyId = getCompanyId(companyId);
 
   if (!resolvedCompanyId) {
@@ -495,14 +422,33 @@ export function markCompanyChangeRequestImplemented(
 }
 
 export async function downloadCompanyChangeRequest(changeRequestId) {
-  if (!changeRequestId) {
-    throw new Error("Change request ID is required");
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
+
+  const response = await fetch(
+    `${API_BASE}/company/change-requests/${changeRequestId}/download`,
+    {
+      method: "GET",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Download failed: HTTP ${response.status}`);
   }
 
-  return downloadBlobFile(
-    `${API_BASE}/company/change-requests/${changeRequestId}/download`,
-    "change-request.pdf",
-  );
+  const blob = await response.blob();
+
+  if (blob.size === 0) {
+    throw new Error("Download failed: Received empty file");
+  }
+
+  return {
+    blob,
+    fileName: response.headers.get("content-disposition"),
+  };
 }
 
 // VERSION HISTORY - COMPANY
@@ -536,9 +482,9 @@ export function getCompanyVersionHistoryEntries(projectId, prdId, companyId) {
   });
 }
 
-// NOTIFICATIONS
-export function getNotifications() {
-  return request("/notifications", {
+//Notification Clientside
+export function getClientNotifications() {
+  return request("/client/notifications", {
     method: "GET",
   });
 }

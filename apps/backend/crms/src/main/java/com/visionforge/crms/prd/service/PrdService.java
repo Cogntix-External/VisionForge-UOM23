@@ -332,86 +332,75 @@ public class PrdService {
     }
 
     public byte[] generatePrdDocument(String prdId) {
-    Prd prd = findPrd(prdId);
+        Prd prd = findPrd(prdId);
 
-    try (
-            org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument();
-            java.io.ByteArrayOutputStream outputStream = new java.io.ByteArrayOutputStream()
-    ) {
-        org.apache.pdfbox.pdmodel.PDPage page = new org.apache.pdfbox.pdmodel.PDPage();
-        document.addPage(page);
+        StringBuilder content = new StringBuilder();
+        content.append("================================================================================\n");
+        content.append("PRODUCT REQUIREMENTS DOCUMENT (PRD)\n");
+        content.append("================================================================================\n\n");
 
-        org.apache.pdfbox.pdmodel.PDPageContentStream contentStream =
-                new org.apache.pdfbox.pdmodel.PDPageContentStream(document, page);
+        content.append("PROJECT INFORMATION\n");
+        content.append("-------------------\n");
+        content.append("Project Name: ").append(nvl(prd.getProjectName())).append("\n");
+        content.append("Project ID: ").append(nvl(prd.getProjectId())).append("\n");
+        content.append("Title: ").append(nvl(prd.getTitle())).append("\n");
+        content.append("Version: ").append(nvl(prd.getVersion())).append("\n");
+        content.append("Status: ").append(nvl(prd.getStatus())).append("\n");
+        content.append("Author: ").append(nvl(prd.getAuthor())).append("\n");
+        content.append("Date Submitted: ").append(nvl(prd.getDateSubmitted())).append("\n");
+        content.append("Reviewer: ").append(nvl(prd.getReviewerName())).append("\n\n");
 
-        contentStream.beginText();
-        contentStream.setFont(org.apache.pdfbox.pdmodel.font.PDType1Font.HELVETICA_BOLD, 16);
-        contentStream.newLineAtOffset(50, 750);
-        contentStream.showText("PRODUCT REQUIREMENTS DOCUMENT (PRD)");
-        contentStream.endText();
+        content.append("PURPOSE & GOALS\n");
+        content.append("---------------\n");
+        content.append("Purpose: ").append(nvl(prd.getPurpose())).append("\n");
+        content.append("Problem to Solve: ").append(nvl(prd.getProblemToSolve())).append("\n");
+        content.append("Project Goal: ").append(nvl(prd.getProjectGoal())).append("\n\n");
 
-        float y = 710;
-        y = writeLine(contentStream, "Project Name: " + nvl(prd.getProjectName()), y);
-        y = writeLine(contentStream, "Project ID: " + nvl(prd.getProjectId()), y);
-        y = writeLine(contentStream, "Title: " + nvl(prd.getTitle()), y);
-        y = writeLine(contentStream, "Version: " + nvl(prd.getVersion()), y);
-        y = writeLine(contentStream, "Status: " + nvl(prd.getStatus()), y);
-        y = writeLine(contentStream, "Author: " + nvl(prd.getAuthor()), y);
-        y = writeLine(contentStream, "Date Submitted: " + nvl(prd.getDateSubmitted()), y);
-        y = writeLine(contentStream, "Reviewer: " + nvl(prd.getReviewerName()), y);
+        if (prd.getStakeholders() != null && !prd.getStakeholders().isEmpty()) {
+            content.append("STAKEHOLDERS\n");
+            content.append("------------\n");
+            for (Prd.Stakeholder stakeholder : prd.getStakeholders()) {
+                content.append("Role: ").append(nvl(stakeholder.getRole())).append("\n");
+                content.append("Name: ").append(nvl(stakeholder.getName())).append("\n");
+                content.append("Responsibility: ").append(nvl(stakeholder.getResponsibility())).append("\n");
+                content.append("\n");
+            }
+        }
 
-        y = writeLine(contentStream, "Purpose: " + nvl(prd.getPurpose()), y - 20);
-        y = writeLine(contentStream, "Problem to Solve: " + nvl(prd.getProblemToSolve()), y);
-        y = writeLine(contentStream, "Project Goal: " + nvl(prd.getProjectGoal()), y);
+        content.append("SCOPE\n");
+        content.append("-----\n");
+        content.append("In Scope:\n").append(nvl(prd.getInScope())).append("\n\n");
+        content.append("Out of Scope:\n").append(nvl(prd.getOutOfScope())).append("\n\n");
 
-        y = writeLine(contentStream, "In Scope: " + nvl(prd.getInScope()), y - 20);
-        y = writeLine(contentStream, "Out of Scope: " + nvl(prd.getOutOfScope()), y);
+        content.append("FEATURES & REQUIREMENTS\n");
+        content.append("----------------------\n");
+        content.append("Main Features:\n").append(nvl(prd.getMainFeatures())).append("\n\n");
+        content.append("Functional Requirements:\n").append(nvl(prd.getFunctionalRequirement())).append("\n\n");
+        content.append("Non-Functional Requirements:\n").append(nvl(prd.getNonFunctionalRequirement())).append("\n\n");
 
-        y = writeLine(contentStream, "Main Features: " + nvl(prd.getMainFeatures()), y - 20);
-        y = writeLine(contentStream, "Functional Requirements: " + nvl(prd.getFunctionalRequirement()), y);
-        y = writeLine(contentStream, "Non-Functional Requirements: " + nvl(prd.getNonFunctionalRequirement()), y);
+        content.append("USER ROLES & RISKS\n");
+        content.append("------------------\n");
+        content.append("User Roles:\n").append(nvl(prd.getUserRoles())).append("\n\n");
+        content.append("Risks & Dependencies:\n").append(nvl(prd.getRisksDependencies())).append("\n\n");
 
-        y = writeLine(contentStream, "User Roles: " + nvl(prd.getUserRoles()), y - 20);
-        y = writeLine(contentStream, "Risks & Dependencies: " + nvl(prd.getRisksDependencies()), y);
+        if (prd.getMilestones() != null && !prd.getMilestones().isEmpty()) {
+            content.append("MILESTONES\n");
+            content.append("----------\n");
+            for (Prd.Milestone milestone : prd.getMilestones()) {
+                content.append("Phase: ").append(nvl(milestone.getPhase())).append("\n");
+                content.append("Task: ").append(nvl(milestone.getTask())).append("\n");
+                content.append("Duration: ").append(nvl(milestone.getDuration())).append("\n");
+                content.append("Responsibility: ").append(nvl(milestone.getResponsibility())).append("\n");
+                content.append("\n");
+            }
+        }
 
-        contentStream.close();
+        content.append("================================================================================\n");
+        content.append("Document Generated: ").append(java.time.Instant.now()).append("\n");
+        content.append("================================================================================\n");
 
-        document.save(outputStream);
-        return outputStream.toByteArray();
-
-    } catch (Exception e) {
-        throw new RuntimeException("Failed to generate PRD PDF", e);
+        return content.toString().getBytes(StandardCharsets.UTF_8);
     }
-}
-
-private float writeLine(
-        org.apache.pdfbox.pdmodel.PDPageContentStream contentStream,
-        String text,
-        float y
-) throws java.io.IOException {
-    contentStream.beginText();
-    contentStream.setFont(org.apache.pdfbox.pdmodel.font.PDType1Font.HELVETICA, 11);
-    contentStream.newLineAtOffset(50, y);
-    contentStream.showText(safePdfText(text));
-    contentStream.endText();
-
-    return y - 18;
-}
-
-private String safePdfText(String text) {
-    if (text == null) return "-";
-
-    return text
-            .replace("\n", " ")
-            .replace("\r", " ")
-            .replace("\t", " ")
-            .replace("•", "-")
-            .replace("–", "-")
-            .replace("—", "-")
-            .replace("“", "\"")
-            .replace("”", "\"")
-            .replace("’", "'");
-}
 
     private String nvl(String value) {
         return value == null || value.isBlank() ? "-" : value;
