@@ -51,7 +51,7 @@ const PAGE_INFO = {
       subtitle: "Review company proposals and accept or reject them.",
     },
     kanban: {
-      title: "Project Clientside Kanban",
+      title: "Client Kanban Board",
       subtitle: "Track your full project workflow and progress.",
     },
     notifications: {
@@ -85,7 +85,7 @@ const PAGE_INFO = {
       subtitle: "Create and manage proposals sent to clients.",
     },
     kanban: {
-      title: "Project Company-side Kanban",
+      title: "Company Kanban Board",
       subtitle: "Manage tasks and monitor team progress visually.",
     },
     notifications: {
@@ -106,9 +106,12 @@ const DEFAULT_PAGE_BY_ROLE = {
 
 const normalizeRole = (role) => {
   if (!role) return "";
+
   const value = String(role).trim().toUpperCase();
+
   if (value === "ROLE_CLIENT") return "CLIENT";
   if (value === "ROLE_COMPANY") return "COMPANY";
+
   return value;
 };
 
@@ -134,13 +137,13 @@ const App = () => {
         const parsedUser = JSON.parse(storedUser);
 
         if (parsedUser?.role) {
-          const normalizedRole = normalizeRole(parsedUser.role);
+          const normalizedUserRole = normalizeRole(parsedUser.role);
           const safeDefaultPage =
-            DEFAULT_PAGE_BY_ROLE[normalizedRole] || "dashboard";
+            DEFAULT_PAGE_BY_ROLE[normalizedUserRole] || "dashboard";
 
           const safeUser = {
             ...parsedUser,
-            role: normalizedRole,
+            role: normalizedUserRole,
           };
 
           setUser(safeUser);
@@ -149,7 +152,7 @@ const App = () => {
           if (
             savedActivePage &&
             typeof savedActivePage === "string" &&
-            PAGE_ACCESS[savedActivePage]?.includes(normalizedRole)
+            PAGE_ACCESS[savedActivePage]?.includes(normalizedUserRole)
           ) {
             setActivePage(savedActivePage);
           } else {
@@ -173,8 +176,9 @@ const App = () => {
 
   const allowedPages = useMemo(() => {
     if (!currentRole) return [];
+
     return Object.keys(PAGE_ACCESS).filter((page) =>
-      PAGE_ACCESS[page].includes(currentRole)
+      PAGE_ACCESS[page].includes(currentRole),
     );
   }, [currentRole]);
 
@@ -190,12 +194,13 @@ const App = () => {
       setActivePage(page);
       localStorage.setItem("crms_active_page", page);
       setShowNotifications(false);
-    } else {
-      const fallbackPage = DEFAULT_PAGE_BY_ROLE[currentRole] || "dashboard";
-      setActivePage(fallbackPage);
-      localStorage.setItem("crms_active_page", fallbackPage);
-      setShowNotifications(false);
+      return;
     }
+
+    const fallbackPage = DEFAULT_PAGE_BY_ROLE[currentRole] || "dashboard";
+    setActivePage(fallbackPage);
+    localStorage.setItem("crms_active_page", fallbackPage);
+    setShowNotifications(false);
   };
 
   useEffect(() => {
@@ -228,30 +233,30 @@ const App = () => {
   };
 
   const handleLoginSuccess = (loginResponse) => {
-    const normalizedRole = normalizeRole(loginResponse.role);
+    const normalizedUserRole = normalizeRole(loginResponse.role);
 
     const loggedInUser = {
       id: loginResponse.id,
       name: loginResponse.name,
       fullName: loginResponse.fullName || loginResponse.name,
       email: loginResponse.email,
-      role: normalizedRole,
+      role: normalizedUserRole,
       token: loginResponse.token,
     };
 
     localStorage.setItem("crms_token", loginResponse.token);
-    localStorage.setItem("crms_role", normalizedRole);
+    localStorage.setItem("crms_role", normalizedUserRole);
     localStorage.setItem("crms_user", JSON.stringify(loggedInUser));
 
-    if (normalizedRole === ROLE.COMPANY && loginResponse.id) {
+    if (normalizedUserRole === ROLE.COMPANY && loginResponse.id) {
       localStorage.setItem("companyId", loginResponse.id);
     }
 
-    if (normalizedRole === ROLE.CLIENT && loginResponse.id) {
+    if (normalizedUserRole === ROLE.CLIENT && loginResponse.id) {
       localStorage.setItem("clientId", loginResponse.id);
     }
 
-    const defaultPage = DEFAULT_PAGE_BY_ROLE[normalizedRole] || "dashboard";
+    const defaultPage = DEFAULT_PAGE_BY_ROLE[normalizedUserRole] || "dashboard";
     localStorage.setItem("crms_active_page", defaultPage);
 
     setUser(loggedInUser);
@@ -265,10 +270,6 @@ const App = () => {
     setSidebarMode(nextMode);
     localStorage.setItem("crms_sidebar_mode", nextMode);
   };
-
-  if (!isLoggedIn) {
-    return <Auth onLogin={handleLoginSuccess} />;
-  }
 
   const renderPage = () => {
     switch (activePage) {
@@ -309,10 +310,20 @@ const App = () => {
     );
   };
 
+  if (!isLoggedIn) {
+    return <Auth onLogin={handleLoginSuccess} />;
+  }
+
   const pageInfo = getPageInfo();
 
   return (
-    <div className="flex h-screen bg-[#f3f4f6] overflow-hidden">
+    <div className="relative flex h-screen overflow-hidden bg-slate-100 text-slate-900">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-purple-300/30 blur-3xl" />
+        <div className="absolute right-10 top-10 h-80 w-80 rounded-full bg-indigo-300/30 blur-3xl" />
+        <div className="absolute bottom-0 left-1/2 h-72 w-72 rounded-full bg-cyan-200/30 blur-3xl" />
+      </div>
+
       <Sidebar
         activePage={activePage}
         onNavigate={safeSetActivePage}
@@ -324,40 +335,84 @@ const App = () => {
         allowedPages={allowedPages}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <Header
-          title={pageInfo.title}
-          subtitle={pageInfo.subtitle}
-          showNotifications={showNotifications}
-          onToggleNotifications={() => setShowNotifications(!showNotifications)}
-          onNavigateSettings={() => safeSetActivePage("settings")}
-          onLogout={handleLogout}
-          user={user}
-          role={currentRole}
-        />
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="border-b border-white/60 bg-white/80 shadow-sm backdrop-blur-xl">
+          <Header
+            title={pageInfo.title}
+            subtitle={pageInfo.subtitle}
+            showNotifications={showNotifications}
+            onToggleNotifications={() =>
+              setShowNotifications((previous) => !previous)
+            }
+            onNavigateSettings={() => safeSetActivePage("settings")}
+            onLogout={handleLogout}
+            user={user}
+            role={currentRole}
+          />
+        </div>
 
-        <main className="flex-1 overflow-y-auto p-8">{renderPage()}</main>
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[1600px]">
+            <div className="mb-6 rounded-[28px] border border-white/70 bg-white/75 p-5 shadow-lg shadow-slate-200/60 backdrop-blur-xl sm:p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="mb-2 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.25em] text-indigo-700">
+                    {currentRole === ROLE.COMPANY
+                      ? "Company Portal"
+                      : "Client Portal"}
+                  </p>
+                  <h1 className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
+                    {pageInfo.title}
+                  </h1>
+                  <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500 sm:text-base">
+                    {pageInfo.subtitle}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-sm font-black text-white shadow-lg shadow-indigo-200">
+                    {user?.name?.charAt(0)?.toUpperCase() ||
+                      user?.fullName?.charAt(0)?.toUpperCase() ||
+                      "U"}
+                  </div>
+                  <div>
+                    <p className="text-sm font-extrabold text-slate-900">
+                      {user?.fullName || user?.name || "User"}
+                    </p>
+                    <p className="text-xs font-semibold text-slate-500">
+                      {currentRole}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[32px] border border-white/70 bg-white/55 p-4 shadow-xl shadow-slate-200/70 backdrop-blur-xl sm:p-5 lg:p-6">
+              {renderPage()}
+            </div>
+          </div>
+        </main>
 
         {showNotifications && (
           <>
             <div
-              className="fixed inset-0 z-40 bg-transparent"
+              className="fixed inset-0 z-40 bg-black/5 backdrop-blur-[1px]"
               onClick={() => setShowNotifications(false)}
             />
-            <div className="absolute top-24 right-8 z-50 w-96 flex flex-col gap-3 pointer-events-auto">
+
+            <div className="absolute right-4 top-24 z-50 flex w-[calc(100%-2rem)] max-w-md flex-col gap-3 sm:right-8">
               {currentRole === ROLE.CLIENT ? (
                 <>
                   <NotificationCard
                     title="Proposal Received"
                     message="A new project proposal has been sent by the company for your review."
                     time="10 minutes ago"
-                    isNew={true}
+                    isNew
                   />
                   <NotificationCard
                     title="PRD Uploaded"
                     message="A PRD document is now available for one of your projects."
                     time="2 hours ago"
-                    isNew={false}
                   />
                 </>
               ) : (
@@ -366,13 +421,12 @@ const App = () => {
                     title="Proposal Accepted"
                     message="A client has accepted your proposal. You can now proceed with the PRD."
                     time="30 minutes ago"
-                    isNew={true}
+                    isNew
                   />
                   <NotificationCard
                     title="New Change Request"
                     message="A client has submitted a new change request for review."
                     time="3 hours ago"
-                    isNew={false}
                   />
                 </>
               )}
@@ -385,19 +439,24 @@ const App = () => {
 };
 
 const NotificationCard = ({ title, message, time, isNew }) => (
-  <div className="bg-white rounded-xl shadow-2xl p-4 border-l-4 border-purple-500 transform transition-all animate-in slide-in-from-top-4 duration-300">
-    <div className="flex justify-between items-start mb-1">
-      <h4 className="font-bold text-gray-900 text-sm">{title}</h4>
+  <div className="rounded-2xl border border-white/70 bg-white/95 p-4 shadow-2xl shadow-slate-300/50 backdrop-blur-xl">
+    <div className="mb-2 flex items-start justify-between gap-3">
+      <h4 className="text-sm font-extrabold text-slate-900">{title}</h4>
+
       {isNew && (
-        <span className="bg-purple-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+        <span className="rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
           New
         </span>
       )}
     </div>
-    <p className="text-gray-600 text-xs mb-2 leading-relaxed">{message}</p>
-    <div className="flex items-center text-gray-400 text-[10px]">
+
+    <p className="mb-3 text-xs font-medium leading-relaxed text-slate-600">
+      {message}
+    </p>
+
+    <div className="flex items-center text-[11px] font-bold text-slate-400">
       <svg
-        className="w-3 h-3 mr-1"
+        className="mr-1.5 h-3.5 w-3.5"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
