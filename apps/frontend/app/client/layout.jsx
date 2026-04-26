@@ -23,6 +23,7 @@ export default function ClientLayout({ children }) {
       {desktopSidebarOpen && <AppSidebar section="client" />}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <TopNavbar
+        section="client"
           pathname={pathname}
           desktopSidebarOpen={desktopSidebarOpen}
           setDesktopSidebarOpen={setDesktopSidebarOpen}

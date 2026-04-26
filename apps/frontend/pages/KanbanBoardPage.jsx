@@ -235,6 +235,15 @@ const KanbanBoardPage = () => {
     return null;
   }, [boardData, pid, project, remoteProject]);
 
+  const resolvedCompanyId = useMemo(
+    () =>
+      boardData?.companyId ||
+      remoteProject?.companyId ||
+      project?.companyId ||
+      null,
+    [boardData?.companyId, project?.companyId, remoteProject?.companyId]
+  );
+
   useEffect(() => {
     setProjects(getProjects());
   }, []);
@@ -272,7 +281,7 @@ const KanbanBoardPage = () => {
 
     const loadCompanyUsers = async () => {
       try {
-        const users = await getCompanyUsers();
+        const users = await getCompanyUsers(resolvedCompanyId);
         if (mounted) {
           setCompanyUsers(Array.isArray(users) ? users : []);
         }
@@ -288,7 +297,7 @@ const KanbanBoardPage = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [resolvedCompanyId]);
 
   const assigneeNameById = useMemo(() => {
     const entries = (Array.isArray(companyUsers) ? companyUsers : [])
@@ -1287,7 +1296,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
         ) : (
           <div
             ref={boardRef}
-            className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
+            className="kanban-scroll-shell flex-1 min-h-0 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
@@ -1330,7 +1339,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
                   </div>
 
                   <div
-                    className={`space-y-4 p-3.5 ${
+                    className={`kanban-scroll-column space-y-4 p-3.5 ${
                       column.cards.length === ""
                         ? ""
                         : column.cards.length > 0
@@ -1440,7 +1449,8 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
           onSave={(data) => handleFormSubmit(openFormColumnId, data)}
           isEditMode={!!editingCard}
           minDate={todayISO}
-          companyId={boardData?.companyId || null}
+          companyId={resolvedCompanyId}
+          assignees={companyUsers}
         />
 
         {openComments && openedCard && (
@@ -1665,6 +1675,37 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
           </div>
         )}
       </div>
+      <style jsx global>{`
+        .kanban-scroll-shell,
+        .kanban-scroll-column {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(148, 163, 184, 0.55) rgba(241, 245, 249, 0.65);
+        }
+
+        .kanban-scroll-shell::-webkit-scrollbar,
+        .kanban-scroll-column::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+
+        .kanban-scroll-shell::-webkit-scrollbar-track,
+        .kanban-scroll-column::-webkit-scrollbar-track {
+          background: rgba(241, 245, 249, 0.7);
+          border-radius: 999px;
+        }
+
+        .kanban-scroll-shell::-webkit-scrollbar-thumb,
+        .kanban-scroll-column::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.6);
+          border-radius: 999px;
+          border: 2px solid rgba(241, 245, 249, 0.85);
+        }
+
+        .kanban-scroll-shell::-webkit-scrollbar-thumb:hover,
+        .kanban-scroll-column::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.8);
+        }
+      `}</style>
     </Layout>
   );
 };
