@@ -5,7 +5,10 @@ const API_BASE =
 
 export async function GET(request, { params }) {
   const { projectId, taskId, attachmentId } = params;
-  const token = request.cookies.get("crms_token")?.value;
+  const cookieToken = request.cookies.get("crms_token")?.value;
+  const authHeader = request.headers.get("authorization");
+  const token =
+    authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : cookieToken;
   const companyId = request.nextUrl.searchParams.get("companyId");
 
   const endpoint =

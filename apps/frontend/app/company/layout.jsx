@@ -23,6 +23,7 @@ export default function CompanyLayout({ children }) {
       {desktopSidebarOpen && <AppSidebar section="company" />}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <TopNavbar
+        section="company"
           pathname={pathname}
           desktopSidebarOpen={desktopSidebarOpen}
           setDesktopSidebarOpen={setDesktopSidebarOpen}

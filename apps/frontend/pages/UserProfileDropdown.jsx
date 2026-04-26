@@ -4,14 +4,16 @@ import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LogOut,
+  LockKeyhole,
   User,
-  Settings,
   ChevronRight,
   Palette,
-  Compass,
-  Users,
 } from "lucide-react";
 import EditProfileModal from "./EditProfile";
+import {
+  getCurrentUserProfile,
+} from "../services/api";
+import { clearSession } from "../utils/auth";
 
 const THEME_OPTIONS = [
   {
@@ -44,11 +46,48 @@ const UserProfileDropdown = () => {
   const [selectedTheme, setSelectedTheme] = useState("light");
 
   const [userData, setUserData] = useState({
-    userId: "234148X",
-    username: "Fathima Nuha",
-    email: "nuhamnf.23@uom.lk",
-    role: "Project Manager",
+    userId: "",
+    username: "User",
+    email: "",
+    role: "",
+    profileImage: "",
+    assignedTasks: [],
+    assignedProjects: [],
   });
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProfile = async () => {
+      try {
+        const profile = await getCurrentUserProfile();
+
+        if (!active || !profile) return;
+
+        setUserData({
+          userId: profile.userId || profile.id || "",
+          username: profile.username || profile.fullName || profile.name || "User",
+          email: profile.email || "",
+          role: profile.role || "",
+          profileImage: profile.profileImage || "",
+          assignedTasks: Array.isArray(profile.assignedTasks)
+            ? profile.assignedTasks
+            : [],
+          assignedProjects: Array.isArray(profile.assignedProjects)
+            ? profile.assignedProjects
+            : [],
+        });
+      } catch (error) {
+        console.error("Failed to load current user profile:", error);
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -68,9 +107,11 @@ const UserProfileDropdown = () => {
   };
 
   const handleLogout = () => {
-    console.log("Logout clicked");
+    clearSession();
     setIsOpen(false);
     setActivePanel(null);
+    setIsEditOpen(false);
+    router.replace("/login");
   };
 
   const handleThemeClick = () => {
@@ -79,6 +120,13 @@ const UserProfileDropdown = () => {
 
   const menuItemClass =
     "flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-[15px] font-medium text-slate-700 transition hover:bg-slate-50";
+
+  const userInitials = (userData.username || "User")
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -93,9 +141,17 @@ const UserProfileDropdown = () => {
         }}
         className="rounded-full p-1.5 transition hover:bg-slate-100"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-sm font-semibold text-white shadow-[0_6px_14px_rgba(15,23,42,0.18)]">
-          {userData.username.charAt(0)}
-        </div>
+        {userData.profileImage ? (
+          <img
+            src={userData.profileImage}
+            alt={`${userData.username || "User"} profile`}
+            className="h-8 w-8 rounded-full object-cover shadow-[0_6px_14px_rgba(15,23,42,0.18)]"
+          />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-sm font-semibold text-white shadow-[0_6px_14px_rgba(15,23,42,0.18)]">
+            {(userData.username || "U").charAt(0)}
+          </div>
+        )}
       </button>
 
       {isOpen && (
@@ -144,13 +200,17 @@ const UserProfileDropdown = () => {
               {/* Header */}
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[#5b4cc4] text-[28px] font-semibold text-white">
-                    {userData.username
-                      .split(" ")
-                      .map((word) => word[0])
-                      .join("")
-                      .slice(0, 2)}
-                  </div>
+                  {userData.profileImage ? (
+                    <img
+                      src={userData.profileImage}
+                      alt={`${userData.username || "User"} profile`}
+                      className="h-[72px] w-[72px] rounded-full object-cover shadow-sm"
+                    />
+                  ) : (
+                    <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[#5b4cc4] text-[28px] font-semibold text-white">
+                      {userInitials}
+                    </div>
+                  )}
 
                   <div className="min-w-0">
                     <p className="truncate text-[18px] font-semibold text-slate-900">
@@ -193,15 +253,15 @@ const UserProfileDropdown = () => {
                   onClick={() => {
                     setIsOpen(false);
                     setActivePanel(null);
-                    router.push("/account-settings");
+                    router.push("/company/ChangePasswordPage");
                   }}
                   className={menuItemClass}
                 >
                   <div className="flex items-center gap-3">
                     <div className="text-slate-700">
-                      <Settings size={16} />
+                      <LockKeyhole size={16} />
                     </div>
-                    <span>Account settings</span>
+                    <span>Change password</span>
                   </div>
                   <ChevronRight size={16} className="text-slate-400" />
                 </button>
@@ -227,38 +287,9 @@ const UserProfileDropdown = () => {
                   <ChevronRight size={16} className="text-slate-400" />
                 </button>
 
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    setActivePanel(null);
-                    showToastMessage("Quickstart will open soon");
-                  }}
-                  className={menuItemClass}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-slate-700">
-                      <Compass size={16} />
-                    </div>
-                    <span>Open Quickstart</span>
-                  </div>
-                </button>
               </div>
 
               <div className="mt-4 border-t border-slate-200 pt-3">
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    setActivePanel(null);
-                    showToastMessage("Switch account will open soon");
-                  }}
-                  className="group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[15px] font-medium text-slate-900 transition hover:bg-slate-50"
-                >
-                  <div className="text-slate-700">
-                    <Users size={16} />
-                  </div>
-                  <span>Switch account</span>
-                </button>
-
                 <button
                   onClick={handleLogout}
                   className="group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[15px] font-medium text-slate-900 transition hover:bg-rose-50 hover:text-rose-700"

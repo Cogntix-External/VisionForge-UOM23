@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Bell, Menu, PanelLeftClose, PanelLeftOpen, User } from "lucide-react";
 import UserProfileDropdown from "../pages/UserProfileDropdown";
 import {
   getNotifications,
@@ -29,13 +29,13 @@ const pageTitles = [
   ["/client/Document", "Documents"],
   ["/client/ChangeRequest", "Change Requests"],
   ["/client/Kanban", "Kanban Board"],
-  ["/account-settings/password", "Change Password"],
-  ["/account-settings", "Account Settings"],
+  ["/company/ChangePasswordPage", "Change Password"],
   ["/user-management", "User Management"],
 ];
 
 const TopNavbar = ({
   setSidebarOpen = () => {},
+  section = "company",
   title,
   desktopSidebarOpen = true,
   setDesktopSidebarOpen = () => {},
@@ -147,8 +147,16 @@ const TopNavbar = ({
                 </span>
               )}
             </div>
-
-            <UserProfileDropdown />
+ {section === "company" ? (
+              <UserProfileDropdown />
+            ) : (
+              <div
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600"
+                title="User"
+              >
+                <User className="h-5 w-5" />
+              </div>
+            )}
           </div>
         </div>
       </header>

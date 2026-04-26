@@ -873,6 +873,114 @@ export async function downloadTaskAttachment(
   return true;
 }
 
+// User Profile Section
+const USER_PROFILE_PATH = "/user-profile/me";
+
+function normalizeProfile(profile) {
+  if (!profile || typeof profile !== "object") return profile;
+
+  const name =
+    profile.username || profile.fullName || profile.name || "";
+
+  return {
+    ...profile,
+    id: profile.id || "",
+    userId: profile.userId || profile.id || "",
+    username: name,
+    name,
+    fullName: profile.fullName || name,
+    email: profile.email || "",
+    role: profile.role || "",
+    profileImage: profile.profileImage || "",
+    assignedTasks: Array.isArray(profile.assignedTasks)
+      ? profile.assignedTasks
+      : [],
+    assignedProjects: Array.isArray(profile.assignedProjects)
+      ? profile.assignedProjects
+      : [],
+  };
+}
+
+export function getCurrentUserProfile() {
+  return request(USER_PROFILE_PATH, {
+    method: "GET",
+    suppressNetworkErrorLog: true,
+  })
+    .then(normalizeProfile)
+    .catch((error) => {
+      const isNetworkError =
+        error instanceof TypeError ||
+        /Failed to fetch|NetworkError|Load failed/i.test(
+          String(error?.message || "")
+        );
+
+      if (!isNetworkError) {
+        throw error;
+      }
+
+      return normalizeProfile(getStoredUser());
+    });
+}
+
+export async function updateCurrentUserProfile(payload) {
+  let response;
+
+  try {
+    response = await request(USER_PROFILE_PATH, {
+      method: "PUT",
+      suppressNetworkErrorLog: true,
+      body: JSON.stringify({
+        username: payload?.username ?? payload?.name ?? "",
+        userId: payload?.userId ?? "",
+        profileImage: payload?.profileImage ?? "",
+      }),
+    });
+  } catch (error) {
+    const isNetworkError =
+      error instanceof TypeError ||
+      /Failed to fetch|NetworkError|Load failed/i.test(
+        String(error?.message || "")
+      );
+
+    if (!isNetworkError) {
+      throw error;
+    }
+
+    response = {
+      ...getStoredUser(),
+      username: payload?.username ?? payload?.name ?? "",
+      userId: payload?.userId ?? getStoredUser()?.userId ?? "",
+      profileImage:
+        payload?.profileImage ?? getStoredUser()?.profileImage ?? "",
+    };
+  }
+
+  const normalized = normalizeProfile(response);
+
+  if (typeof window !== "undefined") {
+    const existingUser = getStoredUser();
+    localStorage.setItem(
+      "crms_user",
+      JSON.stringify({
+        ...existingUser,
+        ...normalized,
+      })
+    );
+  }
+
+  return normalized;
+}
+
+export function changePassword(payload) {
+  return request("/user/change-password", {
+    method: "POST",
+    body: JSON.stringify({
+      currentPassword: payload?.currentPassword ?? "",
+      newPassword: payload?.newPassword ?? "",
+      confirmPassword: payload?.confirmPassword ?? "",
+    }),
+  });
+}
 
 export { API_BASE };
 
