@@ -1,5 +1,5 @@
 import React from 'react';
-import logoImage from './images/logo.jpeg';
+import logoImage from './images/logo.png';
 
 const CRMSLogo = ({ className = "w-14 h-14" }) => (
   <img 

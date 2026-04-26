@@ -1,10 +1,9 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
 
+// Parses normal JSON/text API responses safely
 async function parseResponse(response) {
-  if (response.status === 204) {
-    return null;
-  }
+  if (response.status === 204) return null;
 
   const contentType = response.headers.get("content-type") || "";
 
@@ -17,6 +16,7 @@ async function parseResponse(response) {
   return text || null;
 }
 
+// Sends normal JSON API requests with JWT token
 async function request(path, options = {}) {
   const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
   const token =
@@ -41,7 +41,11 @@ async function request(path, options = {}) {
         if (typeof errorData === "string") {
           message = errorData || message;
         } else if (errorData && typeof errorData === "object") {
-          message = errorData.message || errorData.error || message;
+          message =
+            errorData.message ||
+            errorData.error ||
+            errorData.detail ||
+            message;
         }
       } catch (e) {
         console.error("Error parsing error response:", e);
@@ -57,6 +61,7 @@ async function request(path, options = {}) {
   }
 }
 
+// Reads logged-in user details from localStorage
 function getStoredUser() {
   if (typeof window === "undefined") return {};
 
@@ -68,10 +73,108 @@ function getStoredUser() {
   }
 }
 
+// Resolves company ID from parameter, logged-in user, or localStorage
 function getCompanyId(passedId) {
   if (passedId) return passedId;
+
   const user = getStoredUser();
   return user?.id || localStorage.getItem("companyId") || null;
+}
+
+// Reads auth token from localStorage
+function getAuthToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("crms_token") || localStorage.getItem("token");
+}
+
+// Extracts filename from Content-Disposition header
+function getFileNameFromContentDisposition(contentDisposition, fallbackName) {
+  if (!contentDisposition) return fallbackName;
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1].replace(/["']/g, ""));
+  }
+
+  const normalMatch = contentDisposition.match(
+    /filename[^;=\n]*=(['"]?)([^'"\n;]*)\1/i,
+  );
+
+  if (normalMatch?.[2]) {
+    return normalMatch[2];
+  }
+
+  return fallbackName;
+}
+
+// Downloads a blob response safely and prevents JSON error responses from being saved as files
+async function downloadBlobFile(url, fallbackName = "download.pdf") {
+  const token = getAuthToken();
+
+  const response = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}`;
+
+    try {
+      if (contentType.includes("application/json")) {
+        const errorData = await response.json();
+        errorMessage =
+          errorData.message ||
+          errorData.error ||
+          errorData.detail ||
+          errorMessage;
+      } else {
+        const text = await response.text();
+        errorMessage = text || errorMessage;
+      }
+    } catch (e) {
+      console.error("Error parsing download error response:", e);
+    }
+
+    throw new Error(`Download failed: ${errorMessage}`);
+  }
+
+  if (contentType.includes("application/json")) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message ||
+        errorData?.error ||
+        "Invalid file response: server returned JSON instead of a file",
+    );
+  }
+
+  const blob = await response.blob();
+
+  if (!blob || blob.size === 0) {
+    throw new Error("Download failed: Received empty file");
+  }
+
+  const contentDisposition = response.headers.get("content-disposition");
+  let fileName = getFileNameFromContentDisposition(
+    contentDisposition,
+    fallbackName,
+  );
+
+  if (!fileName.includes(".")) {
+    if (contentType.includes("pdf")) fileName += ".pdf";
+    else fileName += ".bin";
+  }
+
+  return {
+    blob,
+    fileName,
+    contentDisposition,
+    contentType,
+  };
 }
 
 // AUTH
@@ -226,13 +329,13 @@ export function getClientProjectPrd(projectId) {
   });
 }
 
+// PRD / DOCUMENTS - COMPANY
 export function getAllPrds() {
-  return request("", {
+  return request("/documents", {
     method: "GET",
   });
 }
 
-// PRD / DOCUMENTS - COMPANY
 export async function fetchPrds(projectId) {
   const list = await getAllPrds();
 
@@ -250,7 +353,7 @@ export function fetchPrdById(prdId) {
     throw new Error("PRD ID is required");
   }
 
-  return request(`/${prdId}`, {
+  return request(`/documents/${prdId}`, {
     method: "GET",
   });
 }
@@ -260,7 +363,7 @@ export function createPrd(projectId, payload) {
     throw new Error("Project ID is required");
   }
 
-  return request("", {
+  return request("/documents", {
     method: "POST",
     body: JSON.stringify({
       ...payload,
@@ -274,59 +377,21 @@ export function updatePrd(prdId, payload) {
     throw new Error("PRD ID is required");
   }
 
-  return request(`/${prdId}`, {
+  return request(`/documents/${prdId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
 
 export async function downloadDocument(documentId) {
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
-
-  try {
-    const response = await fetch(`${API_BASE}/documents/${documentId}/download`, {
-      method: "GET",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-
-    if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}`;
-
-      try {
-        const contentType = response.headers.get("content-type") || "";
-
-        if (contentType.includes("application/json")) {
-          const errorData = await response.json();
-          errorMessage =
-            errorData.message || errorData.error || errorMessage;
-        } else {
-          const text = await response.text();
-          errorMessage = text || errorMessage;
-        }
-      } catch (e) {
-        console.error("Error parsing download error response:", e);
-      }
-
-      throw new Error(`Download failed: ${errorMessage}`);
-    }
-
-    const blob = await response.blob();
-
-    if (blob.size === 0) {
-      throw new Error("Download failed: Received empty file");
-    }
-
-    return {
-      blob,
-      fileName: response.headers.get("content-disposition"),
-    };
-  } catch (err) {
-    console.error(`Download failed for document ${documentId}:`, err);
-    throw err;
+  if (!documentId) {
+    throw new Error("Document ID is required");
   }
+
+  return downloadBlobFile(
+    `${API_BASE}/documents/${documentId}/download`,
+    "prd-document.pdf",
+  );
 }
 
 // CHANGE REQUESTS - CLIENT
@@ -374,7 +439,11 @@ export function getCompanyChangeRequestsByProject(projectId, companyId) {
   });
 }
 
-export function getCompanyChangeRequestsByProjectAndPrd(projectId, prdId, companyId) {
+export function getCompanyChangeRequestsByProjectAndPrd(
+  projectId,
+  prdId,
+  companyId,
+) {
   const resolvedCompanyId = getCompanyId(companyId);
 
   if (!resolvedCompanyId) {
@@ -405,7 +474,11 @@ export function decideCompanyChangeRequest(changeRequestId, payload, companyId) 
   });
 }
 
-export function markCompanyChangeRequestImplemented(changeRequestId, payload, companyId) {
+export function markCompanyChangeRequestImplemented(
+  changeRequestId,
+  payload,
+  companyId,
+) {
   const resolvedCompanyId = getCompanyId(companyId);
 
   if (!resolvedCompanyId) {
@@ -422,33 +495,14 @@ export function markCompanyChangeRequestImplemented(changeRequestId, payload, co
 }
 
 export async function downloadCompanyChangeRequest(changeRequestId) {
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
+  if (!changeRequestId) {
+    throw new Error("Change request ID is required");
+  }
 
-  const response = await fetch(
+  return downloadBlobFile(
     `${API_BASE}/company/change-requests/${changeRequestId}/download`,
-    {
-      method: "GET",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    }
+    "change-request.pdf",
   );
-
-  if (!response.ok) {
-    throw new Error(`Download failed: HTTP ${response.status}`);
-  }
-
-  const blob = await response.blob();
-
-  if (blob.size === 0) {
-    throw new Error("Download failed: Received empty file");
-  }
-
-  return {
-    blob,
-    fileName: response.headers.get("content-disposition"),
-  };
 }
 
 // VERSION HISTORY - COMPANY
@@ -489,390 +543,17 @@ export function getNotifications() {
   });
 }
 
-export function getUnreadNotificationCount() {
-  return request("/notifications/unread-count", {
+export function getClientUnreadNotificationCount() {
+  return request("/client/notifications/unread-count", {
     method: "GET",
   });
 }
 
 export function markNotificationAsRead(notificationId) {
-  return request(`/notifications/${notificationId}/read`, {
+  return request(`/client/notifications/${notificationId}/read`, {
     method: "PATCH",
   });
 }
-
-export const getClientNotifications = getNotifications;
-export const getClientUnreadNotificationCount = getUnreadNotificationCount;
-
-// KANBAN HELPERS
-function getAuthToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("crms_token") || localStorage.getItem("token");
-}
-
-function normalizeKanbanUserRole(userRole) {
-  const normalizedRole = String(userRole || "").trim().toUpperCase();
-  return normalizedRole === "CLIENT" || normalizedRole === "ROLE_CLIENT"
-    ? "client"
-    : "company";
-}
-
-function buildKanbanRequestHeaders(endpoint) {
-  const headers = {};
-  const token = getAuthToken();
-  const companyId = getCompanyId();
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  if (companyId && endpoint.includes("/company/")) {
-    headers["X-Company-Id"] = companyId;
-  }
-
-  return headers;
-}
-
-async function parseKanbanResponse(response) {
-  if (!response.ok) {
-    const error = new Error(`Request failed with status code ${response.status}`);
-    error.response = {
-      status: response.status,
-      data: await response.text().catch(() => ""),
-    };
-    throw error;
-  }
-
-  if (response.status === 204) return null;
-
-  const contentType = response.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return response.json();
-  }
-
-  return response.text();
-}
-
-async function sendKanbanRequest(method, endpoint, data) {
-  const headers = buildKanbanRequestHeaders(endpoint);
-
-  const options = {
-    method,
-    credentials: "include",
-    headers,
-  };
-
-  if (data !== undefined) {
-    options.body = JSON.stringify(data);
-    options.headers = {
-      ...headers,
-      "Content-Type": "application/json",
-    };
-  }
-
-  const response = await fetch(`${API_BASE}${endpoint}`, options);
-  return parseKanbanResponse(response);
-}
-
-async function sendKanbanMultipartRequest(method, endpoint, formData) {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    method,
-    body: formData,
-    credentials: "include",
-    headers: buildKanbanRequestHeaders(endpoint),
-  });
-
-  return parseKanbanResponse(response);
-}
-
-export async function getCompanyUsers(companyId) {
-  const resolvedCompanyId = getCompanyId(companyId);
-
-  const endpoint = "/company/kanban/assignees";
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    method: "GET",
-    credentials: "include",
-    headers: {
-      ...buildKanbanRequestHeaders(endpoint),
-      ...(resolvedCompanyId ? { "X-Company-Id": resolvedCompanyId } : {}),
-    },
-  });
-
-  if (response.status === 404) {
-    return [];
-  }
-
-  if (!response.ok) {
-    return [];
-  }
-
-  return (await parseKanbanResponse(response)) || [];
-}
-
-export async function getAssignedKanbanProjects() {
-  try {
-    return await sendKanbanRequest("GET", "/company/kanban/assigned-projects");
-  } catch (error) {
-    if ([401, 403, 404].includes(error?.response?.status)) {
-      return [];
-    }
-
-    return [];
-  }
-}
-
-function projectIdMatches(project, projectId) {
-  const normalizedProjectId = String(projectId || "").trim();
-  const candidateId = String(project?.id || project?.pid || "").trim();
-  return Boolean(normalizedProjectId) && candidateId === normalizedProjectId;
-}
-
-export async function getKanbanProjectById(projectId, userRole) {
-  if (!projectId) {
-    throw new Error("Project ID is required");
-  }
-
-  const role = normalizeKanbanUserRole(userRole);
-  const loaders =
-    role === "client"
-      ? [() => getClientProjects(), () => getAssignedKanbanProjects()]
-      : [() => getCompanyProjects(), () => getAssignedKanbanProjects()];
-
-  for (const loadProjects of loaders) {
-    try {
-      const projects = await loadProjects();
-      const matchedProject = Array.isArray(projects)
-        ? projects.find((project) => projectIdMatches(project, projectId))
-        : null;
-
-      if (matchedProject) {
-        return matchedProject;
-      }
-    } catch {
-      // Best-effort lookup for kanban title/description only.
-    }
-  }
-
-  return null;
-}
-
-export function getProjectById(projectId) {
-  if (!projectId) {
-    throw new Error("Project ID is required");
-  }
-
-  return request(`/projects/${projectId}`, {
-    method: "GET",
-  });
-}
-
-export async function createKanbanBoard(projectId, data) {
-  return sendKanbanRequest(
-    "POST",
-    `/company/kanban/${projectId}/board`,
-    data
-  );
-}
-
-export async function getKanbanBoard(projectId) {
-  try {
-    return await sendKanbanRequest("GET", `/company/kanban/${projectId}`);
-  } catch (error) {
-    if (error?.response?.status === 404) {
-      return { tasksByStatus: [] };
-    }
-
-    throw error;
-  }
-}
-
-function normalizeTaskStatus(status) {
-  const normalized = String(status || "").trim().toUpperCase();
-
-  if (normalized === "INPROGRESS") return "IN_PROGRESS";
-  if (normalized === "REVIEW") return "IN_REVIEW";
-  if (normalized === "COMPLETE" || normalized === "COMPLETED") return "DONE";
-
-  if (
-    normalized === "TODO" ||
-    normalized === "IN_PROGRESS" ||
-    normalized === "IN_REVIEW" ||
-    normalized === "DONE"
-  ) {
-    return normalized;
-  }
-
-  return "TODO";
-}
-
-export async function getTasksByBoard(projectId) {
-  try {
-    return await sendKanbanRequest(
-      "GET",
-      `/company/kanban/${projectId}/tasks`
-    );
-  } catch (error) {
-    if (error?.response?.status === 404) {
-      return [];
-    }
-
-    throw error;
-  }
-}
-
-export async function getKanbanBoardWithTasks(projectId) {
-  const [board, tasks] = await Promise.all([
-    getKanbanBoard(projectId),
-    getTasksByBoard(projectId),
-  ]);
-
-  const groupedTasks = {
-    TODO: [],
-    IN_PROGRESS: [],
-    IN_REVIEW: [],
-    DONE: [],
-  };
-
-  (Array.isArray(tasks) ? tasks : []).forEach((task) => {
-    const normalizedStatus = normalizeTaskStatus(task?.status);
-    groupedTasks[normalizedStatus].push({
-      ...task,
-      status: normalizedStatus,
-    });
-  });
-
-  return {
-    ...(board || {}),
-    name: board?.name || board?.title || "Kanban Board",
-    tasksByStatus: Object.entries(groupedTasks).map(([status, taskList]) => ({
-      status,
-      tasks: taskList,
-    })),
-  };
-}
-
-export async function createTask(projectId, boardId, data) {
-  if (!projectId) throw new Error("Project ID is missing");
-
-  return sendKanbanRequest(
-    "POST",
-    `/company/kanban/${projectId}/tasks`,
-    data
-  );
-}
-
-export async function updateTask(projectId, taskId, data) {
-  if (!projectId) throw new Error("Project ID is missing");
-  if (!taskId) throw new Error("Task ID is missing");
-
-  return sendKanbanRequest(
-    "PUT",
-    `/company/kanban/${projectId}/tasks/${taskId}`,
-    data
-  );
-}
-
-export async function updateTaskStatus(projectId, taskId, data) {
-  if (!taskId) throw new Error("Task ID is missing");
-
-  return sendKanbanRequest(
-    "PUT",
-    `/company/kanban/tasks/${taskId}/status`,
-    data
-  );
-}
-
-export async function deleteTask(projectId, taskId) {
-  if (!projectId) throw new Error("Project ID is missing");
-  if (!taskId) throw new Error("Task ID is missing");
-
-  return sendKanbanRequest(
-    "DELETE",
-    `/company/kanban/${projectId}/tasks/${taskId}`
-  );
-}
-
-export async function addTaskComment(projectId, taskId, comment) {
-  if (!projectId) throw new Error("Project ID is missing");
-  if (!taskId) throw new Error("Task ID is missing");
-
-  return sendKanbanRequest(
-    "POST",
-    `/company/kanban/${projectId}/tasks/${taskId}/comments?comment=${encodeURIComponent(
-      comment
-    )}`
-  );
-}
-export function getClientProjectKanban(projectId) {
-  return request(`/client/projects/${projectId}/kanban`, {
-    method: "GET",
-  });
-}
-export async function uploadTaskAttachments(projectId, taskId, files) {
-  if (!Array.isArray(files) || files.length === 0) return null;
-
-  const formData = new FormData();
-  files.forEach((file) => {
-    formData.append("files", file);
-  });
-
-  return sendKanbanMultipartRequest(
-    "POST",
-    `/company/kanban/${projectId}/tasks/${taskId}/attachments`,
-    formData
-  );
-}
-
-export async function downloadTaskAttachment(
-  projectId,
-  taskId,
-  attachmentId,
-  fileName
-) {
-  const companyId = getCompanyId();
-  const proxyPath =
-    `/api/company/kanban/${encodeURIComponent(
-      projectId
-    )}/tasks/${encodeURIComponent(taskId)}/attachments/${encodeURIComponent(
-      attachmentId
-    )}` +
-    (companyId ? `?companyId=${encodeURIComponent(companyId)}` : "");
-
-  const response = await fetch(proxyPath, {
-      method: "GET",
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      return false;
-    }
-
-    throw new Error(`Request failed with status code ${response.status}`);
-  }
-
-  const blob = await response.blob();
-  const contentDisposition = response.headers.get("content-disposition") || "";
-  const matchedFileName = contentDisposition.match(
-    /filename\*?=(?:UTF-8'')?["']?([^;"']+)["']?/i
-  );
-  const resolvedFileName =
-    fileName ||
-    (matchedFileName?.[1] ? decodeURIComponent(matchedFileName[1]) : "") ||
-    "attachment";
-  const objectUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = objectUrl;
-  link.download = resolvedFileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-
-  window.URL.revokeObjectURL(objectUrl);
-  return true;
-}
-
 
 export { API_BASE };
 
