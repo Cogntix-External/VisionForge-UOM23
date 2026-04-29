@@ -195,17 +195,23 @@ export function resetPassword(token, newPassword) {
 }
 
 export async function changePassword(payload) {
+  const normalizedPayload = {
+    currentPassword: payload?.currentPassword ?? "",
+    newPassword: payload?.newPassword ?? "",
+    confirmPassword: payload?.confirmPassword ?? "",
+  };
+
   try {
     return await request("/user/change-password", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizedPayload),
       suppressNetworkErrorLog: true,
     });
   } catch (error) {
     if (/Not Found|HTTP 404/i.test(String(error?.message || ""))) {
       return request("/auth/change-password", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(normalizedPayload),
         suppressNetworkErrorLog: true,
       });
     }
@@ -846,7 +852,19 @@ export function getProjectById(projectId) {
 }
 
 export async function createKanbanBoard(projectId, data) {
-  return sendKanbanRequest("POST", `/company/kanban/${projectId}/board`, data);
+  try {
+    return await sendKanbanRequest(
+      "POST",
+      `/company/kanban/${projectId}/board`,
+      data,
+    );
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      return getKanbanBoard(projectId);
+    }
+
+    throw error;
+  }
 }
 
 export async function getKanbanBoard(projectId) {
@@ -1002,18 +1020,19 @@ export async function downloadTaskAttachment(
   const token =
     typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
   const companyId = getCompanyId();
-  const proxyPath =
-    `/api/company/kanban/${encodeURIComponent(
+  const downloadUrl =
+    `${API_BASE}/company/kanban/${encodeURIComponent(
       projectId,
     )}/tasks/${encodeURIComponent(taskId)}/attachments/${encodeURIComponent(
       attachmentId,
-    )}` + (companyId ? `?companyId=${encodeURIComponent(companyId)}` : "");
+    )}`;
 
-  const response = await fetch(proxyPath, {
+  const response = await fetch(downloadUrl, {
     method: "GET",
     cache: "no-store",
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(companyId ? { "X-Company-Id": companyId } : {}),
     },
   });
 
@@ -1046,6 +1065,102 @@ export async function downloadTaskAttachment(
   window.URL.revokeObjectURL(objectUrl);
   return true;
 }
+// User Profile Section
+const USER_PROFILE_PATH = "/user-profile/me";
 
+function normalizeProfile(profile) {
+  if (!profile || typeof profile !== "object") return profile;
+
+  const name =
+    profile.username || profile.fullName || profile.name || "";
+
+  return {
+    ...profile,
+    id: profile.id || "",
+    userId: profile.userId || profile.id || "",
+    username: name,
+    name,
+    fullName: profile.fullName || name,
+    email: profile.email || "",
+    role: profile.role || "",
+    profileImage: profile.profileImage || "",
+    assignedTasks: Array.isArray(profile.assignedTasks)
+      ? profile.assignedTasks
+      : [],
+    assignedProjects: Array.isArray(profile.assignedProjects)
+      ? profile.assignedProjects
+      : [],
+  };
+}
+
+export function getCurrentUserProfile() {
+  return request(USER_PROFILE_PATH, {
+    method: "GET",
+    suppressNetworkErrorLog: true,
+  })
+    .then(normalizeProfile)
+    .catch((error) => {
+      const isNetworkError =
+        error instanceof TypeError ||
+        /Failed to fetch|NetworkError|Load failed/i.test(
+          String(error?.message || "")
+        );
+
+      if (!isNetworkError) {
+        throw error;
+      }
+
+      return normalizeProfile(getStoredUser());
+    });
+}
+
+export async function updateCurrentUserProfile(payload) {
+  let response;
+
+  try {
+    response = await request(USER_PROFILE_PATH, {
+      method: "PUT",
+      suppressNetworkErrorLog: true,
+      body: JSON.stringify({
+        username: payload?.username ?? payload?.name ?? "",
+        userId: payload?.userId ?? "",
+        profileImage: payload?.profileImage ?? "",
+      }),
+    });
+  } catch (error) {
+    const isNetworkError =
+      error instanceof TypeError ||
+      /Failed to fetch|NetworkError|Load failed/i.test(
+        String(error?.message || "")
+      );
+
+    if (!isNetworkError) {
+      throw error;
+    }
+
+    response = {
+      ...getStoredUser(),
+      username: payload?.username ?? payload?.name ?? "",
+      userId: payload?.userId ?? getStoredUser()?.userId ?? "",
+      profileImage:
+        payload?.profileImage ?? getStoredUser()?.profileImage ?? "",
+    };
+  }
+
+  const normalized = normalizeProfile(response);
+
+  if (typeof window !== "undefined") {
+    const existingUser = getStoredUser();
+    localStorage.setItem(
+      "crms_user",
+      JSON.stringify({
+        ...existingUser,
+        ...normalized,
+      })
+    );
+  }
+
+  return normalized;
+}
 
 export { API_BASE };

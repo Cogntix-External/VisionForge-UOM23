@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -51,6 +52,17 @@ public class KanbanController {
     @GetMapping("/company/kanban/{projectId}")
     public ResponseEntity<KanbanBoard> getBoard(@PathVariable String projectId) {
         return ResponseEntity.ok(kanbanService.getBoardByProjectId(projectId));
+    }
+
+    @PostMapping("/company/kanban/{projectId}/board")
+    public ResponseEntity<KanbanBoard> saveBoard(
+            @PathVariable String projectId,
+            @RequestBody(required = false) Map<String, Object> payload
+    ) {
+        String title = payload != null
+                ? String.valueOf(payload.getOrDefault("name", payload.getOrDefault("title", ""))).trim()
+                : "";
+        return ResponseEntity.ok(kanbanService.touchBoard(projectId, title));
     }
 
     @GetMapping("/company/kanban/{projectId}/tasks")

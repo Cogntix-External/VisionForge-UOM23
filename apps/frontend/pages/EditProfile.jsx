@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Camera, X } from "lucide-react";
 import { Camera, Info, SquareCheckBig } from "lucide-react";
 import {
   getCurrentUserProfile,
@@ -29,6 +28,9 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
     assignedProjects: [],
   });
   const [errors, setErrors] = useState({});
+  const [saveError, setSaveError] = useState("");
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!userData) return;
@@ -48,12 +50,77 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
     }));
   }, [userData]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
 
-  const handleChange = (e) => {
+    let active = true;
+
+    const loadProfile = async () => {
+      setIsLoadingProfile(true);
+      setSaveError("");
+
+      try {
+        const profile = await getCurrentUserProfile();
+
+        if (!active || !profile) return;
+
+        setFormData({
+          username: profile.username || profile.fullName || profile.name || "",
+          userId: profile.userId || profile.id || "",
+          profileImage: null,
+          previewImage: profile.profileImage || "",
+          assignedTasks: Array.isArray(profile.assignedTasks)
+            ? profile.assignedTasks
+            : [],
+          assignedProjects: Array.isArray(profile.assignedProjects)
+            ? profile.assignedProjects
+            : [],
+        });
+      } catch (error) {
+        if (active) {
+          setSaveError(error.message || "Failed to load profile");
+        }
+      } finally {
+        if (active) {
+          setIsLoadingProfile(false);
+        }
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        handleClose();
+      }
+    };
+
+    loadProfile();
+    document.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      active = false;
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "auto";
+    };
+  }, [isOpen]);
+
+  const handleClose = () => {
+    setErrors({});
+    setSaveError("");
+    onClose();
+  };
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: "",
     }));
     setSaveError("");
   };
@@ -62,102 +129,79 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const preview = URL.createObjectURL(file);
-    setFormData((prev) => ({
-      ...prev,
-      profileImage: file,
-      previewImage: preview,
-    }));
+    try {
+      const imageDataUrl = await readFileAsDataUrl(file);
+
+      setFormData((prev) => ({
+        ...prev,
+        profileImage: file,
+        previewImage: imageDataUrl,
+      }));
+      setSaveError("");
+    } catch (error) {
+      setSaveError(error.message || "Failed to load selected image");
+    }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const nextErrors = {};
+
     if (!formData.username.trim()) {
-      setErrors({ username: "Name required" });
+      nextErrors.username = "Display name is required";
+    }
+
+    if (!formData.userId.trim()) {
+      nextErrors.userId = "User ID is required";
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
       return;
     }
 
-    onSave({
-      ...userData,
-      ...formData,
-    });
+    setIsSaving(true);
+    setSaveError("");
 
-    onClose();
+    try {
+      const updatedProfile = await updateCurrentUserProfile({
+        username: formData.username.trim(),
+        userId: formData.userId.trim(),
+        profileImage: formData.previewImage || "",
+      });
+
+      onSave?.({
+        ...userData,
+        ...updatedProfile,
+      });
+
+      handleClose();
+    } catch (error) {
+      setSaveError(error.message || "Failed to update profile");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+  const handleCancel = () => {
+    setFormData({
+      username: userData?.username || userData?.fullName || userData?.name || "",
+      userId: userData?.userId || userData?.id || "",
+      profileImage: null,
+      previewImage: userData?.profileImage || "",
+      assignedTasks: Array.isArray(userData?.assignedTasks)
+        ? userData.assignedTasks
+        : [],
+      assignedProjects: Array.isArray(userData?.assignedProjects)
+        ? userData.assignedProjects
+        : [],
+    });
+    setErrors({});
+    setSaveError("");
+    handleClose();
+  };
 
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+  if (!isOpen) return null;
 
-        {/*  HEADER */}
-        <div className="flex justify-between items-center px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-          <h2 className="font-bold text-lg">Edit Profile</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/*  BODY */}
-        <div className="p-6 space-y-6 text-center">
-
-          {/* PROFILE IMAGE */}
-          <div className="relative mx-auto w-fit">
-            {formData.previewImage ? (
-              <img
-                src={formData.previewImage}
-                className="w-28 h-28 rounded-full object-cover shadow-md"
-              />
-            ) : (
-              <div className="w-28 h-28 rounded-full bg-indigo-500 text-white flex items-center justify-center text-2xl font-bold">
-                {formData.username?.[0] || "U"}
-              </div>
-            )}
-
-            <label className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow cursor-pointer hover:bg-gray-100">
-              <Camera size={16} />
-              <input type="file" hidden onChange={handleImageChange} />
-            </label>
-          </div>
-
-          {/* FORM */}
-          <Input label="Name">
-            <input
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              className="input"
-            />
-            {errors.username && <p className="text-red-500 text-xs">{errors.username}</p>}
-          </Input>
-
-          <Input label="Role">
-            <input
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="input"
-            />
-          </Input>
-
-          <Input label="User ID">
-            <input
-              name="userId"
-              value={formData.userId}
-              onChange={handleChange}
-              className="input"
-            />
-          </Input>
-
-          <Input label="Email">
-            <input value={formData.email} readOnly className="input bg-gray-100" />
-          </Input>
-
-        </div>
-
-        {/*  FOOTER */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t">
-          <button onClick={onClose} className="btn-outline">Cancel</button>
-          <button onClick={handleSave} className="btn-main">Save</button>
   const initials =
     formData.username
       ?.split(" ")
@@ -293,8 +337,11 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
             </section>
           </div>
         </div>
-
       </div>
+    </div>
+  );
+};
+
 const FieldCard = ({
   label,
   name,
@@ -375,25 +422,5 @@ const EmptyState = ({ text }) => (
     {text}
   </div>
 );
-
-const Input = ({ label, children }) => (
-  <div className="text-left">
-    <label className="text-sm font-semibold">{label}</label>
-    {children}
-  </div>
-);
-
-/*  STYLES */
-const styles = `
-.input { width:100%; padding:10px; border-radius:12px; border:1px solid #ddd }
-.btn-main { background:#4f46e5; color:white; padding:10px 18px; border-radius:12px }
-.btn-outline { border:1px solid #ddd; padding:10px 18px; border-radius:12px }
-`;
-
-if (typeof window !== "undefined") {
-  const s = document.createElement("style");
-  s.innerHTML = styles;
-  document.head.appendChild(s);
-}
 
 export default EditProfileModal;

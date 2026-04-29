@@ -111,6 +111,66 @@ const saveDeletedTaskIds = (storageKey, ids) => {
   localStorage.setItem(storageKey, JSON.stringify(ids));
 };
 
+const KANBAN_BOARD_META_KEY = "kanban_board_meta";
+
+const getStoredBoardMeta = () => {
+  if (typeof window === "undefined") return {};
+
+  try {
+    return JSON.parse(localStorage.getItem(KANBAN_BOARD_META_KEY) || "{}");
+  } catch {
+    return {};
+  }
+};
+
+const saveStoredBoardMeta = (meta) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KANBAN_BOARD_META_KEY, JSON.stringify(meta || {}));
+};
+
+const updateStoredProjectTimestamp = (projectId) => {
+  if (typeof window === "undefined" || !projectId) return;
+
+  try {
+    const normalizedProjectId = String(projectId).trim();
+    const timestamp = new Date().toISOString();
+    const raw = localStorage.getItem("kanban_projects");
+    const projects = raw ? JSON.parse(raw) : [];
+
+    if (Array.isArray(projects)) {
+      const nextProjects = projects.map((project) => {
+        const currentId = String(project?.pid || project?.id || "").trim();
+
+        if (currentId !== normalizedProjectId) {
+          return project;
+        }
+
+        return {
+          ...project,
+          createdAt: project?.createdAt || timestamp,
+          updatedAt: timestamp,
+        };
+      });
+
+      localStorage.setItem("kanban_projects", JSON.stringify(nextProjects));
+    }
+
+    const currentMeta = getStoredBoardMeta();
+    const existingMeta = currentMeta[String(normalizedProjectId).toLowerCase()] || {};
+
+    saveStoredBoardMeta({
+      ...currentMeta,
+      [String(normalizedProjectId).toLowerCase()]: {
+        ...existingMeta,
+        createdAt: existingMeta.createdAt || timestamp,
+        updatedAt: timestamp,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating stored project timestamp:", error);
+  }
+};
+
 const formatDate = (dateStr) => {
   if (!dateStr) {
     return new Date().toLocaleDateString("en-US", {
@@ -155,6 +215,21 @@ const normalizeAttachments = (attachments) =>
               fileName: getAttachmentName(attachment),
             }
       )
+    : [];
+
+const normalizeAttachmentsForForm = (attachments) =>
+  Array.isArray(attachments)
+    ? attachments.map((attachment) => {
+        if (typeof File !== "undefined" && attachment instanceof File) {
+          return attachment;
+        }
+
+        if (typeof attachment === "string") {
+          return attachment;
+        }
+
+        return getAttachmentName(attachment);
+      })
     : [];
 
 const normalizeAssigneeId = (value) => String(value || "").trim();
@@ -283,17 +358,21 @@ const KanbanBoardPage = () => {
     const loadCompanyUsers = async () => {
       try {
         const users = await getCompanyUsers();
-        if (mounted) setCompanyUsers(Array.isArray(users) ? users : []);
-      } catch {
-        if (mounted) setCompanyUsers([]);
+        if (mounted && Array.isArray(users) && users.length > 0) {
+          setCompanyUsers(users);
+          return;
+        }
+      } catch (err) {
+        console.warn("Falling back to company-scoped user list:", err);
+      }
+
+      try {
         const users = await getCompanyUsers(resolvedCompanyId);
         if (mounted) {
           setCompanyUsers(Array.isArray(users) ? users : []);
         }
       } catch (err) {
-        if (mounted) {
-          setCompanyUsers([]);
-        }
+        if (mounted) setCompanyUsers([]);
       }
     };
 
@@ -470,8 +549,8 @@ const KanbanBoardPage = () => {
   const isPastDate = (dateValue) => normalizeInputDate(dateValue) < todayISO;
 
   const getPriorityBarColor = (tag) => {
-    if (tag === "High") return "bg-red-500";
-    if (tag === "Low") return "bg-green-500";
+    if (tag === "HIGH" || tag === "High") return "bg-red-500";
+    if (tag === "LOW" || tag === "Low") return "bg-green-500";
     return "bg-yellow-500";
   };
 
@@ -513,6 +592,27 @@ const KanbanBoardPage = () => {
     const parts = name.trim().split(" ").filter(Boolean);
     if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  };
+
+  const getAssigneeDisplayName = (assigneeId, fallbackName) => {
+    const normalizedId = normalizeAssigneeId(assigneeId);
+    const mappedName = assigneeNameById.get(normalizedId);
+
+    if (mappedName) {
+      return mappedName;
+    }
+
+    const fallback = String(fallbackName || "").trim();
+
+    if (!fallback) {
+      return "Unassigned";
+    }
+
+    if (normalizedId && fallback === normalizedId) {
+      return "Assigned user";
+    }
+
+    return fallback;
   };
 
   const getAllowedMoveTargets = (columnId) => {
@@ -564,7 +664,7 @@ const KanbanBoardPage = () => {
       title: card.title || "",
       tag: card.tag || "Medium",
       date: safeDate,
-      attachments: card.attachmentsData || [],
+      attachments: normalizeAttachmentsForForm(card.attachmentsData),
       status: columnId,
       assignee: card.assigneeId || card.assignee || "",
     });
@@ -622,7 +722,9 @@ const KanbanBoardPage = () => {
     attachments: Array.isArray(data.attachments)
       ? data.attachments
           .map((attachment) =>
-            typeof attachment === "string" ? attachment : attachment?.name || null
+            typeof attachment === "string"
+              ? attachment
+              : getAttachmentName(attachment) || null
           )
           .filter(Boolean)
       : [],
@@ -715,12 +817,17 @@ const KanbanBoardPage = () => {
     }
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     try {
       const normalizedColumns =
         sanitizeStoredColumns(columns) || createEmptyColumns();
 
       localStorage.setItem(storageKey, JSON.stringify(normalizedColumns));
+      await createKanbanBoard(pid, {
+        name: resolvedProject?.name || "Project",
+        description: resolvedProject?.description || "Kanban board",
+      });
+      updateStoredProjectTimestamp(pid);
       setColumns(normalizedColumns);
 
       setSaveMessage(
@@ -766,6 +873,7 @@ const KanbanBoardPage = () => {
         }
 
         await refreshKanbanBoard();
+        updateStoredProjectTimestamp(pid);
         closeForm();
         return;
       }
@@ -806,6 +914,7 @@ const KanbanBoardPage = () => {
       }
 
       await refreshKanbanBoard();
+      updateStoredProjectTimestamp(pid);
       closeForm();
     } catch (err) {
       console.error("Error saving task:", err);
@@ -1009,6 +1118,7 @@ const KanbanBoardPage = () => {
       });
 
       closeAllMenus();
+      updateStoredProjectTimestamp(pid);
     } catch (err) {
       console.error("Error moving card:", err);
       alert("Failed to move task");
@@ -1038,6 +1148,7 @@ const KanbanBoardPage = () => {
       );
 
       setSaveMessage("Task deleted.");
+      updateStoredProjectTimestamp(pid);
     } catch (err) {
       console.error("Error deleting card:", err);
       alert("Failed to delete task");
@@ -1065,6 +1176,7 @@ const KanbanBoardPage = () => {
         };
       })
     );
+    updateStoredProjectTimestamp(pid);
   };
 
   const [openComments, setOpenComments] = useState(null);
@@ -1111,6 +1223,7 @@ const KanbanBoardPage = () => {
     try {
       await addTaskComment(pid, cardId, text, sessionUser.role);
       await refreshKanbanBoard();
+      updateStoredProjectTimestamp(pid);
       setCommentText("");
     } catch (err) {
       console.error("Error saving comment:", err);
@@ -1242,7 +1355,7 @@ const KanbanBoardPage = () => {
   return (
     <Layout title={resolvedProject?.name || "Kanban"}>
       {resolvedProject && (
-        <div className="mb-5 flex justify-end">
+        <div className="-mt-14 -mb-1 flex w-full items-start justify-end">
           <button
             type="button"
             onClick={handleSaveChanges}
@@ -1254,7 +1367,7 @@ const KanbanBoardPage = () => {
       )}
 
       {saveMessage && (
-        <p className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+        <p className="mb-1 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
           {saveMessage}
         </p>
       )}
@@ -1285,89 +1398,31 @@ const KanbanBoardPage = () => {
       ) : (
         <div
           ref={boardRef}
-          className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
+          className="-mt-2 kanban-scroll-shell flex-1 min-h-0 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           onMouseMove={handleMouseMove}
         >
-          <div className="flex h-full min-w-max items-start gap-6 pb-4">
+          <div className="flex h-full min-w-max items-start gap-5 pb-2">
             {columns.map((column) => (
               <div
                 key={column.id}
-                className={`flex max-h-[calc(100vh-235px)] min-h-[calc(100vh-235px)] w-[20rem] flex-shrink-0 flex-col self-start rounded-[28px] border bg-white/90 shadow-[0_20px_55px_rgba(15,23,42,0.10)] backdrop-blur-xl transition hover:shadow-[0_24px_70px_rgba(15,23,42,0.14)] ${getColumnBorder(
+                className={`flex max-h-[calc(100vh-175px)] min-h-[calc(100vh-175px)] w-[18rem] flex-shrink-0 flex-col self-start rounded-[24px] border bg-slate-50/80 ${getColumnBorder(
                   column.id
                 )}`}
               >
-                <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-5">
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-4">
                   <div className="flex items-center gap-3">
                     <span
-                      className={`h-3 w-3 rounded-full shadow ${getColumnDotClass(
+                      className={`h-2.5 w-2.5 rounded-full ${getColumnDotClass(
                         column.id
                       )}`}
                     />
-
-                    <h3 className="text-sm font-black text-slate-900">
+                    <h3 className="text-sm font-semibold text-slate-800">
                       {column.title}
                     </h3>
-        {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
-            <p className="text-lg font-semibold text-slate-800">
-              Loading Kanban Board...
-            </p>
-            <p className="mt-2 text-sm text-slate-500">
-              Please wait while we fetch your tasks.
-            </p>
-          </div>
-        ) : error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center shadow-sm">
-            <p className="text-lg font-semibold text-red-800">{error}</p>
-            <p className="mt-2 text-sm text-red-600">
-              Failed to load kanban board. Please refresh the page.
-            </p>
-          </div>
-        ) : !resolvedProject ? (
-          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
-            <p className="text-lg font-semibold text-slate-800">
-              Access Restricted
-            </p>
-            <p className="mt-2 text-sm text-slate-500">
-              This Kanban board is not available for your current role.
-            </p>
-          </div>
-        ) : (
-          <div
-            ref={boardRef}
-            className="kanban-scroll-shell flex-1 min-h-0 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onMouseMove={handleMouseMove}
-          >
-            <div className="flex h-full min-w-max items-start gap-5 pb-3">
-              {columns.map((column) => (
-                <div
-                  key={column.id}
-                  className={`flex max-h-full min-h-0 w-[18rem] flex-shrink-0 flex-col self-start rounded-[24px] border bg-slate-50/80 ${getColumnBorder(
-                    column.id
-                  )}`}
-                >
-                  <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${getColumnDotClass(
-                          column.id
-                        )}`}
-                      />
-                      <h3 className="text-sm font-semibold text-slate-800">
-                        {column.title}
-                      </h3>
-                      <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                        {column.count}
-                      </span>
-                    </div>
-
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-500">
+                    <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600">
                       {column.count}
                     </span>
                   </div>
@@ -1380,20 +1435,16 @@ const KanbanBoardPage = () => {
                     }}
                     className="rounded-xl bg-indigo-50 p-2 text-indigo-600 transition hover:bg-indigo-100"
                     title="Add ticket"
-                  <div
-                    className={`kanban-scroll-column space-y-4 p-3.5 ${
-                      column.cards.length === ""
-                        ? ""
-                        : column.cards.length > 0
-                        ? "flex-1 min-h-0 overflow-y-auto"
-                        : ""
-                    }`}
                   >
                     <Plus className="h-4 w-4" />
                   </button>
                 </div>
 
-                <div className="custom-kanban-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4 pr-2">
+                <div
+                  className={`kanban-scroll-column space-y-4 p-3.5 ${
+                    column.cards.length > 0 ? "flex-1 min-h-0 overflow-y-auto" : ""
+                  }`}
+                >
                   {column.cards.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-10 text-center">
                       <p className="text-sm font-bold text-slate-400">
@@ -1405,7 +1456,12 @@ const KanbanBoardPage = () => {
                       <div
                         key={card.id}
                         className={`kanban-card relative flex min-h-[140px] cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white px-4 pb-4 pt-4 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl ${getCardBorderStyle()}`}
-                        onClick={() => closeAllMenus()}
+                        onClick={() => {
+                          closeAllMenus();
+                          if (column.id === "done") {
+                            openCompletedCardModal(column.id, card.id);
+                          }
+                        }}
                       >
                         <span
                           className={`absolute left-0 top-0 h-full w-[6px] ${getPriorityBarColor(
@@ -1427,15 +1483,20 @@ const KanbanBoardPage = () => {
 
                         <div className="mb-4 flex items-center gap-3 pl-2">
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-xs font-black text-white shadow">
-                            {getAssigneeInitials(card.assignee)}
+                            {getAssigneeInitials(
+                              getAssigneeDisplayName(
+                                card.assigneeId,
+                                card.assignee
+                              )
+                            )}
                           </div>
 
                           <div className="min-w-0">
                             <p className="max-w-[11rem] truncate text-xs font-black text-slate-700">
-                              {card.assignee || "Unassigned"}
-                            </p>
-                            <p className="text-[11px] font-medium text-slate-400">
-                              Assignee
+                              {getAssigneeDisplayName(
+                                card.assigneeId,
+                                card.assignee
+                              )}
                             </p>
                           </div>
                         </div>
@@ -1506,7 +1567,8 @@ const KanbanBoardPage = () => {
         onSave={(data) => handleFormSubmit(openFormColumnId, data)}
         isEditMode={!!editingCard}
         minDate={todayISO}
-        companyId={boardData?.companyId || null}
+        companyId={resolvedCompanyId}
+        assignees={companyUsers}
       />
 
       {openComments && openedCard && (
@@ -1555,30 +1617,6 @@ const KanbanBoardPage = () => {
                 ))
               )}
             </div>
-        {renderFloatingMenus()}
-
-        <AddCardModal
-          show={openFormColumnId !== null}
-          initialData={newCardData}
-          onCancel={closeForm}
-          onSave={(data) => handleFormSubmit(openFormColumnId, data)}
-          isEditMode={!!editingCard}
-          minDate={todayISO}
-          companyId={resolvedCompanyId}
-          assignees={companyUsers}
-        />
-
-        {openComments && openedCard && (
-          <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/40 px-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    Ticket Messages
-                  </h3>
-                  <p className="text-sm text-slate-500">{openedCard.title}</p>
-                </div>
-
             <div className="border-t border-slate-100 px-6 py-5">
               <div className="flex items-end gap-3">
                 <textarea
@@ -1610,9 +1648,6 @@ const KanbanBoardPage = () => {
                 <h3 className="text-lg font-black text-slate-900">
                   Attachments
                 </h3>
-                <p className="text-sm font-medium text-slate-500">
-                  {openedAttachmentCard.title}
-                </p>
               </div>
 
               <button
@@ -1718,7 +1753,13 @@ const KanbanBoardPage = () => {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <InfoBox label="Assignee" value={openedCompletedCard.assignee} />
+                <InfoBox
+                  label="Assignee"
+                  value={getAssigneeDisplayName(
+                    openedCompletedCard.assigneeId,
+                    openedCompletedCard.assignee
+                  )}
+                />
                 <InfoBox label="Due Date" value={openedCompletedCard.date} />
               </div>
 
@@ -1744,45 +1785,6 @@ const KanbanBoardPage = () => {
         </ModalWrapper>
       )}
 
-      <style jsx global>{`
-        .custom-kanban-scroll::-webkit-scrollbar {
-          width: 8px;
-        }
-
-        .custom-kanban-scroll::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 999px;
-        }
-
-        .custom-kanban-scroll::-webkit-scrollbar-thumb {
-          background: #c4b5fd;
-          border-radius: 999px;
-        }
-
-        .custom-kanban-scroll::-webkit-scrollbar-thumb:hover {
-          background: #8b5cf6;
-                {isPrivilegedUser && !openedCompletedCard.clientNotified && (
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleSendToClient(
-                          openCompletedCard.columnId,
-                          openCompletedCard.cardId
-                        )
-                      }
-                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-                    >
-                      <Send className="h-4 w-4" />
-                      Send to Client
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
       <style jsx global>{`
         .kanban-scroll-shell,
         .kanban-scroll-column {
