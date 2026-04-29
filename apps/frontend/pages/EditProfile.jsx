@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import {
-  Camera,
-} from "lucide-react";
+import { Camera, X } from "lucide-react";
 
 const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
   const [formData, setFormData] = useState({
@@ -16,7 +14,6 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
   });
 
   const [errors, setErrors] = useState({});
-  const canEditSensitiveFields = true;
 
   useEffect(() => {
     if (userData) {
@@ -31,38 +28,12 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
     }
   }, [userData]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleEscape = (e) => {
-      if (e.key === "Escape") handleClose();
-    };
-
-    document.addEventListener("keydown", handleEscape);
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "auto";
-    };
-  }, [isOpen]);
-
-  const handleClose = () => {
-    setErrors({});
-    onClose();
-  };
+  if (!isOpen) return null;
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
-    }));
-
-    setErrors((prev) => ({
-      ...prev,
-      [name]: "",
+      [e.target.name]: e.target.value,
     }));
   };
 
@@ -70,200 +41,127 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const imageUrl = URL.createObjectURL(file);
+    const preview = URL.createObjectURL(file);
     setFormData((prev) => ({
       ...prev,
       profileImage: file,
-      previewImage: imageUrl,
+      previewImage: preview,
     }));
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.username.trim()) {
-      newErrors.username = "Full name is required";
-    }
-
-    if (canEditSensitiveFields && !formData.role.trim()) {
-      newErrors.role = "Role is required";
-    }
-
-    if (canEditSensitiveFields && !formData.userId.trim()) {
-      newErrors.userId = "User ID is required";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = () => {
-    if (!validateForm()) return;
+    if (!formData.username.trim()) {
+      setErrors({ username: "Name required" });
+      return;
+    }
 
-    const updatedUser = {
+    onSave({
       ...userData,
-      username: formData.username,
-      email: formData.email,
-      role: canEditSensitiveFields ? formData.role : userData.role,
-      userId: canEditSensitiveFields ? formData.userId : userData.userId,
-      profileImage: formData.previewImage || userData.profileImage,
-    };
+      ...formData,
+    });
 
-    onSave?.(updatedUser);
-    handleClose();
+    onClose();
   };
-
-  const handleCancel = () => {
-    setFormData((prev) => ({
-      ...prev,
-      username: userData.username || "",
-      email: userData.email || "",
-      role: userData.role || "",
-      userId: userData.userId || "",
-      previewImage: userData.profileImage || "",
-      profileImage: null,
-    }));
-    setErrors({});
-    handleClose();
-  };
-
-  if (!isOpen) return null;
-
-  const inputClass =
-    "mt-1 w-full border-0 bg-transparent px-0 py-0 text-[15px] font-semibold text-slate-900 outline-none";
-
-  const readOnlyClass =
-    "mt-1 w-full border-0 bg-transparent px-0 py-0 text-[15px] font-semibold text-slate-900 outline-none";
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 px-4 py-4 backdrop-blur-[2px]"
-      onMouseDown={handleClose}
-    >
-      <div
-        className="w-full max-w-[470px] rounded-[18px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="p-5">
-          <h2 className="text-[20px] font-medium text-slate-900">
-            Edit profile
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
 
-          <div className="mt-8 flex flex-col items-center text-center">
-            <div className="relative">
-                  {formData.previewImage ? (
-                    <img
-                      src={formData.previewImage}
-                      alt="Profile Preview"
-                      className="h-[160px] w-[160px] rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-[160px] w-[160px] items-center justify-center rounded-full bg-emerald-500 text-[56px] font-medium text-white">
-                      {formData.username
-                        ?.split(" ")
-                        .map((part) => part[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase() || "U"}
-                    </div>
-                  )}
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
 
-                  <label
-                    className="absolute bottom-1 right-1 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
-                    title="Change profile image"
-                  >
-                    <Camera size={14} />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-                  </label>
-            </div>
-
-            <div className="mt-8 w-full space-y-3">
-              <FieldCard
-                label="Display name"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                className={inputClass}
-                error={errors.username}
-              />
-              <FieldCard
-                label="User ID"
-                name="userId"
-                value={formData.userId}
-                onChange={handleChange}
-                className={canEditSensitiveFields ? inputClass : readOnlyClass}
-                readOnly={!canEditSensitiveFields}
-                error={canEditSensitiveFields ? errors.userId : ""}
-              />
-              <FieldCard
-                label="Role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className={canEditSensitiveFields ? inputClass : readOnlyClass}
-                readOnly={!canEditSensitiveFields}
-                error={canEditSensitiveFields ? errors.role : ""}
-              />
-              <FieldCard
-                label="Email Address"
-                name="email"
-                value={formData.email}
-                className={readOnlyClass}
-                readOnly
-              />
-            </div>
-
-            <div className="mt-8 flex w-full justify-end gap-4">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="rounded-full border border-slate-300 bg-white px-6 py-3 text-[15px] font-medium text-slate-700 transition hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                className="rounded-full bg-slate-900 px-6 py-3 text-[15px] font-medium text-white transition hover:bg-slate-800"
-              >
-                Save
-              </button>
-            </div>
-          </div>
+        {/* 🔥 HEADER */}
+        <div className="flex justify-between items-center px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+          <h2 className="font-bold text-lg">Edit Profile</h2>
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full">
+            <X size={18} />
+          </button>
         </div>
+
+        {/* 🔥 BODY */}
+        <div className="p-6 space-y-6 text-center">
+
+          {/* PROFILE IMAGE */}
+          <div className="relative mx-auto w-fit">
+            {formData.previewImage ? (
+              <img
+                src={formData.previewImage}
+                className="w-28 h-28 rounded-full object-cover shadow-md"
+              />
+            ) : (
+              <div className="w-28 h-28 rounded-full bg-indigo-500 text-white flex items-center justify-center text-2xl font-bold">
+                {formData.username?.[0] || "U"}
+              </div>
+            )}
+
+            <label className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow cursor-pointer hover:bg-gray-100">
+              <Camera size={16} />
+              <input type="file" hidden onChange={handleImageChange} />
+            </label>
+          </div>
+
+          {/* FORM */}
+          <Input label="Name">
+            <input
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              className="input"
+            />
+            {errors.username && <p className="text-red-500 text-xs">{errors.username}</p>}
+          </Input>
+
+          <Input label="Role">
+            <input
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="input"
+            />
+          </Input>
+
+          <Input label="User ID">
+            <input
+              name="userId"
+              value={formData.userId}
+              onChange={handleChange}
+              className="input"
+            />
+          </Input>
+
+          <Input label="Email">
+            <input value={formData.email} readOnly className="input bg-gray-100" />
+          </Input>
+
+        </div>
+
+        {/* 🔥 FOOTER */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t">
+          <button onClick={onClose} className="btn-outline">Cancel</button>
+          <button onClick={handleSave} className="btn-main">Save</button>
+        </div>
+
       </div>
     </div>
   );
 };
 
-const FieldCard = ({
-  label,
-  name,
-  value,
-  onChange,
-  className,
-  readOnly = false,
-  error = "",
-}) => {
-  return (
-    <div className="rounded-[12px] border border-slate-200 px-4 py-3 text-left">
-      <label className="block text-[13px] text-slate-500">{label}</label>
-      <input
-        type="text"
-        name={name}
-        value={value}
-        onChange={onChange}
-        className={className}
-        readOnly={readOnly}
-      />
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
-    </div>
-  );
-};
+const Input = ({ label, children }) => (
+  <div className="text-left">
+    <label className="text-sm font-semibold">{label}</label>
+    {children}
+  </div>
+);
+
+/* 🔥 STYLES */
+const styles = `
+.input { width:100%; padding:10px; border-radius:12px; border:1px solid #ddd }
+.btn-main { background:#4f46e5; color:white; padding:10px 18px; border-radius:12px }
+.btn-outline { border:1px solid #ddd; padding:10px 18px; border-radius:12px }
+`;
+
+if (typeof window !== "undefined") {
+  const s = document.createElement("style");
+  s.innerHTML = styles;
+  document.head.appendChild(s);
+}
 
 export default EditProfileModal;

@@ -1,5 +1,48 @@
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api";
+const DEFAULT_API_BASE = "http://localhost:8080/api";
+
+function normalizeApiBase(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+function resolveApiBase() {
+  const envBase = normalizeApiBase(process.env.NEXT_PUBLIC_API_BASE);
+  if (envBase) {
+    return envBase;
+  }
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    const safeProtocol = protocol === "https:" ? "https:" : "http:";
+
+    if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1") {
+      return `${safeProtocol}//${hostname}:8080/api`;
+    }
+  }
+
+  return DEFAULT_API_BASE;
+}
+
+const API_BASE = resolveApiBase();
+
+function buildApiBaseCandidates() {
+  const candidates = [];
+  const seen = new Set();
+
+  const addCandidate = (value) => {
+    const normalized = String(value || "").trim().replace(/\/+$/, "");
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    candidates.push(normalized);
+  };
+
+  addCandidate(API_BASE);
+
+  if (API_BASE !== DEFAULT_API_BASE) {
+    addCandidate(DEFAULT_API_BASE);
+  }
+
+  return candidates;
+}
 
 async function parseResponse(response) {
   if (response.status === 204) {
@@ -17,44 +60,92 @@ async function parseResponse(response) {
   return text || null;
 }
 
+function isRecoverableNetworkError(error) {
+  return (
+    error instanceof TypeError ||
+    /Failed to fetch|NetworkError|Load failed/i.test(
+      String(error?.message || "")
+    )
+  );
+}
+
+function shouldSilenceRecoverablePath(path) {
+  return path === "/company/projects" || path === "/v1/clients/list";
+}
+
 async function request(path, options = {}) {
-  const { baseUrl = API_BASE, headers: customHeaders = {}, ...rest } = options;
+  const {
+    baseUrl = API_BASE,
+    headers: customHeaders = {},
+    suppressNetworkErrorLog = false,
+    ...rest
+  } = options;
   const token =
     typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
+  const baseCandidates =
+    baseUrl === API_BASE ? buildApiBaseCandidates() : [baseUrl];
+  let lastError = null;
 
-  try {
-    const response = await fetch(`${baseUrl}${path}`, {
-      ...rest,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...customHeaders,
-      },
-    });
+  for (const candidateBase of baseCandidates) {
+    try {
+      const response = await fetch(`${candidateBase}${path}`, {
+        ...rest,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...customHeaders,
+        },
+      });
 
-    if (!response.ok) {
-      let message = `HTTP ${response.status}`;
+      if (!response.ok) {
+        let message = `HTTP ${response.status}`;
 
-      try {
-        const errorData = await parseResponse(response);
+        try {
+          const errorData = await parseResponse(response);
 
-        if (typeof errorData === "string") {
-          message = errorData || message;
-        } else if (errorData && typeof errorData === "object") {
-          message = errorData.message || errorData.error || message;
+          if (typeof errorData === "string") {
+            message = errorData || message;
+          } else if (errorData && typeof errorData === "object") {
+            message = errorData.message || errorData.error || message;
+          }
+        } catch (e) {
+          console.error("Error parsing error response:", e);
         }
-      } catch (e) {
-        console.error("Error parsing error response:", e);
+
+        throw new Error(message);
       }
 
-      throw new Error(message);
-    }
+      return await parseResponse(response);
+    } catch (err) {
+      lastError = err;
 
-    return await parseResponse(response);
-  } catch (err) {
-    console.error(`Request failed for ${path}:`, err);
-    throw err;
+      const isNetworkError = isRecoverableNetworkError(err);
+      const isSilentRecoverablePath = shouldSilenceRecoverablePath(path);
+
+      if (
+        !suppressNetworkErrorLog &&
+        !isSilentRecoverablePath &&
+        (!isNetworkError ||
+          candidateBase === baseCandidates[baseCandidates.length - 1])
+      ) {
+        console.error(`Request failed for ${path}:`, err);
+      }
+
+      if (!isNetworkError) {
+        throw err;
+      }
+    }
   }
+
+  if (
+    lastError &&
+    isRecoverableNetworkError(lastError) &&
+    shouldSilenceRecoverablePath(path)
+  ) {
+    return [];
+  }
+
+  throw lastError || new Error(`Request failed for ${path}`);
 }
 
 function getStoredUser() {
@@ -101,6 +192,26 @@ export function resetPassword(token, newPassword) {
     method: "POST",
     body: JSON.stringify({ token, newPassword }),
   });
+}
+
+export async function changePassword(payload) {
+  try {
+    return await request("/user/change-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      suppressNetworkErrorLog: true,
+    });
+  } catch (error) {
+    if (/Not Found|HTTP 404/i.test(String(error?.message || ""))) {
+      return request("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify(payload),
+        suppressNetworkErrorLog: true,
+      });
+    }
+
+    throw error;
+  }
 }
 
 // DASHBOARD
@@ -152,10 +263,19 @@ export function rejectProposal(proposalId, rejectionReason) {
 }
 
 // REGISTERED CLIENTS
-export function getRegisteredClients() {
-  return request("/v1/clients/list", {
-    method: "GET",
-  });
+export async function getRegisteredClients() {
+  try {
+    return await request("/v1/clients/list", {
+      method: "GET",
+      suppressNetworkErrorLog: true,
+    });
+  } catch (error) {
+    if (isRecoverableNetworkError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 // PROPOSALS - COMPANY
@@ -204,18 +324,53 @@ export function getClientProjectById(projectId) {
 }
 
 // PROJECTS - COMPANY
-export function getCompanyProjects(companyId) {
+export async function getCompanyProjects(companyId) {
   const resolvedCompanyId = getCompanyId(companyId);
 
   if (!resolvedCompanyId) {
     throw new Error("Company ID is required");
   }
 
-  return request("/company/projects", {
+  try {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
+    const response = await fetch(`${API_BASE}/company/projects`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "X-Company-Id": resolvedCompanyId,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await parseResponse(response);
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    const isNetworkError =
+      error instanceof TypeError ||
+      /Failed to fetch|NetworkError|Load failed/i.test(
+        String(error?.message || "")
+      );
+
+    if (isNetworkError) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+export function getCompanyProjectById(projectId) {
+  if (!projectId) {
+    throw new Error("Project ID is required");
+  }
+
+  return request(`/company/projects/${projectId}`, {
     method: "GET",
-    headers: {
-      "X-Company-Id": resolvedCompanyId,
-    },
   });
 }
 
@@ -227,7 +382,7 @@ export function getClientProjectPrd(projectId) {
 }
 
 export function getAllPrds() {
-  return request("", {
+  return request("/prds", {
     method: "GET",
   });
 }
@@ -250,7 +405,7 @@ export function fetchPrdById(prdId) {
     throw new Error("PRD ID is required");
   }
 
-  return request(`/${prdId}`, {
+  return request(`/prds/${prdId}`, {
     method: "GET",
   });
 }
@@ -260,7 +415,7 @@ export function createPrd(projectId, payload) {
     throw new Error("Project ID is required");
   }
 
-  return request("", {
+  return request("/prds", {
     method: "POST",
     body: JSON.stringify({
       ...payload,
@@ -274,7 +429,7 @@ export function updatePrd(prdId, payload) {
     throw new Error("PRD ID is required");
   }
 
-  return request(`/${prdId}`, {
+  return request(`/prds/${prdId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
@@ -829,6 +984,8 @@ export async function downloadTaskAttachment(
   attachmentId,
   fileName
 ) {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
   const companyId = getCompanyId();
   const proxyPath =
     `/api/company/kanban/${encodeURIComponent(
@@ -839,8 +996,11 @@ export async function downloadTaskAttachment(
     (companyId ? `?companyId=${encodeURIComponent(companyId)}` : "");
 
   const response = await fetch(proxyPath, {
-      method: "GET",
+    method: "GET",
     cache: "no-store",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
 
   if (!response.ok) {
@@ -875,4 +1035,3 @@ export async function downloadTaskAttachment(
 
 
 export { API_BASE };
-

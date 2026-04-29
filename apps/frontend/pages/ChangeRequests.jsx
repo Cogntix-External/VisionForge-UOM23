@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useMemo, useState } from "react";
 import {
   createClientChangeRequest,
@@ -13,9 +15,17 @@ const API_TO_UI_STATUS = {
 };
 
 const STATUS_STYLES = {
-  Pending: "bg-amber-100 text-amber-700",
-  Approved: "bg-green-100 text-green-700",
-  Rejected: "bg-red-100 text-red-700",
+  Pending: "border-amber-200 bg-amber-50 text-amber-700",
+  Approved: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  Rejected: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
+const inputClass =
+  "w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-bold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-100";
+
+const shortId = (id) => {
+  if (!id) return "-";
+  return `${String(id).slice(0, 4)}...`;
 };
 
 const formatDate = (value) => {
@@ -63,7 +73,7 @@ Rejection Reason: ${cr.rejectionReason || "-"}`;
   const element = document.createElement("a");
   element.setAttribute(
     "href",
-    `data:text/plain;charset=utf-8,${encodeURIComponent(content)}`,
+    `data:text/plain;charset=utf-8,${encodeURIComponent(content)}`
   );
   element.setAttribute("download", `${cr.displayId || "change-request"}.txt`);
   document.body.appendChild(element);
@@ -71,41 +81,63 @@ Rejection Reason: ${cr.rejectionReason || "-"}`;
   document.body.removeChild(element);
 };
 
+const FormField = ({ label, children }) => (
+  <div>
+    <label className="mb-2 block text-sm font-black text-slate-700">
+      {label}
+    </label>
+    {children}
+  </div>
+);
+
+const InfoCard = ({ label, value }) => (
+  <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+      {label}
+    </p>
+    <p className="mt-2 text-xl font-black text-slate-900">{value}</p>
+  </div>
+);
+
+const ModalOverlay = ({ children, onClose }) => (
+  <div
+    className="fixed inset-x-0 bottom-0 top-[92px] z-40 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md lg:left-[256px]"
+    onClick={onClose}
+  >
+    {children}
+  </div>
+);
+
 const CRViewerModal = ({ cr, onClose }) => {
   if (!cr) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="cr-viewer-title"
-    >
+    <ModalOverlay onClose={onClose}>
       <div
-        className="bg-white rounded-2xl w-full max-w-[90vw] lg:max-w-4xl max-h-[90vh] overflow-auto"
+        className="flex h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_100px_rgba(15,23,42,0.35)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 p-6 flex justify-between items-center">
-          <div>
-            <h2 id="cr-viewer-title" className="text-white font-bold text-2xl">
-              {cr.title}
-            </h2>
-            <p className="text-purple-100 text-sm mt-1">
-              {cr.displayId} • {cr.projectName}
-            </p>
+        <div className="shrink-0 bg-gradient-to-r from-indigo-700 via-violet-700 to-purple-700 px-8 py-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black text-white">{cr.title}</h2>
+              <p className="mt-2 text-sm font-semibold text-indigo-100">
+                {shortId(cr.displayId)} • {cr.projectName}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full bg-white/15 px-3 py-1.5 text-lg font-black text-white transition hover:bg-white/25"
+            >
+              ×
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/20 p-2 rounded-lg transition"
-            aria-label="Close viewer"
-          >
-            ✕
-          </button>
         </div>
 
-        <div className="p-8 space-y-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <InfoCard label="Status" value={cr.status} />
             <InfoCard
               label="Budget"
@@ -115,52 +147,50 @@ const CRViewerModal = ({ cr, onClose }) => {
             <InfoCard label="Priority" value={cr.priority} />
           </div>
 
-          <div className="border-t pt-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+          <div className="rounded-3xl border border-slate-100 bg-slate-50 p-6">
+            <h3 className="mb-3 text-lg font-black text-slate-950">
               Description
             </h3>
-            <p className="text-gray-700 text-lg leading-relaxed">
-              {cr.description}
+            <p className="text-sm font-semibold leading-7 text-slate-600">
+              {cr.description || "-"}
             </p>
           </div>
 
           {cr.status === "Rejected" && cr.rejectionReason && (
-            <div className="border-t pt-6">
-              <h3 className="text-xl font-bold text-red-700 mb-2">
+            <div className="rounded-3xl border border-rose-100 bg-rose-50 p-6">
+              <h3 className="mb-3 text-lg font-black text-rose-700">
                 Rejection Reason
               </h3>
-              <p className="text-red-600 text-lg leading-relaxed">
+              <p className="text-sm font-semibold leading-7 text-rose-600">
                 {cr.rejectionReason}
               </p>
             </div>
           )}
+        </div>
 
-          <div className="flex gap-4 pt-6 border-t">
+        <div className="shrink-0 border-t border-slate-100 bg-white px-8 py-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <button
+              type="button"
               onClick={() => downloadCR(cr)}
-              className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition"
+              className="rounded-2xl bg-slate-950 py-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-violet-700"
             >
-              ⬇️ Download
+              Download
             </button>
+
             <button
+              type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 transition"
+              className="rounded-2xl bg-slate-100 py-4 text-sm font-black text-slate-700 transition hover:bg-slate-200"
             >
               Close
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
-
-const InfoCard = ({ label, value }) => (
-  <div className="bg-gray-100 p-4 rounded-xl">
-    <p className="text-gray-600 text-sm font-bold">{label}</p>
-    <p className="text-lg font-bold mt-1">{value}</p>
-  </div>
-);
 
 const AddCRModal = ({ projects, onClose, onAdd, isSubmitting, error }) => {
   const [formData, setFormData] = useState({
@@ -193,143 +223,141 @@ const AddCRModal = ({ projects, onClose, onAdd, isSubmitting, error }) => {
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="add-cr-title"
-    >
+    <ModalOverlay onClose={onClose}>
       <div
-        className="bg-white rounded-2xl w-full max-w-[90vw] lg:max-w-2xl max-h-[90vh] overflow-auto"
+        className="flex h-[86vh] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_100px_rgba(15,23,42,0.35)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 sticky top-0">
-          <h2 id="add-cr-title" className="text-white font-bold text-2xl">
-            Raise New Change Request
-          </h2>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">
-              Project *
-            </label>
-            <select
-              name="projectId"
-              required
-              value={formData.projectId}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-            >
-              <option value="">-- Select Project --</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name || project.title || project.id}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">
-              Title *
-            </label>
-            <input
-              type="text"
-              name="title"
-              required
-              value={formData.title}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-              placeholder="e.g., Add dark mode support"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">
-              Description *
-            </label>
-            <textarea
-              name="description"
-              required
-              value={formData.description}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none min-h-24"
-              placeholder="Detailed description..."
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-6">
+        <div className="shrink-0 bg-gradient-to-r from-indigo-700 via-violet-700 to-purple-700 px-8 py-6">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <label className="block text-gray-700 font-bold mb-2">
-                Budget ($)
-              </label>
-              <input
-                type="number"
-                name="budget"
-                value={formData.budget}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-                placeholder="2000"
-              />
+              <h2 className="text-2xl font-black text-white">
+                Raise New Change Request
+              </h2>
+              <p className="mt-2 text-sm font-semibold text-indigo-100">
+                Submit a professional change request for your selected project.
+              </p>
             </div>
 
-            <div>
-              <label className="block text-gray-700 font-bold mb-2">
-                Timeline
-              </label>
-              <input
-                type="text"
-                name="timeline"
-                value={formData.timeline}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-                placeholder="e.g., 2 weeks"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">
-              Priority
-            </label>
-            <select
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-            >
-              <option>Low</option>
-              <option>Medium</option>
-              <option>High</option>
-            </select>
-          </div>
-
-          {error && (
-            <p className="text-sm text-red-600 font-semibold">{error}</p>
-          )}
-
-          <div className="flex gap-4 pt-4">
-            <button
-              type="submit"
-              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-xl hover:shadow-lg transition disabled:opacity-70 disabled:cursor-not-allowed"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Submitting..." : "Submit CR"}
-            </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 transition disabled:opacity-70 disabled:cursor-not-allowed"
-              disabled={isSubmitting}
+              className="rounded-full bg-white/15 px-3 py-1.5 text-lg font-black text-white transition hover:bg-white/25"
             >
-              Cancel
+              ×
             </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-8 py-7">
+            <FormField label="Project *">
+              <select
+                name="projectId"
+                required
+                value={formData.projectId}
+                onChange={handleChange}
+                className={inputClass}
+              >
+                <option value="">-- Select Project --</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name || project.title || project.id}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="Title *">
+              <input
+                type="text"
+                name="title"
+                required
+                value={formData.title}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="e.g., Add dark mode support"
+              />
+            </FormField>
+
+            <FormField label="Description *">
+              <textarea
+                name="description"
+                required
+                value={formData.description}
+                onChange={handleChange}
+                className={`${inputClass} min-h-32 resize-none`}
+                placeholder="Explain the required change clearly..."
+              />
+            </FormField>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <FormField label="Budget ($)">
+                <input
+                  type="number"
+                  name="budget"
+                  value={formData.budget}
+                  onChange={handleChange}
+                  className={inputClass}
+                  placeholder="2000"
+                />
+              </FormField>
+
+              <FormField label="Timeline">
+                <input
+                  type="text"
+                  name="timeline"
+                  value={formData.timeline}
+                  onChange={handleChange}
+                  className={inputClass}
+                  placeholder="e.g., 2 weeks"
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Priority">
+              <select
+                name="priority"
+                value={formData.priority}
+                onChange={handleChange}
+                className={inputClass}
+              >
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+              </select>
+            </FormField>
+
+            {error && (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-600">
+                {error}
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 border-t border-slate-100 bg-white px-8 py-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded-2xl bg-slate-950 py-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? "Submitting..." : "Submit Change Request"}
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="rounded-2xl bg-slate-100 py-4 text-sm font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </form>
       </div>
-    </div>
+    </ModalOverlay>
   );
 };
 
@@ -384,10 +412,7 @@ const ChangeRequests = () => {
         priority: formData.priority,
       };
 
-      const saved = await createClientChangeRequest(
-        formData.projectId,
-        payload,
-      );
+      const saved = await createClientChangeRequest(formData.projectId, payload);
       const newCR = mapCrFromApi(saved, projects);
 
       setCrs((prev) => [newCR, ...prev]);
@@ -409,7 +434,7 @@ const ChangeRequests = () => {
         cr.title.toLowerCase().includes(normalizedTerm) ||
         cr.projectName.toLowerCase().includes(normalizedTerm) ||
         cr.createdAt.toLowerCase().includes(normalizedTerm) ||
-        cr.id.toLowerCase().includes(normalizedTerm);
+        String(cr.id).toLowerCase().includes(normalizedTerm);
 
       const matchesStatus =
         filterStatus === "All" || cr.status === filterStatus;
@@ -419,161 +444,161 @@ const ChangeRequests = () => {
   }, [crs, filterStatus, searchTerm]);
 
   return (
-    <div className="space-y-6 lg:space-y-8 -mt-6 relative z-10 px-2 sm:px-4 pb-10">
-      <div className="flex justify-between items-center gap-3 lg:gap-6 flex-wrap">
-        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[300px]">
-          <div className="relative flex-1 min-w-[220px]">
-            <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none text-gray-400">
-              <Icons.Search />
-            </div>
-            <input
-              type="text"
-              className="block w-full pl-14 pr-6 py-4 border border-transparent rounded-2xl bg-[#e5e7eb]/60 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-sm"
-              placeholder="Search change requests...."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              aria-label="Search change requests"
-            />
+    <div className="relative z-10 space-y-7 px-2 pb-10 sm:px-4">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <InfoCard label="Total Requests" value={crs.length} />
+        <InfoCard
+          label="Pending"
+          value={crs.filter((cr) => cr.status === "Pending").length}
+        />
+        <InfoCard
+          label="Approved"
+          value={crs.filter((cr) => cr.status === "Approved").length}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4 rounded-[28px] border border-white bg-white/95 p-5 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+        <div className="relative min-w-[240px] flex-1">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-slate-400">
+            <Icons.Search />
           </div>
+
+          <input
+            type="text"
+            className="block w-full rounded-2xl border border-slate-200 bg-slate-50 py-4 pl-14 pr-5 text-sm font-bold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
+            placeholder="Search change requests..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-6 py-4 bg-[#e5e7eb]/60 text-gray-900 font-bold rounded-2xl border border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-            aria-label="Filter by status"
-          >
-            <option>All</option>
-            <option>Approved</option>
-            <option>Pending</option>
-            <option>Rejected</option>
-          </select>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-black text-slate-700 outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
+        >
+          <option>All</option>
+          <option>Approved</option>
+          <option>Pending</option>
+          <option>Rejected</option>
+        </select>
 
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center space-x-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-2xl hover:shadow-lg transition-all"
-          >
-            <span className="text-2xl">+</span>
-            <span>Raise CR</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowAddModal(true)}
+          className="rounded-2xl bg-slate-950 px-6 py-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-violet-700"
+        >
+          + Raise CR
+        </button>
       </div>
 
       {(isLoading || error) && (
-        <div className="bg-white rounded-2xl border border-gray-100 px-6 py-4 shadow-sm">
+        <div className="rounded-2xl border border-white bg-white/95 px-6 py-4 shadow-sm">
           {isLoading && (
-            <p className="text-gray-600 font-semibold">
+            <p className="font-bold text-slate-600">
               Loading change requests...
             </p>
           )}
           {!isLoading && error && (
-            <p className="text-red-600 font-semibold">{error}</p>
+            <p className="font-bold text-rose-600">{error}</p>
           )}
         </div>
       )}
 
-      <div className="bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-[#f9fafb] border-b border-gray-200">
-            <tr>
-              <th className="px-4 lg:px-8 py-4 lg:py-6 text-left text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
-                ID / Date
-              </th>
-              <th className="px-4 lg:px-8 py-4 lg:py-6 text-left text-sm lg:text-base font-semibold text-gray-900">
-                Title & Project
-              </th>
-              <th className="px-4 lg:px-8 py-4 lg:py-6 text-center text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
-                Status
-              </th>
-              <th className="px-4 lg:px-8 py-4 lg:py-6 text-right text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
-                Budget
-              </th>
-              <th className="px-4 lg:px-8 py-4 lg:py-6 text-center text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
-                View
-              </th>
-              <th className="px-4 lg:px-8 py-4 lg:py-6 text-center text-sm lg:text-base font-semibold text-gray-900 whitespace-nowrap">
-                Download
-              </th>
-            </tr>
-          </thead>
+      <div className="overflow-hidden rounded-[32px] border border-white bg-white/95 shadow-[0_24px_70px_rgba(15,23,42,0.10)]">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px]">
+            <thead className="bg-slate-50">
+              <tr>
+                <TableHead>ID / Date</TableHead>
+                <TableHead>Title & Project</TableHead>
+                <TableHead center>Status</TableHead>
+                <TableHead right>Budget</TableHead>
+                <TableHead center>View</TableHead>
+                <TableHead center>Download</TableHead>
+              </tr>
+            </thead>
 
-          <tbody className="bg-white divide-y divide-gray-100">
-            {filteredCRs.length > 0 ? (
-              filteredCRs.map((cr) => (
-                <tr key={cr.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 lg:px-8 py-4 lg:py-6">
-                    <div className="flex flex-col gap-1">
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {filteredCRs.length > 0 ? (
+                filteredCRs.map((cr) => (
+                  <tr key={cr.id} className="transition hover:bg-violet-50/60">
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className="cursor-help text-sm font-black text-slate-900"
+                          title={cr.displayId}
+                        >
+                          {shortId(cr.displayId)}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-400">
+                          {cr.createdAt}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-black text-slate-900">
+                          {cr.title}
+                        </span>
+                        <span className="text-xs font-black uppercase tracking-wide text-violet-600">
+                          {cr.projectName}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-5 text-center">
                       <span
-                        className="text-gray-900 text-sm lg:text-base font-semibold cursor-help"
-                        title={cr.displayId}
+                        className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-black ${
+                          STATUS_STYLES[cr.status] ||
+                          "border-slate-200 bg-slate-50 text-slate-600"
+                        }`}
                       >
-                        {cr.displayId.substring(0, 6)}...
+                        {cr.status}
                       </span>
-                      <span className="text-gray-500 text-xs lg:text-sm">
-                        {cr.createdAt}
+                    </td>
+
+                    <td className="px-6 py-5 text-right">
+                      <span className="text-base font-black text-slate-900">
+                        ${Number(cr.budget || 0).toLocaleString()}
                       </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-4 lg:px-8 py-4 lg:py-6">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-gray-900 text-sm lg:text-base font-semibold">
-                        {cr.title}
-                      </span>
-                      <span className="text-purple-600 text-xs lg:text-sm font-bold uppercase">
-                        {cr.projectName}
-                      </span>
-                    </div>
-                  </td>
+                    <td className="px-6 py-5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCR(cr)}
+                        className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-violet-700"
+                      >
+                        View
+                      </button>
+                    </td>
 
-                  <td className="px-4 lg:px-8 py-4 lg:py-6 text-center">
-                    <span
-                      className={`inline-block px-3 lg:px-4 py-1 lg:py-2 rounded-full text-xs lg:text-sm font-semibold ${
-                        STATUS_STYLES[cr.status] || "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {cr.status}
-                    </span>
-                  </td>
-
-                  <td className="px-4 lg:px-8 py-4 lg:py-6 text-right">
-                    <span className="text-gray-900 text-base lg:text-lg font-bold">
-                      ${Number(cr.budget || 0).toLocaleString()}
-                    </span>
-                  </td>
-
-                  <td className="px-4 lg:px-8 py-4 lg:py-6 text-center">
-                    <button
-                      onClick={() => setSelectedCR(cr)}
-                      className="px-4 lg:px-6 py-2 lg:py-2.5 bg-green-600 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      View
-                    </button>
-                  </td>
-
-                  <td className="px-4 lg:px-8 py-4 lg:py-6 text-center">
-                    <button
-                      onClick={() => downloadCR(cr)}
-                      className="px-4 lg:px-6 py-2 lg:py-2.5 bg-blue-600 text-white text-sm lg:text-base font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Download
-                    </button>
+                    <td className="px-6 py-5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => downloadCR(cr)}
+                        className="rounded-full bg-violet-50 px-4 py-2 text-xs font-black text-violet-700 transition hover:bg-violet-100"
+                      >
+                        Download
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-8 py-16 text-center text-lg font-black text-slate-400"
+                  >
+                    No change requests found
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-8 py-12 text-center text-base lg:text-lg font-semibold text-gray-400"
-                >
-                  No change requests found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {selectedCR && (
@@ -592,5 +617,14 @@ const ChangeRequests = () => {
     </div>
   );
 };
+const TableHead = ({ children, center = false, right = false }) => (
+  <th
+    className={`px-6 py-5 text-xs font-black uppercase tracking-[0.18em] text-slate-400 ${
+      center ? "text-center" : right ? "text-right" : "text-left"
+    }`}
+  >
+    {children}
+  </th>
+);
 
 export default ChangeRequests;

@@ -24,11 +24,11 @@ function normalizeStatus(status) {
 function getStatusColor(status) {
   switch (normalizeStatus(status)) {
     case "ACCEPTED":
-      return "bg-green-100 text-green-800 border-green-300";
+      return "bg-emerald-50 text-emerald-700 border-emerald-200";
     case "REJECTED":
-      return "bg-red-100 text-red-800 border-red-300";
+      return "bg-rose-50 text-rose-700 border-rose-200";
     default:
-      return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      return "bg-amber-50 text-amber-700 border-amber-200";
   }
 }
 
@@ -104,6 +104,7 @@ export default function ProposalDetailsSection({
 }) {
   const project = selectedProject || fallbackProject;
   const isFallbackProject = !selectedProject;
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -111,11 +112,12 @@ export default function ProposalDetailsSection({
 
   const budgetRows = useMemo(
     () => buildBudgetRows(project, projectBudgetData),
-    [project, projectBudgetData],
+    [project, projectBudgetData]
   );
+
   const timelineRows = useMemo(
     () => buildTimelineRows(project, projectTimelineData),
-    [project, projectTimelineData],
+    [project, projectTimelineData]
   );
 
   const submittedDate = project.submittedAt
@@ -123,6 +125,7 @@ export default function ProposalDetailsSection({
     : project.createdAt
       ? new Date(project.createdAt).toLocaleDateString()
       : "-";
+
   const updatedDate = project.updatedAt
     ? new Date(project.updatedAt).toLocaleDateString()
     : submittedDate;
@@ -158,7 +161,7 @@ export default function ProposalDetailsSection({
     try {
       const updatedProposal = await rejectProposal(
         project.id,
-        rejectionReason.trim(),
+        rejectionReason.trim()
       );
       onProposalUpdate(updatedProposal);
       setShowRejectModal(false);
@@ -172,51 +175,58 @@ export default function ProposalDetailsSection({
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto w-full">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Proposal Details</h1>
-        <button
-          onClick={onBack}
-          className="px-6 py-2 bg-slate-400 text-white rounded hover:bg-slate-500"
-        >
-          Back to Proposals
-        </button>
-      </div>
+    <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8">
+
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-indigo-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-50"
+          >
+            Back to Proposals
+          </button>
+
 
       {isFallbackProject && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 mb-6">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-bold text-amber-700">
           Open this page from the proposals list to view a specific proposal.
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3 mb-6">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-bold text-rose-700">
           {error}
         </div>
       )}
 
-      <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-        <div className="flex justify-between items-start gap-4 mb-6">
+      <div className="overflow-hidden rounded-[32px] border border-white bg-white/95 p-8 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">{project.title}</h2>
-            <p className="text-slate-600 mt-2">{project.description}</p>
+            <h2 className="text-2xl font-black text-slate-950">
+              {project.title}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm font-medium leading-relaxed text-slate-500">
+              {project.description}
+            </p>
           </div>
 
           {!isFallbackProject &&
             !companyId &&
             normalizeStatus(project.status) === "PENDING" && (
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button
+                  type="button"
                   onClick={handleAccept}
                   disabled={loading}
-                  className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 font-semibold"
+                  className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:bg-slate-300"
                 >
                   {loading ? "Processing..." : "Accept Proposal"}
                 </button>
+
                 <button
+                  type="button"
                   onClick={() => setShowRejectModal(true)}
                   disabled={loading}
-                  className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 font-semibold"
+                  className="rounded-2xl bg-rose-600 px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-rose-700 disabled:bg-slate-300"
                 >
                   {loading ? "Processing..." : "Reject Proposal"}
                 </button>
@@ -224,7 +234,7 @@ export default function ProposalDetailsSection({
             )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           <InfoCard label="Proposal ID" value={project.id} />
           <InfoCard
             label="Client"
@@ -236,12 +246,11 @@ export default function ProposalDetailsSection({
           <InfoCard
             label="Status"
             value={normalizeStatus(project.status)}
-            valueClassName={`inline-block border rounded px-3 py-1 ${getStatusColor(project.status)}`}
+            valueClassName={`inline-flex rounded-full border px-4 py-2 text-sm font-black ${getStatusColor(
+              project.status
+            )}`}
           />
-          <InfoCard
-            label="Total Budget"
-            value={formatCurrency(project.totalBudget)}
-          />
+          <InfoCard label="Total Budget" value={formatCurrency(project.totalBudget)} />
           <InfoCard
             label="Total Duration"
             value={
@@ -251,27 +260,39 @@ export default function ProposalDetailsSection({
                 : "-"
             }
           />
-          {project.rejectionReason && normalizeStatus(project.status) === "REJECTED" && (
-            <InfoCard
-              label="Rejection Reason"
-              value={project.rejectionReason}
-              valueClassName="text-red-700"
-            />
-          )}
+          {project.rejectionReason &&
+            normalizeStatus(project.status) === "REJECTED" && (
+              <InfoCard
+                label="Rejection Reason"
+                value={project.rejectionReason}
+                valueClassName="font-bold text-rose-700"
+              />
+            )}
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="rounded-[28px] border border-white bg-white/95 p-6 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <button
+            type="button"
             onClick={() => setDetailsView("budget")}
-            className="px-4 py-3 bg-[#000066] text-white rounded hover:bg-blue-900 font-semibold"
+            className={`rounded-2xl px-5 py-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 ${
+              detailsView === "budget"
+                ? "bg-gradient-to-r from-indigo-700 to-violet-700"
+                : "bg-gradient-to-r from-indigo-600 to-violet-600"
+            }`}
           >
             Estimated Budget
           </button>
+
           <button
+            type="button"
             onClick={() => setDetailsView("timeline")}
-            className="px-4 py-3 bg-[#000066] text-white rounded hover:bg-blue-900 font-semibold"
+            className={`rounded-2xl px-5 py-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 ${
+              detailsView === "timeline"
+                ? "bg-gradient-to-r from-indigo-700 to-violet-700"
+                : "bg-gradient-to-r from-indigo-600 to-violet-600"
+            }`}
           >
             Estimated Timeline
           </button>
@@ -285,7 +306,7 @@ export default function ProposalDetailsSection({
             rows={budgetRows}
             emptyMessage="No budget details available."
             renderRow={(row, idx) => (
-              <tr key={`${row.item || "budget"}-${idx}`}>
+              <tr key={`${row.item || "budget"}-${idx}`} className="hover:bg-slate-50">
                 <TableCell>{row.item || "-"}</TableCell>
                 <TableCell>{row.description || "-"}</TableCell>
                 <TableCell>{row.quantity || "-"}</TableCell>
@@ -316,7 +337,7 @@ export default function ProposalDetailsSection({
             rows={timelineRows}
             emptyMessage="No timeline details available."
             renderRow={(row, idx) => (
-              <tr key={`${row.phase || "timeline"}-${idx}`}>
+              <tr key={`${row.phase || "timeline"}-${idx}`} className="hover:bg-slate-50">
                 <TableCell>{row.phase || "-"}</TableCell>
                 <TableCell>{row.startDate || "-"}</TableCell>
                 <TableCell>{row.endDate || "-"}</TableCell>
@@ -331,9 +352,9 @@ export default function ProposalDetailsSection({
       )}
 
       {detailsView === null && (
-        <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100">
-          <h2 className="text-lg font-bold text-slate-800 mb-4">Overview</h2>
-          <p className="text-slate-600 leading-relaxed">
+        <div className="rounded-[28px] border border-white bg-white/95 p-8 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+          <h2 className="text-xl font-black text-slate-950">Overview</h2>
+          <p className="mt-3 text-sm font-medium leading-relaxed text-slate-500">
             Use the buttons above to view the submitted budget and timeline
             details for this proposal.
           </p>
@@ -341,35 +362,40 @@ export default function ProposalDetailsSection({
       )}
 
       {showRejectModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full shadow-lg">
-            <h3 className="text-xl font-bold text-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] bg-white p-7 shadow-2xl">
+            <h3 className="text-xl font-black text-slate-950">
               Reject Proposal
             </h3>
-            <p className="text-slate-600 mb-6">
+            <p className="mt-2 text-sm font-medium text-slate-500">
               Please provide a reason for rejecting this proposal.
             </p>
+
             <textarea
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               placeholder="Enter rejection reason..."
-              className="w-full p-3 border border-slate-200 rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-red-500"
+              className="mt-5 w-full rounded-2xl border border-slate-200 p-4 text-sm outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
               rows="4"
             />
-            <div className="flex gap-3">
+
+            <div className="mt-5 flex gap-3">
               <button
+                type="button"
                 onClick={() => {
                   setShowRejectModal(false);
                   setRejectionReason("");
                 }}
-                className="flex-1 px-4 py-2 bg-slate-400 text-white rounded hover:bg-slate-500 font-semibold"
+                className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-200"
               >
                 Cancel
               </button>
+
               <button
+                type="button"
                 onClick={handleRejectSubmit}
                 disabled={loading || !rejectionReason.trim()}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 font-semibold"
+                className="flex-1 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-black text-white transition hover:bg-rose-700 disabled:bg-slate-300"
               >
                 {loading ? "Processing..." : "Confirm Rejection"}
               </button>
@@ -384,11 +410,13 @@ export default function ProposalDetailsSection({
 function InfoCard({
   label,
   value,
-  valueClassName = "font-semibold text-slate-700",
+  valueClassName = "font-black text-slate-800",
 }) {
   return (
-    <div className="bg-slate-50 p-4 rounded-lg">
-      <p className="text-xs text-slate-400 uppercase font-bold mb-2">{label}</p>
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/90 p-5 transition hover:bg-white hover:shadow-md">
+      <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </p>
       <p className={valueClassName}>{value}</p>
     </div>
   );
@@ -396,8 +424,8 @@ function InfoCard({
 
 function SectionCard({ title, children }) {
   return (
-    <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100 mb-6">
-      <h2 className="text-lg font-bold text-slate-800 mb-6">{title}</h2>
+    <div className="rounded-[28px] border border-white bg-white/95 p-8 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+      <h2 className="mb-6 text-xl font-black text-slate-950">{title}</h2>
       {children}
     </div>
   );
@@ -405,28 +433,29 @@ function SectionCard({ title, children }) {
 
 function ReadOnlyTable({ headers, rows, renderRow, emptyMessage }) {
   return (
-    <div className="overflow-x-auto mb-6">
-      <table className="w-full text-sm border-collapse">
+    <div className="mb-6 overflow-x-auto rounded-2xl border border-slate-100">
+      <table className="w-full min-w-[760px] border-collapse text-sm">
         <thead>
           <tr className="bg-slate-50">
             {headers.map((header) => (
               <th
                 key={header}
-                className="border border-slate-200 p-3 text-left"
+                className="px-4 py-4 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-400"
               >
                 {header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+
+        <tbody className="divide-y divide-slate-100">
           {rows.length > 0 ? (
             rows.map(renderRow)
           ) : (
             <tr>
               <td
                 colSpan={headers.length}
-                className="border border-slate-200 p-4 text-center text-slate-500"
+                className="p-8 text-center text-sm font-bold text-slate-400"
               >
                 {emptyMessage}
               </td>
@@ -440,17 +469,16 @@ function ReadOnlyTable({ headers, rows, renderRow, emptyMessage }) {
 
 function BackRow({ onBack }) {
   return (
-    <div className="flex gap-3 flex-wrap">
-      <button
-        onClick={onBack}
-        className="px-4 py-2 bg-slate-400 text-white rounded hover:bg-slate-500 font-bold"
-      >
-        Back
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={onBack}
+      className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-200"
+    >
+      Back
+    </button>
   );
 }
 
 function TableCell({ children }) {
-  return <td className="border border-slate-200 p-3">{children}</td>;
+  return <td className="px-4 py-4 font-semibold text-slate-700">{children}</td>;
 }

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { API_BASE } from "../constants";
 import {
@@ -16,7 +18,6 @@ const normalizeRole = (rawRole) => {
 
 const Auth = ({ onLogin }) => {
   const [view, setView] = useState("login");
-
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
 
   const [signupForm, setSignupForm] = useState({
@@ -26,24 +27,23 @@ const Auth = ({ onLogin }) => {
     role: "CLIENT",
   });
 
-  const [otpForm, setOtpForm] = useState({
-    email: "",
-    otp: "",
-  });
-
+  const [otpForm, setOtpForm] = useState({ email: "", otp: "" });
   const [forgotEmail, setForgotEmail] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const switchView = (nextView) => {
+    setView(nextView);
+    setError("");
+    setSuccess("");
+  };
+
   const redirectByRole = (role) => {
-    if (role === "CLIENT") {
-      window.location.href = "/client/dashboard";
-    } else if (role === "COMPANY") {
-      window.location.href = "/company/DashboardSection";
-    } else {
-      window.location.href = "/";
-    }
+    if (role === "CLIENT") window.location.href = "/client/dashboard";
+    else if (role === "COMPANY") window.location.href = "/company/DashboardSection";
+    else window.location.href = "/";
   };
 
   const storeSessionAndRedirect = (data, fallbackEmail = "") => {
@@ -55,9 +55,7 @@ const Auth = ({ onLogin }) => {
       data?.name ||
       (resolvedEmail ? resolvedEmail.split("@")[0] : "User");
 
-    if (token) {
-      localStorage.setItem("crms_token", token);
-    }
+    if (token) localStorage.setItem("crms_token", token);
 
     localStorage.setItem("crms_role", resolvedRole || "");
     localStorage.setItem(
@@ -73,6 +71,7 @@ const Auth = ({ onLogin }) => {
     if (resolvedRole === "COMPANY" && data?.id) {
       localStorage.setItem("companyId", data.id);
     }
+
     if (resolvedRole === "CLIENT" && data?.id) {
       localStorage.setItem("clientId", data.id);
     }
@@ -84,9 +83,19 @@ const Auth = ({ onLogin }) => {
       role: resolvedRole,
     });
 
-    setTimeout(() => {
-      redirectByRole(resolvedRole);
-    }, 500);
+    setTimeout(() => redirectByRole(resolvedRole), 500);
+  };
+
+  const readResponse = async (response, fallbackMessage) => {
+    const contentType = response.headers.get("content-type");
+
+    if (contentType && contentType.includes("application/json")) {
+      return response.json();
+    }
+
+    const text = await response.text();
+    if (!response.ok) throw new Error(text || fallbackMessage);
+    return { message: text };
   };
 
   const handleLogin = async (e) => {
@@ -111,19 +120,9 @@ const Auth = ({ onLogin }) => {
         }),
       });
 
-      let data = null;
-      const contentType = response.headers.get("content-type");
+      const data = await readResponse(response, "Login failed");
 
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        throw new Error(text || "Login failed");
-      }
-
-      if (!response.ok) {
-        throw new Error(data?.message || "Login failed");
-      }
+      if (!response.ok) throw new Error(data?.message || "Login failed");
 
       setSuccess("Logged in successfully");
       storeSessionAndRedirect(data, loginForm.email.trim());
@@ -170,15 +169,7 @@ const Auth = ({ onLogin }) => {
         }),
       });
 
-      let data = null;
-      const contentType = response.headers.get("content-type");
-
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        data = { message: text || "Signup failed" };
-      }
+      const data = await readResponse(response, "Signup failed");
 
       if (!response.ok) {
         throw new Error(
@@ -188,11 +179,7 @@ const Auth = ({ onLogin }) => {
 
       const signupEmail = signupForm.email.trim();
 
-      setOtpForm({
-        email: signupEmail,
-        otp: "",
-      });
-
+      setOtpForm({ email: signupEmail, otp: "" });
       localStorage.setItem("otp_email", signupEmail);
       localStorage.setItem("otp_role", signupForm.role);
 
@@ -234,15 +221,7 @@ const Auth = ({ onLogin }) => {
         }),
       });
 
-      let data = null;
-      const contentType = response.headers.get("content-type");
-
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        throw new Error(text || "OTP verification failed");
-      }
+      const data = await readResponse(response, "OTP verification failed");
 
       if (!response.ok) {
         throw new Error(data?.message || "OTP verification failed");
@@ -274,23 +253,11 @@ const Auth = ({ onLogin }) => {
     try {
       const response = await fetch(`${API_BASE}/api/auth/forgot-password`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: forgotEmail.trim(),
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
       });
 
-      let data = null;
-      const contentType = response.headers.get("content-type");
-
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        throw new Error(text || "Failed to send reset link");
-      }
+      const data = await readResponse(response, "Failed to send reset link");
 
       if (!response.ok) {
         throw new Error(data?.message || "Failed to send reset link");
@@ -306,425 +273,355 @@ const Auth = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#f5f2ff]">
-      <div
-        className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-100 via-purple-100 to-white"
-        style={{
-          backgroundImage: `url("https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1600&q=80")`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <svg
-          className="absolute right-0 top-0 h-full w-24"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden="true"
+    <main className="min-h-screen overflow-hidden bg-[#f4f0ff]">
+      <div className="flex min-h-screen">
+        <section
+          className="relative hidden w-1/2 overflow-hidden bg-cover bg-center lg:block"
+          style={{
+            backgroundImage:
+              'url("https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1600&q=80")',
+          }}
         >
-          <path d="M0,0 C70,20 70,80 0,100 L100,100 L100,0 Z" fill="#f5f2ff" />
-        </svg>
-      </div>
+          <div className="absolute inset-0 bg-slate-950/25" />
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-          <div className="lg:hidden mb-8 text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl mb-4">
-              <svg
-                className="w-8 h-8 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-            <p className="text-gray-600 mt-1">
-              Change & Requirement Management System
+          <div className="absolute left-10 top-10 z-10 rounded-3xl border border-white/20 bg-white/15 px-6 py-5 text-white backdrop-blur-xl">
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/70">
+              CRMS
             </p>
+            <h1 className="mt-2 text-2xl font-black">
+              Change & Requirement Management
+            </h1>
           </div>
 
-          {view !== "forgot" && view !== "verifyOtp" && (
-            <div className="bg-[#ede9ff] p-1 rounded-full flex mb-6 overflow-hidden">
-              <button
-                onClick={() => {
-                  setView("login");
-                  setError("");
-                  setSuccess("");
-                }}
-                className={`flex-1 py-3 text-base font-semibold rounded-full transition-all ${
-                  view === "login"
-                    ? "bg-white shadow-sm text-purple-800"
-                    : "text-purple-600"
-                }`}
-              >
-                Log in
-              </button>
-              <button
-                onClick={() => {
-                  setView("signup");
-                  setError("");
-                  setSuccess("");
-                }}
-                className={`flex-1 py-3 text-base font-semibold rounded-full transition-all ${
-                  view === "signup"
-                    ? "bg-white shadow-sm text-purple-800"
-                    : "text-purple-600"
-                }`}
-              >
-                Sign up
-              </button>
-            </div>
-          )}
+          <svg
+            className="absolute right-[-1px] top-0 h-full w-32"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M0,0 C72,22 72,78 0,100 L100,100 L100,0 Z"
+              fill="#f4f0ff"
+            />
+          </svg>
+        </section>
 
-          <div>
+        <section className="flex w-full items-center justify-center px-5 py-10 lg:w-1/2">
+          <div className="w-full max-w-md rounded-[32px] border border-white/70 bg-white/95 p-8 shadow-[0_28px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+            <div className="mb-7 text-center lg:hidden">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg">
+                <span className="text-xl font-black">CR</span>
+              </div>
+              <p className="text-sm font-semibold text-slate-500">
+                Change & Requirement Management System
+              </p>
+            </div>
+
+            {view !== "forgot" && view !== "verifyOtp" && (
+              <div className="mb-7 flex rounded-full bg-violet-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => switchView("login")}
+                  className={`flex-1 rounded-full py-3 text-sm font-black transition ${
+                    view === "login"
+                      ? "bg-white text-violet-700 shadow-sm"
+                      : "text-violet-500 hover:text-violet-700"
+                  }`}
+                >
+                  Log in
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => switchView("signup")}
+                  className={`flex-1 rounded-full py-3 text-sm font-black transition ${
+                    view === "signup"
+                      ? "bg-white text-violet-700 shadow-sm"
+                      : "text-violet-500 hover:text-violet-700"
+                  }`}
+                >
+                  Sign up
+                </button>
+              </div>
+            )}
+
             {error && (
-              <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm font-medium border border-red-200">
+              <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                 {error}
               </div>
             )}
+
             {success && (
-              <div className="mb-4 p-3 rounded-lg bg-green-50 text-green-700 text-sm font-medium border border-green-200">
+              <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
                 {success}
               </div>
             )}
 
             {view === "login" && (
               <form onSubmit={handleLogin} className="space-y-5">
+                <Title
+                  title="Welcome"
+                  subtitle="Login with your registered email"
+                />
+
+                <Input
+                  label="Email"
+                  type="email"
+                  placeholder="name@email.com"
+                  value={loginForm.email}
+                  onChange={(value) =>
+                    setLoginForm({ ...loginForm, email: value })
+                  }
+                />
+
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                    Welcome
-                  </h2>
-                  <p className="text-gray-600 text-sm">Login with email</p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Email
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="text-sm font-black text-slate-700">
+                      Password
                     </label>
-                    <input
-                      type="email"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                      placeholder="name@email.com"
-                      value={loginForm.email}
-                      onChange={(e) =>
-                        setLoginForm({ ...loginForm, email: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5">
-                      <label className="text-sm font-medium text-gray-700">
-                        Password
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setView("forgot");
-                          setError("");
-                          setSuccess("");
-                        }}
-                        className="text-purple-600 text-sm font-medium hover:underline"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-                    <input
-                      type="password"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                      placeholder="Enter your password"
-                      value={loginForm.password}
-                      onChange={(e) =>
-                        setLoginForm({ ...loginForm, password: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                    id="remember"
-                  />
-                  <label
-                    htmlFor="remember"
-                    className="ml-2 text-sm text-gray-700"
-                  >
-                    Remember me
-                  </label>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {loading ? "Signing in..." : "Login"}
-                </button>
-
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">
-                    Do not have an account?{" "}
                     <button
                       type="button"
-                      onClick={() => {
-                        setView("signup");
-                        setError("");
-                        setSuccess("");
-                      }}
-                      className="text-purple-600 font-semibold hover:underline"
+                      onClick={() => switchView("forgot")}
+                      className="text-sm font-black text-violet-600 hover:text-violet-700"
                     >
-                      Register now
+                      Forgot password?
                     </button>
-                  </p>
+                  </div>
+
+                  <Input
+                    hideLabel
+                    type="password"
+                    placeholder="Enter your password"
+                    value={loginForm.password}
+                    onChange={(value) =>
+                      setLoginForm({ ...loginForm, password: value })
+                    }
+                  />
                 </div>
+
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  Remember me
+                </label>
+
+                <PrimaryButton loading={loading}>
+                  {loading ? "Signing in..." : "Login"}
+                </PrimaryButton>
+
+                <p className="text-center text-sm font-medium text-slate-500">
+                  Do not have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => switchView("signup")}
+                    className="font-black text-violet-600 hover:text-violet-700"
+                  >
+                    Register now
+                  </button>
+                </p>
               </form>
             )}
 
             {view === "signup" && (
               <form onSubmit={handleSignup} className="space-y-5">
+                <Title
+                  title="Create an account"
+                  subtitle="Enter your information to get started"
+                />
+
+                <Input
+                  label="Full name"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={signupForm.fullName}
+                  onChange={(value) =>
+                    setSignupForm({ ...signupForm, fullName: value })
+                  }
+                />
+
+                <Input
+                  label="Email"
+                  type="email"
+                  placeholder="name@email.com"
+                  value={signupForm.email}
+                  onChange={(value) =>
+                    setSignupForm({ ...signupForm, email: value })
+                  }
+                />
+
+                <Input
+                  label="Password"
+                  type="password"
+                  placeholder="Create a password"
+                  value={signupForm.password}
+                  onChange={(value) =>
+                    setSignupForm({ ...signupForm, password: value })
+                  }
+                />
+
+                {signupForm.password &&
+                  !validatePassword(signupForm.password) && (
+                    <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-700">
+                      {getPasswordError(signupForm.password)}
+                    </p>
+                  )}
+
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                    Create an account
-                  </h2>
-                  <p className="text-gray-600 text-sm">
-                    Enter your information to get started
-                  </p>
+                  <label className="mb-2 block text-sm font-black text-slate-700">
+                    Sign up as
+                  </label>
+                  <select
+                    value={signupForm.role}
+                    onChange={(e) =>
+                      setSignupForm({ ...signupForm, role: e.target.value })
+                    }
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  >
+                    <option value="CLIENT">Client</option>
+                    <option value="COMPANY">Company</option>
+                  </select>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Full name
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                      placeholder="Enter your full name"
-                      value={signupForm.fullName}
-                      onChange={(e) =>
-                        setSignupForm({
-                          ...signupForm,
-                          fullName: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                      placeholder="name@email.com"
-                      value={signupForm.email}
-                      onChange={(e) =>
-                        setSignupForm({ ...signupForm, email: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                      placeholder="Create a password"
-                      value={signupForm.password}
-                      onChange={(e) =>
-                        setSignupForm({
-                          ...signupForm,
-                          password: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                    {signupForm.password &&
-                      !validatePassword(signupForm.password) && (
-                        <p className="text-red-500 text-sm mt-2">
-                          {getPasswordError(signupForm.password)}
-                        </p>
-                      )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Sign up as
-                    </label>
-                    <select
-                      value={signupForm.role}
-                      onChange={(e) =>
-                        setSignupForm({ ...signupForm, role: e.target.value })
-                      }
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-gray-700"
-                    >
-                      <option value="CLIENT">Client</option>
-                      <option value="COMPANY">Company</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
+                <PrimaryButton loading={loading}>
                   {loading ? "Creating account..." : "Sign up"}
-                </button>
+                </PrimaryButton>
 
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">
-                    Already have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setView("login");
-                        setError("");
-                        setSuccess("");
-                      }}
-                      className="text-purple-600 font-semibold hover:underline"
-                    >
-                      Login
-                    </button>
-                  </p>
-                </div>
+                <p className="text-center text-sm font-medium text-slate-500">
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => switchView("login")}
+                    className="font-black text-violet-600 hover:text-violet-700"
+                  >
+                    Login
+                  </button>
+                </p>
               </form>
             )}
 
             {view === "verifyOtp" && (
               <form onSubmit={handleVerifyOtp} className="space-y-5">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                    Verify OTP
-                  </h2>
-                  <p className="text-gray-600 text-sm">
-                    Enter the OTP generated for your email to activate your
-                    account.
-                  </p>
-                </div>
+                <Title
+                  title="Verify OTP"
+                  subtitle="Enter the OTP sent to your email"
+                />
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg outline-none"
-                      value={otpForm.email}
-                      onChange={(e) =>
-                        setOtpForm({ ...otpForm, email: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
+                <Input
+                  label="Email"
+                  type="email"
+                  placeholder="name@email.com"
+                  value={otpForm.email}
+                  onChange={(value) => setOtpForm({ ...otpForm, email: value })}
+                />
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      OTP
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                      placeholder="Enter 6-digit OTP"
-                      value={otpForm.otp}
-                      onChange={(e) =>
-                        setOtpForm({ ...otpForm, otp: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                </div>
+                <Input
+                  label="OTP"
+                  type="text"
+                  placeholder="Enter 6-digit OTP"
+                  value={otpForm.otp}
+                  onChange={(value) => setOtpForm({ ...otpForm, otp: value })}
+                />
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
+                <PrimaryButton loading={loading}>
                   {loading ? "Verifying..." : "Verify OTP"}
-                </button>
+                </PrimaryButton>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setView("signup");
-                    setError("");
-                    setSuccess("");
-                  }}
-                  className="w-full text-purple-600 font-semibold hover:underline"
-                >
+                <BackButton onClick={() => switchView("signup")}>
                   Back to Sign up
-                </button>
+                </BackButton>
               </form>
             )}
 
             {view === "forgot" && (
               <div className="space-y-5">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                    Forgot Password
-                  </h2>
-                  <p className="text-gray-600 text-sm">
-                    No worries, we&apos;ll send you reset instructions
-                  </p>
-                </div>
+                <Title
+                  title="Forgot Password"
+                  subtitle="No worries, we will send reset instructions"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                    placeholder="Enter your email"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    required
-                  />
-                </div>
+                <Input
+                  label="Email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={forgotEmail}
+                  onChange={setForgotEmail}
+                />
 
                 <button
                   type="button"
                   onClick={handleForgotPassword}
                   disabled={loading}
-                  className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-4 text-sm font-black text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? "Sending..." : "Send Reset Link"}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setView("login");
-                    setError("");
-                    setSuccess("");
-                  }}
-                  className="w-full text-purple-600 font-semibold hover:underline"
-                >
+                <BackButton onClick={() => switchView("login")}>
                   Back to Login
-                </button>
+                </BackButton>
               </div>
             )}
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
+
+function Title({ title, subtitle }) {
+  return (
+    <div>
+      <h2 className="text-3xl font-black tracking-tight text-slate-950">
+        {title}
+      </h2>
+      <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>
+    </div>
+  );
+}
+
+function Input({ label, hideLabel = false, value, onChange, ...props }) {
+  return (
+    <div>
+      {!hideLabel && (
+        <label className="mb-2 block text-sm font-black text-slate-700">
+          {label}
+        </label>
+      )}
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required
+        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+        {...props}
+      />
+    </div>
+  );
+}
+
+function PrimaryButton({ children, loading }) {
+  return (
+    <button
+      type="submit"
+      disabled={loading}
+      className="w-full rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-4 text-sm font-black text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {children}
+    </button>
+  );
+}
+
+function BackButton({ children, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-sm font-black text-violet-600 hover:text-violet-700"
+    >
+      {children}
+    </button>
+  );
+}
 
 export default Auth;

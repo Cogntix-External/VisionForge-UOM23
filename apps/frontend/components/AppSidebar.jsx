@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import CRMSLogo from "../assets/CRMSLogo";
+import logo from "../assets/images/logo.jpeg";
 import { clearSession } from "../utils/auth";
 
 const clientItems = [
@@ -34,48 +34,69 @@ function isActivePath(pathname, href) {
 export default function AppSidebar({ section = "client" }) {
   const pathname = usePathname();
   const router = useRouter();
+
   const menuItems = section === "company" ? companyItems : clientItems;
+  const portalName = section === "company" ? "Company Portal" : "Client Portal";
 
   return (
-    <aside className="h-full bg-[#111827] text-white flex flex-col shrink-0 border-r border-white/5 w-[280px]">
-      <div className="p-8 flex items-center space-x-4">
-        <CRMSLogo className="w-14 h-14 shrink-0" />
+    <aside className="relative flex h-full w-[280px] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#020617] via-[#0f172a] to-[#111827] text-white shadow-[30px_0_80px_rgba(15,23,42,0.45)]">
+
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_32%),radial-gradient(circle_at_bottom,_rgba(14,165,233,0.18),_transparent_38%)]" />
+
+      {/* LOGO SECTION */}
+      <div className="relative flex items-center gap-4 px-6 py-6">
+        
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white p-2 shadow-lg">
+          <img
+            src={logo.src || logo}
+            alt="CRMS Logo"
+            className="h-full w-full object-contain rounded-xl"
+          />
+        </div>
+
         <div>
-          <h1 className="font-black text-xl leading-none uppercase tracking-tighter text-white">
+          <h1 className="text-lg font-extrabold uppercase tracking-tight">
             CRMS
           </h1>
-          <p className="text-[#9ca3af] text-[10px] font-bold mt-1 uppercase tracking-widest">
-            Client Portal
+          <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">
+            {portalName}
           </p>
         </div>
+
       </div>
 
-      <nav className="flex-1 flex flex-col py-4 space-y-3 px-4 overflow-y-auto">
+      {/* MENU */}
+      <nav className="flex flex-1 flex-col gap-2 px-4 py-2 overflow-y-auto">
         {menuItems.map((item) => {
           const active = isActivePath(pathname, item.href);
+
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`w-full px-6 py-4 rounded-xl font-bold text-base transition-all ${
+              className={`relative px-5 py-3 rounded-xl text-sm font-semibold transition-all ${
                 active
-                  ? "bg-[#1f2937] text-white border border-white/10"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-white text-slate-900 shadow-md"
+                  : "text-gray-400 hover:text-white hover:bg-white/10"
               }`}
             >
+              {active && (
+                <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-indigo-500" />
+              )}
               {item.label}
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-8 border-t border-white/5 mt-auto">
+      {/* LOGOUT */}
+      <div className="border-t border-white/10 p-4">
         <button
           onClick={() => {
             clearSession();
             router.push("/login");
           }}
-          className="w-full bg-[#1f2937] p-3 rounded-xl border border-white/10 shadow-lg font-bold hover:border-purple-400 transition-all"
+          className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold hover:bg-red-500/20 transition"
         >
           Sign Out
         </button>

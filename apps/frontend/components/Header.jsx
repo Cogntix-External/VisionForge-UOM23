@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Icons } from "../constants";
 import { getClientUnreadNotificationCount } from "../services/api";
+
 const Header = ({
   title,
   subtitle,
@@ -8,52 +9,100 @@ const Header = ({
   onToggleNotifications,
   onNavigateSettings,
   onLogout,
+  user,
+  role,
 }) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (role === "CLIENT") {
+      loadNotifications();
+    }
+  }, [role]);
+
+  const loadNotifications = async () => {
+    try {
+      const res = await getClientUnreadNotificationCount();
+      setCount(res || 0);
+    } catch (e) {
+      console.error("Notification count error:", e);
+    }
+  };
+
   return (
-    <header className="bg-gradient-to-r from-[#7c3aed] via-[#a78bfa] to-[#c084fc] h-[120px] flex items-center px-10 text-white shrink-0 shadow-md">
-      <div className="flex justify-between items-center w-full">
-        <div className="flex items-center space-x-4">
-          <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-sm border border-white/20">
+    <header className="relative z-20 border-b border-white/20 bg-white/70 backdrop-blur-xl shadow-[0_10px_40px_rgba(15,23,42,0.08)]">
+      <div className="flex items-center justify-between px-6 py-5 md:px-10">
+        
+        {/* LEFT SECTION */}
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg">
             <Icons.Documents />
           </div>
+
           <div>
-            <h2 className="text-3xl font-black tracking-tight mb-0.5">
+            <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
               {title}
             </h2>
-            <p className="text-white/90 text-lg font-medium opacity-90">
+            <p className="text-sm text-slate-500 font-medium">
               {subtitle}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-6">
+        {/* RIGHT SECTION */}
+        <div className="flex items-center gap-4">
+
+          {/* SETTINGS */}
           <button
             onClick={onNavigateSettings}
-            className="p-3 hover:bg-white/20 rounded-full transition-all group"
+            className="group flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg hover:-translate-y-0.5"
           >
-            <div className="transform group-hover:rotate-45 transition-transform duration-300">
+            <div className="transition-transform group-hover:rotate-45">
               <Icons.Settings />
             </div>
           </button>
+
+          {/* NOTIFICATIONS */}
           <button
             onClick={onToggleNotifications}
-            className={`p-3 hover:bg-white/20 rounded-full transition-all relative ${
-              showNotifications ? "bg-white/30" : ""
+            className={`relative flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg hover:-translate-y-0.5 ${
+              showNotifications ? "bg-indigo-50" : ""
             }`}
           >
             <Icons.Notification />
-            <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+
+            {/* Badge */}
+            {count > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow">
+                {count}
+              </span>
+            )}
           </button>
+
+          {/* USER PROFILE */}
           <button
             onClick={onLogout}
-            className="bg-[#111827]/40 rounded-full p-2 border border-white/40 cursor-pointer hover:bg-white/20 transition-all shadow-lg"
+            className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:shadow-lg hover:-translate-y-0.5"
             title="Sign Out"
           >
-            <Icons.User />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-bold">
+              {user?.name?.charAt(0) || "U"}
+            </div>
+
+            <div className="hidden md:flex flex-col text-left">
+              <span className="text-sm font-bold text-slate-900">
+                {user?.name || "User"}
+              </span>
+              <span className="text-xs text-slate-400">
+                {role}
+              </span>
+            </div>
           </button>
+
         </div>
       </div>
     </header>
   );
 };
+
 export default Header;

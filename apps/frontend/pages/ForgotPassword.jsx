@@ -1,4 +1,8 @@
+"use client";
+
 import React, { useState } from "react";
+import Link from "next/link";
+import { Mail, ArrowLeft, ShieldCheck } from "lucide-react";
 import { API_BASE } from "../constants";
 import { validateEmail } from "../utils/validators";
 
@@ -12,15 +16,15 @@ export default function ForgotPassword() {
     e.preventDefault();
     setError("");
     setMessage("");
-    setLoading(true);
 
     if (!validateEmail(email.trim())) {
       setError("Please enter a valid email address");
-      setLoading(false);
       return;
     }
 
     try {
+      setLoading(true);
+
       const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
         method: "POST",
         headers: {
@@ -29,15 +33,10 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email: email.trim() }),
       });
 
-      let data = null;
       const contentType = res.headers.get("content-type");
-
-      if (contentType && contentType.includes("application/json")) {
-        data = await res.json();
-      } else {
-        const text = await res.text();
-        throw new Error(text || "Request failed");
-      }
+      const data = contentType?.includes("application/json")
+        ? await res.json()
+        : null;
 
       if (!res.ok) {
         throw new Error(data?.message || "Request failed");
@@ -53,51 +52,83 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f5f2ff] px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Forgot Password
-        </h2>
-        <p className="text-gray-600 text-sm mb-6">
-          Enter your email to receive reset instructions
-        </p>
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 px-4 py-10">
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Email
-            </label>
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-              required
-            />
+      <div className="w-full max-w-md overflow-hidden rounded-[32px] border border-white/10 bg-white/95 shadow-2xl">
+
+        {/* 🔥 HEADER */}
+        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-8 py-7 text-white">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15">
+            <ShieldCheck className="h-7 w-7" />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          <h2 className="text-3xl font-black">Forgot Password</h2>
+
+          <p className="mt-2 text-sm font-medium text-white/80">
+            Enter your registered email to receive reset instructions.
+          </p>
+        </div>
+
+        {/* 🔥 BODY */}
+        <div className="p-8">
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* EMAIL */}
+            <div>
+              <label className="mb-2 block text-sm font-black text-slate-700">
+                Email Address
+              </label>
+
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+
+                <input
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-4 pl-12 pr-4 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* BUTTON */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 py-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Sending..." : "Send Reset Link"}
+            </button>
+          </form>
+
+          {/* ERROR */}
+          {error && (
+            <p className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+              {error}
+            </p>
+          )}
+
+          {/* SUCCESS */}
+          {message && (
+            <p className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+              {message}
+            </p>
+          )}
+
+          {/* BACK */}
+          <Link
+            href="/login"
+            className="mt-6 flex items-center justify-center gap-2 text-sm font-black text-indigo-600 hover:text-indigo-700"
           >
-            {loading ? "Sending..." : "Send Reset Link"}
-          </button>
-        </form>
+            <ArrowLeft className="h-4 w-4" />
+            Back to Login
+          </Link>
 
-        {error && (
-          <p className="mt-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
-            {error}
-          </p>
-        )}
-
-        {message && (
-          <p className="mt-4 p-3 rounded-lg bg-green-50 text-green-700 text-sm border border-green-200">
-            {message}
-          </p>
-        )}
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, FileText, Plus } from "lucide-react";
 
 export default function ProposalsListSection({
   projects = [],
@@ -9,37 +9,53 @@ export default function ProposalsListSection({
   onSelect = () => {},
 }) {
   return (
-    <div className="p-8 max-w-7xl mx-auto w-full">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">All Proposals</h1>
-        <button
-          onClick={onCreate}
-          className="px-6 py-3 bg-[#000066] text-white rounded hover:bg-blue-900 font-bold flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Create New Project Proposal
-        </button>
-      </div>
-      <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-100">
-        <h2 className="text-lg font-bold text-slate-800 mb-6">
-          All Created Projects Proposals
-        </h2>
+    <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8">
+
+          <button
+            type="button"
+            onClick={onCreate}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-indigo-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-50"
+          >
+            <Plus className="h-4 w-4" />
+            Create Proposal
+          </button>
+
+      <div className="overflow-hidden rounded-[32px] border border-white bg-white/95 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+        <div className="flex items-center gap-4 border-b border-slate-100 px-6 py-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            <FileText className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-slate-950">
+              Created Project Proposals
+            </h2>
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              {projects.length} proposal{projects.length === 1 ? "" : "s"}{" "}
+              available
+            </p>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-sm text-slate-400 uppercase border-b border-slate-200">
-                <th className="pb-4 font-bold">PID</th>
-                <th className="pb-4 font-bold">Proposal name</th>
-                <th className="pb-4 font-bold">Client ID</th>
-                <th className="pb-4 font-bold">Budget</th>
-                <th className="pb-4 font-bold">Duration</th>
-                <th className="pb-4 font-bold">Actions</th>
+          <table className="w-full min-w-[880px] text-left">
+            <thead className="bg-slate-50">
+              <tr>
+                <TableHead>PID</TableHead>
+                <TableHead>Proposal Name</TableHead>
+                <TableHead>Client ID</TableHead>
+                <TableHead>Budget</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead center>Actions</TableHead>
               </tr>
             </thead>
-            <tbody>
+
+            <tbody className="divide-y divide-slate-100 bg-white">
               {projects.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-slate-500">
+                  <td
+                    colSpan={6}
+                    className="px-8 py-16 text-center text-lg font-black text-slate-400"
+                  >
                     No proposals available yet.
                   </td>
                 </tr>
@@ -47,21 +63,49 @@ export default function ProposalsListSection({
                 projects.map((proj) => (
                   <tr
                     key={proj.id || proj.title}
-                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                    className="transition hover:bg-indigo-50/40"
                   >
-                    <td className="py-4 font-bold text-slate-700">{proj.id}</td>
-                    <td className="py-4 text-slate-600">{proj.title}</td>
-                    <td className="py-4 text-slate-600">
-                      {proj.client || "Not assigned"}
+                    <td
+                      className="px-6 py-5 text-sm font-black text-slate-900"
+                      title={proj.id}
+                    >
+                      {String(proj.id || "-").length > 14
+                        ? `${String(proj.id).substring(0, 14)}...`
+                        : proj.id || "-"}
                     </td>
-                    <td className="py-4 text-slate-600">{proj.budget}</td>
-                    <td className="py-4 text-slate-600">{proj.duration}</td>
-                    <td className="py-4">
+
+                    <td
+                      className="max-w-[260px] px-6 py-5 text-sm font-bold text-slate-700"
+                      title={proj.title}
+                    >
+                      <div className="truncate">{proj.title || "-"}</div>
+                    </td>
+
+                    <td
+                      className="max-w-[240px] px-6 py-5 text-sm font-semibold text-slate-600"
+                      title={proj.client}
+                    >
+                      <div className="truncate">
+                        {proj.client || "Not assigned"}
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-5 text-sm font-semibold text-slate-600">
+                      {proj.budget || "-"}
+                    </td>
+
+                    <td className="px-6 py-5 text-sm font-semibold text-slate-600">
+                      {proj.duration || "-"}
+                    </td>
+
+                    <td className="px-6 py-5 text-center">
                       <button
+                        type="button"
                         onClick={() => onSelect(proj)}
-                        className="text-blue-600 font-bold hover:text-blue-800"
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-600"
                       >
-                        View more
+                        <Eye className="h-4 w-4" />
+                        View More
                       </button>
                     </td>
                   </tr>
@@ -70,31 +114,51 @@ export default function ProposalsListSection({
             </tbody>
           </table>
         </div>
-        <div className="mt-8 flex justify-center gap-2">
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-100 text-slate-400 hover:bg-slate-200">
+
+        <div className="flex justify-center gap-2 border-t border-slate-100 px-6 py-5">
+          <PageButton>
             <ChevronLeft size={16} />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-[#5D57C9] text-white">
-            1
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-400">
-            2
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-400">
-            3
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-400">
-            4
-          </button>
-          <span className="px-2 self-center text-slate-400">...</span>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-400">
-            40
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-100 text-slate-400 hover:bg-slate-200">
+          </PageButton>
+          <PageButton active>1</PageButton>
+          <PageButton>2</PageButton>
+          <PageButton>3</PageButton>
+          <PageButton>4</PageButton>
+          <span className="self-center px-2 text-sm font-bold text-slate-400">
+            ...
+          </span>
+          <PageButton>40</PageButton>
+          <PageButton>
             <ChevronRight size={16} />
-          </button>
+          </PageButton>
         </div>
       </div>
     </div>
+  );
+}
+
+function TableHead({ children, center = false }) {
+  return (
+    <th
+      className={`px-6 py-5 text-xs font-black uppercase tracking-[0.18em] text-slate-400 ${
+        center ? "text-center" : "text-left"
+      }`}
+    >
+      {children}
+    </th>
+  );
+}
+
+function PageButton({ children, active = false }) {
+  return (
+    <button
+      type="button"
+      className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-black transition ${
+        active
+          ? "bg-indigo-600 text-white shadow-lg"
+          : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

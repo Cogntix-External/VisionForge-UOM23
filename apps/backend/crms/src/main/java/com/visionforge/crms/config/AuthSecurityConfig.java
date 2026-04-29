@@ -40,20 +40,38 @@ public class AuthSecurityConfig {
                         "/api/client/**",
                         "/api/company/**",
                         "/api/projects/**",
-                        "/api/user/**")
+                        "/api/user/**",
+                        "/api/prds/**",
+                        "/api/documents/**",
+                        "/error",
+                        "/error/**"
+                )
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/error", "/error/**").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // PRD endpoints
+                        .requestMatchers("/api/prds/**").authenticated()
+                        .requestMatchers("/api/documents/**").authenticated()
+
+                        // Common protected endpoints
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/user/**").authenticated()
+                        .requestMatchers("/api/projects/**").authenticated()
+
+                        // Role based endpoints
                         .requestMatchers("/api/client/**").hasRole("CLIENT")
                         .requestMatchers("/api/company/**").hasRole("COMPANY")
-                        .requestMatchers("/api/projects/**").authenticated()
-                        .anyRequest().authenticated())
+
+                        .anyRequest().authenticated()
+                )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -62,7 +80,8 @@ public class AuthSecurityConfig {
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        DaoAuthenticationProvider provider =
+                new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }
@@ -82,7 +101,8 @@ public class AuthSecurityConfig {
                 "https://localhost:*",
                 "https://127.0.0.1:*",
                 "http://10.208.190.32:*",
-                "https://10.208.190.32:*"));
+                "https://10.208.190.32:*"
+        ));
 
         config.setAllowedMethods(List.of(
                 "GET",
@@ -90,20 +110,27 @@ public class AuthSecurityConfig {
                 "PUT",
                 "PATCH",
                 "DELETE",
-                "OPTIONS"));
+                "OPTIONS"
+        ));
 
         config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
+        config.setExposedHeaders(List.of(
+                "Authorization",
+                "Content-Disposition"
+        ));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config
+    ) throws Exception {
         return config.getAuthenticationManager();
     }
 }

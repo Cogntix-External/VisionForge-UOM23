@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
- 
-
 const AddCardModal = ({
   show,
   onCancel,
@@ -22,33 +20,35 @@ const AddCardModal = ({
     assignee: "unassigned",
     attachments: [],
   });
-  const [team, setTeam] = useState([{ id: "unassigned", name: "Unassigned" }]);
+
+  const [team, setTeam] = useState([
+    { id: "unassigned", name: "Unassigned", label: "Unassigned" },
+  ]);
 
   useEffect(() => {
-    if (show) {
-      if (initialData) {
-        setForm({
-          title: initialData.title || "",
-          tag: initialData.tag || "Medium",
-          date: initialData.date || "",
-          status: initialData.status || "todo",
-          assignee: initialData.assignee || "unassigned",
-          attachments: initialData.attachments || [],
-        });
-      } else {
-        setForm({
-          title: "",
-          tag: "Medium",
-          date: "",
-          status: "todo",
-          assignee: "unassigned",
-          attachments: [],
-        });
-      }
+    if (!show) return;
+
+    if (initialData) {
+      setForm({
+        title: initialData.title || "",
+        tag: initialData.tag || "Medium",
+        date: initialData.date || "",
+        status: initialData.status || "todo",
+        assignee: initialData.assignee || "unassigned",
+        attachments: initialData.attachments || [],
+      });
+    } else {
+      setForm({
+        title: "",
+        tag: "Medium",
+        date: "",
+        status: "todo",
+        assignee: "unassigned",
+        attachments: [],
+      });
     }
   }, [show, initialData]);
 
-  // fetch company users for assignee dropdown
   useEffect(() => {
     if (!show) return;
 
@@ -58,244 +58,171 @@ const AddCardModal = ({
       try {
         const { getCompanyUsers } = await import("@/services/api");
         const users = await getCompanyUsers(companyId);
+
         if (!mounted) return;
 
-        const mappedUsers = Array.isArray(users) && users.length
-          ? users.map((u) => {
-              const id = u.id || u._id || u.userId || u.name;
-              const name = u.name || u.fullName || u.email || id;
-              const label =
-                u.email && u.email !== name ? `${name} (${u.email})` : name;
-
-              return {
-                id,
-                name,
-                label,
-              };
-            })
+        const mapped = Array.isArray(users)
+          ? users.map((u) => ({
+              id: u.id || u._id || u.name,
+              label: u.name || u.email || "User",
+            }))
           : [];
-        const list = [
-          { id: "unassigned", name: "Unassigned", label: "Unassigned" },
-          ...mappedUsers.filter((u) => u?.id && u.id !== "unassigned"),
-        ];
 
-        setTeam(list);
-
-        // if current assignee is a name, try to map to id
-        setForm((prev) => {
-          const matched = list.find((p) => p.name === prev.assignee || p.id === prev.assignee);
-          return matched ? { ...prev, assignee: matched.id } : prev;
-        });
-      } catch (e) {
-        setTeam([{ id: "unassigned", name: "Unassigned" }]);
+        setTeam([
+          { id: "unassigned", label: "Unassigned" },
+          ...mapped,
+        ]);
+      } catch {
+        setTeam([{ id: "unassigned", label: "Unassigned" }]);
       }
     }
 
     loadUsers();
-
-    return () => {
-      mounted = false;
-    };
+    return () => (mounted = false);
   }, [companyId, show]);
 
   if (!show) return null;
 
   const handleChange = (field, value) => {
-    setForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
-
-    if (files.length === 0) return;
-
-    setForm((prev) => {
-      const existingNames = prev.attachments.map((file) =>
-        typeof file === "string" ? file : file.fileName || file.name
-      );
-
-      const newFiles = files.filter((file) => !existingNames.includes(file.name));
-
-      return {
-        ...prev,
-        attachments: [...prev.attachments, ...newFiles],
-      };
-    });
-
-    e.target.value = "";
-  };
-
-  const removeAttachment = (indexToRemove) => {
     setForm((prev) => ({
       ...prev,
-      attachments: prev.attachments.filter((_, index) => index !== indexToRemove),
+      attachments: [...prev.attachments, ...files],
+    }));
+  };
+
+  const removeAttachment = (i) => {
+    setForm((prev) => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, idx) => idx !== i),
     }));
   };
 
   const handleSubmit = () => {
-    if (!form.title.trim()) {
-      alert("Title is required");
-      return;
-    }
-
-    onSave({
-      ...form,
-      attachments: form.attachments,
-    });
+    if (!form.title.trim()) return alert("Title required");
+    onSave(form);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <h2 className="text-lg font-semibold text-slate-800">
-            {isEditMode ? "Edit Ticket" : "Add Ticket"}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+
+      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
+
+        {/* 🔥 HEADER */}
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+          <h2 className="text-lg font-bold">
+            {isEditMode ? "Edit Task" : "Create Task"}
           </h2>
-          <button
-            onClick={onCancel}
-            className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-100"
-            type="button"
-          >
+          <button onClick={onCancel} className="hover:bg-white/20 p-2 rounded-full">
             <X size={18} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="space-y-4 px-5 py-4">
-          {/* Title */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-600">
-              Title
-            </label>
+        {/* 🔥 BODY */}
+        <div className="p-6 space-y-5">
+
+          <Input label="Title">
             <input
               value={form.title}
               onChange={(e) => handleChange("title", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="Enter a concise task title"
+              placeholder="Enter task title"
+              className="input"
             />
-          </div>
+          </Input>
 
-          {/* Priority */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-600">
-              Priority
-            </label>
+          <Input label="Priority">
             <select
               value={form.tag}
               onChange={(e) => handleChange("tag", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="input"
             >
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
             </select>
-          </div>
+          </Input>
 
-          {/* Due Date */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-600">
-              Due Date
-            </label>
+          <Input label="Due Date">
             <input
               type="date"
               value={form.date}
-              onChange={(e) => handleChange("date", e.target.value)}
               min={minDate}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              onChange={(e) => handleChange("date", e.target.value)}
+              className="input"
             />
-          </div>
+          </Input>
 
-          {/* Assignee */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-600">
-              Assignee
-            </label>
+          <Input label="Assignee">
             <select
               value={form.assignee}
               onChange={(e) => handleChange("assignee", e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="input"
             >
-              {team.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.label || person.name}
+              {team.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
                 </option>
               ))}
             </select>
-          </div>
+          </Input>
 
-          {/* Attachments */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-600">
-              Attachments
-            </label>
-
-            <input
-              type="file"
-              multiple
-              onChange={handleFileChange}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm"
-            />
+          {/* FILE */}
+          <Input label="Attachments">
+            <input type="file" multiple onChange={handleFileChange} className="input" />
 
             {form.attachments.length > 0 && (
               <div className="mt-3 space-y-2">
-                {form.attachments.map((file, index) => {
-                  const fileName =
-                    typeof file === "string" ? file : file.fileName || file.name;
-
-                  return (
-                    <div
-                      key={`${fileName}-${index}`}
-                      className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
-                    >
-                      <p className="truncate pr-3 text-xs text-slate-600">
-                        {fileName}
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(index)}
-                        className="text-xs font-medium text-red-500 hover:text-red-600"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  );
-                })}
+                {form.attachments.map((f, i) => (
+                  <div key={i} className="flex justify-between bg-slate-100 px-3 py-2 rounded-lg text-sm">
+                    <span>{f.name || f}</span>
+                    <button onClick={() => removeAttachment(i)} className="text-red-500">
+                      Remove
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
-          </div>
+          </Input>
+
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
-          <button
-            onClick={onCancel}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            type="button"
-          >
+        {/* 🔥 FOOTER */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t">
+          <button onClick={onCancel} className="btn-outline">
             Cancel
           </button>
-
-          <button
-            onClick={handleSubmit}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-            type="button"
-          >
+          <button onClick={handleSubmit} className="btn-main">
             {isEditMode ? "Update" : "Create"}
           </button>
         </div>
+
       </div>
     </div>
   );
 };
 
+const Input = ({ label, children }) => (
+  <div>
+    <label className="block text-sm font-semibold mb-1">{label}</label>
+    {children}
+  </div>
+);
+
+/* 🔥 STYLES */
+const styles = `
+.input { width:100%; padding:12px; border-radius:12px; border:1px solid #e5e7eb }
+.btn-main { background:#4f46e5; color:white; padding:10px 18px; border-radius:12px }
+.btn-outline { border:1px solid #ddd; padding:10px 18px; border-radius:12px }
+`;
+
+if (typeof window !== "undefined") {
+  const s = document.createElement("style");
+  s.innerHTML = styles;
+  document.head.appendChild(s);
+}
+
 export default AddCardModal;
-
-
-
-
-

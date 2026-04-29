@@ -50,7 +50,17 @@ public class PrdService {
         return toResponse(findPrd(id));
     }
 
+    public PrdResponse getPrdByProjectId(String projectId) {
+        return prdRepository.findByProjectId(projectId)
+                .map(this::toResponse)
+                .orElse(null);
+    }
+
     public PrdResponse createPrd(CreatePrdRequest request) {
+        if (request.getProjectId() == null || request.getProjectId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project ID is required");
+        }
+
         Prd prd = Prd.builder()
                 .projectId(request.getProjectId())
                 .pid(nextPid())
@@ -81,11 +91,15 @@ public class PrdService {
 
         Prd savedPrd = prdRepository.save(prd);
 
-        changeRequestService.markLatestAcceptedAsImplementedForPrdUpdate(
-                savedPrd.getProjectId(),
-                savedPrd.getId(),
-                savedPrd.getVersion()
-        );
+        try {
+            changeRequestService.markLatestAcceptedAsImplementedForPrdUpdate(
+                    savedPrd.getProjectId(),
+                    savedPrd.getId(),
+                    savedPrd.getVersion()
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to update change request after PRD create: " + e.getMessage());
+        }
 
         notifyClientPrdUploaded(savedPrd);
 
@@ -146,7 +160,10 @@ public class PrdService {
             prd.setMilestones(toMilestones(request.getMilestones()));
         }
 
-        String action = request.getAction() == null ? "SAVE_CHANGES" : request.getAction().trim().toUpperCase();
+        String action = request.getAction() == null
+                ? "SAVE_CHANGES"
+                : request.getAction().trim().toUpperCase();
+
         switch (action) {
             case "SAVE_DRAFT" -> {
                 prd.setStatus("Drafted");
@@ -159,7 +176,7 @@ public class PrdService {
                 prd.setSentToClient(true);
                 prd.setVersion(incrementVersion(prd.getVersion()));
             }
-            case "REJECTED" -> {
+            case "REJECTED", "REJECT" -> {
                 prd.setStatus("Rejected");
                 prd.setReviewedByChecker(false);
                 prd.setSentToClient(false);
@@ -173,12 +190,90 @@ public class PrdService {
 
         Prd savedPrd = prdRepository.save(prd);
 
-        // Optional: when PRD is approved / updated, notify client again
         if ("APPROVE".equals(action) || "SAVE_CHANGES".equals(action)) {
             notifyClientPrdUploaded(savedPrd);
         }
 
         return toResponse(savedPrd);
+    }
+
+    public byte[] generatePrdDocument(String prdId) {
+        Prd prd = findPrd(prdId);
+
+        StringBuilder content = new StringBuilder();
+        content.append("================================================================================\n");
+        content.append("PRODUCT REQUIREMENTS DOCUMENT (PRD)\n");
+        content.append("================================================================================\n\n");
+
+        content.append("PROJECT INFORMATION\n");
+        content.append("-------------------\n");
+        content.append("PRD ID: ").append(nvl(prd.getPid())).append("\n");
+        content.append("Project Name: ").append(nvl(prd.getProjectName())).append("\n");
+        content.append("Project ID: ").append(nvl(prd.getProjectId())).append("\n");
+        content.append("Title: ").append(nvl(prd.getTitle())).append("\n");
+        content.append("Version: ").append(nvl(prd.getVersion())).append("\n");
+        content.append("Status: ").append(nvl(prd.getStatus())).append("\n");
+        content.append("Author: ").append(nvl(prd.getAuthor())).append("\n");
+        content.append("Date Submitted: ").append(nvl(prd.getDateSubmitted())).append("\n");
+        content.append("Reviewer: ").append(nvl(prd.getReviewerName())).append("\n\n");
+
+        content.append("PURPOSE & GOALS\n");
+        content.append("---------------\n");
+        content.append("Purpose: ").append(nvl(prd.getPurpose())).append("\n");
+        content.append("Problem to Solve: ").append(nvl(prd.getProblemToSolve())).append("\n");
+        content.append("Project Goal: ").append(nvl(prd.getProjectGoal())).append("\n\n");
+
+        content.append("STAKEHOLDERS\n");
+        content.append("------------\n");
+        if (prd.getStakeholders() == null || prd.getStakeholders().isEmpty()) {
+            content.append("-\n\n");
+        } else {
+            for (Prd.Stakeholder stakeholder : prd.getStakeholders()) {
+                content.append("Role: ").append(nvl(stakeholder.getRole())).append("\n");
+                content.append("Name: ").append(nvl(stakeholder.getName())).append("\n");
+                content.append("Responsibility: ").append(nvl(stakeholder.getResponsibility())).append("\n\n");
+            }
+        }
+
+        content.append("SCOPE\n");
+        content.append("-----\n");
+        content.append("In Scope:\n").append(nvl(prd.getInScope())).append("\n\n");
+        content.append("Out of Scope:\n").append(nvl(prd.getOutOfScope())).append("\n\n");
+
+        content.append("FEATURES & REQUIREMENTS\n");
+        content.append("-----------------------\n");
+        content.append("Main Features:\n").append(nvl(prd.getMainFeatures())).append("\n\n");
+        content.append("Functional Requirements:\n").append(nvl(prd.getFunctionalRequirement())).append("\n\n");
+        content.append("Non-Functional Requirements:\n").append(nvl(prd.getNonFunctionalRequirement())).append("\n\n");
+
+        content.append("USER ROLES & RISKS\n");
+        content.append("------------------\n");
+        content.append("User Roles:\n").append(nvl(prd.getUserRoles())).append("\n\n");
+        content.append("Risks & Dependencies:\n").append(nvl(prd.getRisksDependencies())).append("\n\n");
+
+        content.append("MILESTONES\n");
+        content.append("----------\n");
+        if (prd.getMilestones() == null || prd.getMilestones().isEmpty()) {
+            content.append("-\n\n");
+        } else {
+            for (Prd.Milestone milestone : prd.getMilestones()) {
+                content.append("Phase: ").append(nvl(milestone.getPhase())).append("\n");
+                content.append("Task: ").append(nvl(milestone.getTask())).append("\n");
+                content.append("Duration: ").append(nvl(milestone.getDuration())).append("\n");
+                content.append("Responsibility: ").append(nvl(milestone.getResponsibility())).append("\n\n");
+            }
+        }
+
+        content.append("================================================================================\n");
+        content.append("Document Generated: ").append(Instant.now()).append("\n");
+        content.append("================================================================================\n");
+
+        return content.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private Prd findPrd(String id) {
+        return prdRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "PRD not found"));
     }
 
     private void notifyClientPrdUploaded(Prd prd) {
@@ -210,54 +305,30 @@ public class PrdService {
         }
     }
 
-    private Prd findPrd(String id) {
-        return prdRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "PRD not found"));
-    }
-
-    private String incrementVersion(String currentVersion) {
-        if (currentVersion == null || currentVersion.isBlank()) {
-            return "1.1";
-        }
-
-        String[] parts = currentVersion.split("\\.");
-        int major;
-        int minor = 0;
-
-        try {
-            major = Integer.parseInt(parts[0]);
-            if (parts.length > 1) {
-                minor = Integer.parseInt(parts[1]);
-            }
-        } catch (NumberFormatException ignored) {
-            return "1.1";
-        }
-
-        minor += 1;
-        return major + "." + minor;
-    }
-
-    private List<Prd.Stakeholder> toStakeholders(List<CreatePrdRequest.StakeholderDto> items) {
-        if (items == null) {
-            return Collections.emptyList();
-        }
-
-        return items.stream()
-                .map(item -> new Prd.Stakeholder(item.getRole(), item.getName(), item.getResponsibility()))
-                .toList();
-    }
-
-    private List<Prd.Milestone> toMilestones(List<CreatePrdRequest.MilestoneDto> items) {
-        if (items == null) {
-            return Collections.emptyList();
-        }
-
-        return items.stream()
-                .map(item -> new Prd.Milestone(item.getPhase(), item.getTask(), item.getDuration(), item.getResponsibility()))
-                .toList();
-    }
-
     private PrdResponse toResponse(Prd prd) {
+        List<PrdResponse.StakeholderDto> stakeholders =
+                prd.getStakeholders() == null
+                        ? Collections.emptyList()
+                        : prd.getStakeholders().stream()
+                        .map(item -> PrdResponse.StakeholderDto.builder()
+                                .role(item.getRole())
+                                .name(item.getName())
+                                .responsibility(item.getResponsibility())
+                                .build())
+                        .toList();
+
+        List<PrdResponse.MilestoneDto> milestones =
+                prd.getMilestones() == null
+                        ? Collections.emptyList()
+                        : prd.getMilestones().stream()
+                        .map(item -> PrdResponse.MilestoneDto.builder()
+                                .phase(item.getPhase())
+                                .task(item.getTask())
+                                .duration(item.getDuration())
+                                .responsibility(item.getResponsibility())
+                                .build())
+                        .toList();
+
         return PrdResponse.builder()
                 .id(prd.getId())
                 .projectId(prd.getProjectId())
@@ -275,13 +346,7 @@ public class PrdService {
                 .purpose(prd.getPurpose())
                 .problemToSolve(prd.getProblemToSolve())
                 .projectGoal(prd.getProjectGoal())
-                .stakeholders(prd.getStakeholders().stream()
-                        .map(item -> PrdResponse.StakeholderDto.builder()
-                                .role(item.getRole())
-                                .name(item.getName())
-                                .responsibility(item.getResponsibility())
-                                .build())
-                        .toList())
+                .stakeholders(stakeholders)
                 .inScope(prd.getInScope())
                 .outOfScope(prd.getOutOfScope())
                 .mainFeatures(prd.getMainFeatures())
@@ -289,15 +354,37 @@ public class PrdService {
                 .nonFunctionalRequirement(prd.getNonFunctionalRequirement())
                 .userRoles(prd.getUserRoles())
                 .risksDependencies(prd.getRisksDependencies())
-                .milestones(prd.getMilestones().stream()
-                        .map(item -> PrdResponse.MilestoneDto.builder()
-                                .phase(item.getPhase())
-                                .task(item.getTask())
-                                .duration(item.getDuration())
-                                .responsibility(item.getResponsibility())
-                                .build())
-                        .toList())
+                .milestones(milestones)
                 .build();
+    }
+
+    private List<Prd.Stakeholder> toStakeholders(List<CreatePrdRequest.StakeholderDto> items) {
+        if (items == null) {
+            return Collections.emptyList();
+        }
+
+        return items.stream()
+                .map(item -> new Prd.Stakeholder(
+                        item.getRole(),
+                        item.getName(),
+                        item.getResponsibility()
+                ))
+                .toList();
+    }
+
+    private List<Prd.Milestone> toMilestones(List<CreatePrdRequest.MilestoneDto> items) {
+        if (items == null) {
+            return Collections.emptyList();
+        }
+
+        return items.stream()
+                .map(item -> new Prd.Milestone(
+                        item.getPhase(),
+                        item.getTask(),
+                        item.getDuration(),
+                        item.getResponsibility()
+                ))
+                .toList();
     }
 
     private String nextPid() {
@@ -325,81 +412,26 @@ public class PrdService {
         }
     }
 
-    public PrdResponse getPrdByProjectId(String projectId) {
-        return prdRepository.findByProjectId(projectId)
-                .map(this::toResponse)
-                .orElse(null);
-    }
-
-    public byte[] generatePrdDocument(String prdId) {
-        Prd prd = findPrd(prdId);
-
-        StringBuilder content = new StringBuilder();
-        content.append("================================================================================\n");
-        content.append("PRODUCT REQUIREMENTS DOCUMENT (PRD)\n");
-        content.append("================================================================================\n\n");
-
-        content.append("PROJECT INFORMATION\n");
-        content.append("-------------------\n");
-        content.append("Project Name: ").append(nvl(prd.getProjectName())).append("\n");
-        content.append("Project ID: ").append(nvl(prd.getProjectId())).append("\n");
-        content.append("Title: ").append(nvl(prd.getTitle())).append("\n");
-        content.append("Version: ").append(nvl(prd.getVersion())).append("\n");
-        content.append("Status: ").append(nvl(prd.getStatus())).append("\n");
-        content.append("Author: ").append(nvl(prd.getAuthor())).append("\n");
-        content.append("Date Submitted: ").append(nvl(prd.getDateSubmitted())).append("\n");
-        content.append("Reviewer: ").append(nvl(prd.getReviewerName())).append("\n\n");
-
-        content.append("PURPOSE & GOALS\n");
-        content.append("---------------\n");
-        content.append("Purpose: ").append(nvl(prd.getPurpose())).append("\n");
-        content.append("Problem to Solve: ").append(nvl(prd.getProblemToSolve())).append("\n");
-        content.append("Project Goal: ").append(nvl(prd.getProjectGoal())).append("\n\n");
-
-        if (prd.getStakeholders() != null && !prd.getStakeholders().isEmpty()) {
-            content.append("STAKEHOLDERS\n");
-            content.append("------------\n");
-            for (Prd.Stakeholder stakeholder : prd.getStakeholders()) {
-                content.append("Role: ").append(nvl(stakeholder.getRole())).append("\n");
-                content.append("Name: ").append(nvl(stakeholder.getName())).append("\n");
-                content.append("Responsibility: ").append(nvl(stakeholder.getResponsibility())).append("\n");
-                content.append("\n");
-            }
+    private String incrementVersion(String currentVersion) {
+        if (currentVersion == null || currentVersion.isBlank()) {
+            return "1.1";
         }
 
-        content.append("SCOPE\n");
-        content.append("-----\n");
-        content.append("In Scope:\n").append(nvl(prd.getInScope())).append("\n\n");
-        content.append("Out of Scope:\n").append(nvl(prd.getOutOfScope())).append("\n\n");
+        String[] parts = currentVersion.split("\\.");
+        int major;
+        int minor = 0;
 
-        content.append("FEATURES & REQUIREMENTS\n");
-        content.append("----------------------\n");
-        content.append("Main Features:\n").append(nvl(prd.getMainFeatures())).append("\n\n");
-        content.append("Functional Requirements:\n").append(nvl(prd.getFunctionalRequirement())).append("\n\n");
-        content.append("Non-Functional Requirements:\n").append(nvl(prd.getNonFunctionalRequirement())).append("\n\n");
-
-        content.append("USER ROLES & RISKS\n");
-        content.append("------------------\n");
-        content.append("User Roles:\n").append(nvl(prd.getUserRoles())).append("\n\n");
-        content.append("Risks & Dependencies:\n").append(nvl(prd.getRisksDependencies())).append("\n\n");
-
-        if (prd.getMilestones() != null && !prd.getMilestones().isEmpty()) {
-            content.append("MILESTONES\n");
-            content.append("----------\n");
-            for (Prd.Milestone milestone : prd.getMilestones()) {
-                content.append("Phase: ").append(nvl(milestone.getPhase())).append("\n");
-                content.append("Task: ").append(nvl(milestone.getTask())).append("\n");
-                content.append("Duration: ").append(nvl(milestone.getDuration())).append("\n");
-                content.append("Responsibility: ").append(nvl(milestone.getResponsibility())).append("\n");
-                content.append("\n");
+        try {
+            major = Integer.parseInt(parts[0]);
+            if (parts.length > 1) {
+                minor = Integer.parseInt(parts[1]);
             }
+        } catch (NumberFormatException ignored) {
+            return "1.1";
         }
 
-        content.append("================================================================================\n");
-        content.append("Document Generated: ").append(java.time.Instant.now()).append("\n");
-        content.append("================================================================================\n");
-
-        return content.toString().getBytes(StandardCharsets.UTF_8);
+        minor += 1;
+        return major + "." + minor;
     }
 
     private String nvl(String value) {

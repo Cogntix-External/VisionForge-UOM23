@@ -6,6 +6,10 @@ import {
   XCircle,
 } from "lucide-react";
 
+/**
+ *  Notification UI Config
+ * Central place for all notification styles
+ */
 const TYPE_META = {
   NEW_PROPOSAL: {
     label: "New Proposal",
@@ -15,6 +19,7 @@ const TYPE_META = {
     toastClass: "border-blue-200",
     iconClass: "text-blue-600",
   },
+
   PROPOSAL_ACCEPTED: {
     label: "Proposal Accepted",
     Icon: CheckCircle2,
@@ -23,6 +28,7 @@ const TYPE_META = {
     toastClass: "border-emerald-200",
     iconClass: "text-emerald-600",
   },
+
   PROPOSAL_REJECTED: {
     label: "Proposal Rejected",
     Icon: XCircle,
@@ -31,6 +37,7 @@ const TYPE_META = {
     toastClass: "border-rose-200",
     iconClass: "text-rose-600",
   },
+
   NEW_CHANGE_REQUEST: {
     label: "New Change Request",
     Icon: FileEdit,
@@ -39,6 +46,7 @@ const TYPE_META = {
     toastClass: "border-amber-200",
     iconClass: "text-amber-600",
   },
+
   CHANGE_REQUEST_ACCEPTED: {
     label: "Change Request Accepted",
     Icon: CheckCircle2,
@@ -47,6 +55,7 @@ const TYPE_META = {
     toastClass: "border-emerald-200",
     iconClass: "text-emerald-600",
   },
+
   CHANGE_REQUEST_REJECTED: {
     label: "Change Request Rejected",
     Icon: XCircle,
@@ -55,6 +64,7 @@ const TYPE_META = {
     toastClass: "border-rose-200",
     iconClass: "text-rose-600",
   },
+
   PRD_UPLOADED: {
     label: "PRD Uploaded",
     Icon: FileText,
@@ -65,15 +75,25 @@ const TYPE_META = {
   },
 };
 
+/**
+ *  Default fallback (VERY IMPORTANT)
+ */
+const DEFAULT_META = {
+  label: "Notification",
+  Icon: Bell,
+  panelClass: "bg-slate-50 border-slate-200",
+  unreadDotClass: "bg-slate-500",
+  toastClass: "border-slate-200",
+  iconClass: "text-slate-600",
+};
+
+/**
+ *  MAIN FUNCTION
+ */
 export function getNotificationMeta(type) {
-  return (
-    TYPE_META[String(type || "").trim().toUpperCase()] || {
-      label: "Notification",
-      Icon: Bell,
-      panelClass: "bg-slate-50 border-slate-200",
-      unreadDotClass: "bg-slate-500",
-      toastClass: "border-slate-200",
-      iconClass: "text-slate-600",
-    }
-  );
+  if (!type) return DEFAULT_META;
+
+  const key = String(type).trim().toUpperCase();
+
+  return TYPE_META[key] || DEFAULT_META;
 }
