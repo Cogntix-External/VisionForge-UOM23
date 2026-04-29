@@ -18,15 +18,22 @@ export default function CreateProposalSection({
   clientOptions = [],
 }) {
   const now = new Date();
-  const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-    now.getDate(),
-  ).padStart(2, "0")}`;
+  const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(now.getDate()).padStart(2, "0")}`;
+
+  const [timelineSavedMessage, setTimelineSavedMessage] = useState("");
+  const [budgetSavedMessage, setBudgetSavedMessage] = useState("");
+
   const isNonEmpty = (value) => String(value ?? "").trim() !== "";
+
   const isProposalComplete =
     isNonEmpty(newProposal.title) &&
     isNonEmpty(newProposal.clientId) &&
     isNonEmpty(newProposal.clientName) &&
     isNonEmpty(newProposal.description);
+
   const isTimelineComplete =
     timelineData.length > 0 &&
     timelineData.every(
@@ -36,8 +43,9 @@ export default function CreateProposalSection({
         isNonEmpty(row.endDate) &&
         isNonEmpty(row.duration) &&
         isNonEmpty(row.assignedTo) &&
-        isNonEmpty(row.status),
+        isNonEmpty(row.status)
     );
+
   const isBudgetComplete =
     budgetData.length > 0 &&
     budgetData.every(
@@ -46,34 +54,27 @@ export default function CreateProposalSection({
         isNonEmpty(row.description) &&
         isNonEmpty(row.quantity) &&
         isNonEmpty(row.unitPrice) &&
-        isNonEmpty(row.total),
+        isNonEmpty(row.total)
     );
+
   const isFormValid =
     isProposalComplete && isTimelineComplete && isBudgetComplete;
-  const [timelineSavedMessage, setTimelineSavedMessage] = useState("");
-  const [budgetSavedMessage, setBudgetSavedMessage] = useState("");
 
   const calculateDurationInDays = (startDate, endDate) => {
-    if (!startDate || !endDate) {
-      return "";
-    }
+    if (!startDate || !endDate) return "";
 
     const start = new Date(startDate);
     const end = new Date(endDate);
     const oneDayInMs = 24 * 60 * 60 * 1000;
     const diffInDays = Math.floor((end - start) / oneDayInMs) + 1;
 
-    if (Number.isNaN(diffInDays) || diffInDays < 1) {
-      return "";
-    }
+    if (Number.isNaN(diffInDays) || diffInDays < 1) return "";
 
     return `${diffInDays} days`;
   };
 
   const calculateRowTotal = (quantity, unitPrice) => {
-    if (quantity === "" || unitPrice === "") {
-      return "";
-    }
+    if (quantity === "" || unitPrice === "") return "";
 
     const parsedQuantity = Number(quantity);
     const parsedUnitPrice = Number(unitPrice);
@@ -86,199 +87,191 @@ export default function CreateProposalSection({
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto w-full">
-      <h1 className="text-3xl font-bold text-slate-800 mb-6">
-        New Project Proposal
-      </h1>
-      <div className="space-y-4 bg-white p-8 rounded-lg shadow-sm border border-slate-100">
-        <div>
-          <input
-            value={newProposal.title}
-            onChange={(event) =>
-              setNewProposal({ ...newProposal, title: event.target.value })
-            }
-            placeholder="Project title *"
-            className="w-full p-4 rounded bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-        <div>
-          <select
-            value={newProposal.clientId}
-            onChange={(event) => {
-              const selectedClient = clientOptions.find(
-                (client) => client.id === event.target.value,
-              );
-              setNewProposal({
-                ...newProposal,
-                clientId: event.target.value,
-                clientName:
-                  selectedClient?.fullName ||
-                  selectedClient?.email ||
-                  newProposal.clientName ||
-                  "",
-              });
-            }}
-            aria-label="Client ID"
-            className="w-full p-4 rounded bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="">Select Client ID *</option>
-            {clientOptions.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.id} - {client.fullName || client.email || "Client"}
-              </option>
-            ))}
-          </select>
-          {clientOptions.length === 0 && (
-            <p className="mt-2 text-sm text-slate-500">
-              No registered clients found. Register a client first to assign it.
-            </p>
-          )}
-        </div>
-        <div>
-          <input
-            value={newProposal.clientName || ""}
-            onChange={(event) =>
-              setNewProposal({ ...newProposal, clientName: event.target.value })
-            }
-            placeholder="Client name *"
-            className="w-full p-4 rounded bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-        <div>
-          <textarea
-            value={newProposal.description}
-            onChange={(event) =>
-              setNewProposal({
-                ...newProposal,
-                description: event.target.value,
-              })
-            }
-            placeholder="Description *"
-            className="w-full p-4 rounded bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            rows={4}
-          />
-        </div>
+    <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8">
+      
 
-        <div className="mt-6 border-t pt-6">
-          <h3 className="font-bold text-slate-700 mb-4">Timeline *</h3>
-          {showTimeline && (
-            <div className="mb-4">
-              <div className="overflow-x-auto mb-4">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50">
-                      <th className="border border-slate-200 p-2 text-left">
-                        Phase
-                      </th>
-                      <th className="border border-slate-200 p-2 text-left">
-                        Start Date
-                      </th>
-                      <th className="border border-slate-200 p-2 text-left">
-                        End Date
-                      </th>
-                      <th className="border border-slate-200 p-2 text-left">
-                        Duration
-                      </th>
-                      <th className="border border-slate-200 p-2 text-left">
-                        Assigned To
-                      </th>
-                      <th className="border border-slate-200 p-2 text-left">
-                        Status
-                      </th>
+      <div className="space-y-8 rounded-[32px] border border-white bg-white/95 p-8 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+        <section>
+          <h2 className="mb-5 text-xl font-black text-slate-950">
+            Proposal Information
+          </h2>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <input
+              value={newProposal.title}
+              onChange={(event) =>
+                setNewProposal({ ...newProposal, title: event.target.value })
+              }
+              placeholder="Project title *"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 md:col-span-2"
+            />
+
+            <div>
+              <select
+                value={newProposal.clientId}
+                onChange={(event) => {
+                  const selectedClient = clientOptions.find(
+                    (client) => client.id === event.target.value
+                  );
+
+                  setNewProposal({
+                    ...newProposal,
+                    clientId: event.target.value,
+                    clientName:
+                      selectedClient?.fullName ||
+                      selectedClient?.email ||
+                      newProposal.clientName ||
+                      "",
+                  });
+                }}
+                aria-label="Client ID"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              >
+                <option value="">Select Client ID *</option>
+                {clientOptions.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.id} - {client.fullName || client.email || "Client"}
+                  </option>
+                ))}
+              </select>
+
+              {clientOptions.length === 0 && (
+                <p className="mt-2 text-sm font-medium text-slate-500">
+                  No registered clients found. Register a client first to assign it.
+                </p>
+              )}
+            </div>
+
+            <input
+              value={newProposal.clientName || ""}
+              onChange={(event) =>
+                setNewProposal({
+                  ...newProposal,
+                  clientName: event.target.value,
+                })
+              }
+              placeholder="Client name *"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+            />
+
+            <textarea
+              value={newProposal.description}
+              onChange={(event) =>
+                setNewProposal({
+                  ...newProposal,
+                  description: event.target.value,
+                })
+              }
+              placeholder="Description *"
+              rows={4}
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 md:col-span-2"
+            />
+          </div>
+        </section>
+
+        <SectionCard
+          title="Timeline *"
+          subtitle="Add delivery phases, dates, assigned members and progress status."
+        >
+          {showTimeline ? (
+            <>
+              <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                <table className="w-full min-w-[920px] text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <TableHead>Phase</TableHead>
+                      <TableHead>Start Date</TableHead>
+                      <TableHead>End Date</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Status</TableHead>
                     </tr>
                   </thead>
-                  <tbody>
+
+                  <tbody className="divide-y divide-slate-100 bg-white">
                     {timelineData.map((row, idx) => (
-                      <tr key={idx}>
-                        <td className="border border-slate-200 p-2">
-                          <input
-                            type="text"
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <TableCell>
+                          <TableInput
                             value={row.phase}
-                            onChange={(event) => {
+                            placeholder="Phase"
+                            onChange={(value) => {
                               const newData = [...timelineData];
-                              newData[idx].phase = event.target.value;
+                              newData[idx].phase = value;
                               setTimelineData(newData);
                             }}
-                            placeholder="Phase"
-                            className="w-full p-1 bg-slate-50 rounded"
                           />
-                        </td>
-                        <td className="border border-slate-200 p-2">
-                          <input
+                        </TableCell>
+
+                        <TableCell>
+                          <TableInput
                             type="date"
                             value={row.startDate}
-                            onChange={(event) => {
+                            min={minDate}
+                            onChange={(value) => {
                               const newData = [...timelineData];
-                              newData[idx].startDate = event.target.value;
+                              newData[idx].startDate = value;
                               newData[idx].duration = calculateDurationInDays(
                                 newData[idx].startDate,
-                                newData[idx].endDate,
+                                newData[idx].endDate
                               );
                               setTimelineData(newData);
                             }}
-                            min={minDate}
-                            className="w-full p-1 bg-slate-50 rounded"
                           />
-                        </td>
-                        <td className="border border-slate-200 p-2">
-                          <input
+                        </TableCell>
+
+                        <TableCell>
+                          <TableInput
                             type="date"
                             value={row.endDate}
-                            onChange={(event) => {
+                            min={row.startDate || minDate}
+                            onChange={(value) => {
                               const newData = [...timelineData];
-                              newData[idx].endDate = event.target.value;
+                              newData[idx].endDate = value;
                               newData[idx].duration = calculateDurationInDays(
                                 newData[idx].startDate,
-                                newData[idx].endDate,
+                                newData[idx].endDate
                               );
                               setTimelineData(newData);
                             }}
-                            min={row.startDate || minDate}
-                            className="w-full p-1 bg-slate-50 rounded"
                           />
-                        </td>
-                        <td className="border border-slate-200 p-2">
-                          <input
-                            type="text"
-                            value={row.duration}
-                            readOnly
-                            placeholder="Duration"
-                            className="w-full p-1 bg-slate-50 rounded"
-                          />
-                        </td>
-                        <td className="border border-slate-200 p-2">
-                          <input
-                            type="text"
+                        </TableCell>
+
+                        <TableCell>
+                          <TableInput value={row.duration} readOnly placeholder="Duration" />
+                        </TableCell>
+
+                        <TableCell>
+                          <TableInput
                             value={row.assignedTo}
-                            onChange={(event) => {
-                              const newData = [...timelineData];
-                              newData[idx].assignedTo = event.target.value;
-                              setTimelineData(newData);
-                            }}
                             placeholder="Assigned To"
-                            className="w-full p-1 bg-slate-50 rounded"
-                          />
-                        </td>
-                        <td className="border border-slate-200 p-2">
-                          <input
-                            type="text"
-                            value={row.status}
-                            onChange={(event) => {
+                            onChange={(value) => {
                               const newData = [...timelineData];
-                              newData[idx].status = event.target.value;
+                              newData[idx].assignedTo = value;
                               setTimelineData(newData);
                             }}
-                            placeholder="Status"
-                            className="w-full p-1 bg-slate-50 rounded"
                           />
-                        </td>
+                        </TableCell>
+
+                        <TableCell>
+                          <TableInput
+                            value={row.status}
+                            placeholder="Status"
+                            onChange={(value) => {
+                              const newData = [...timelineData];
+                              newData[idx].status = value;
+                              setTimelineData(newData);
+                            }}
+                          />
+                        </TableCell>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="flex gap-3">
-                <button
+
+              <ActionRow>
+                <Button
                   onClick={() =>
                     setTimelineData([
                       ...timelineData,
@@ -292,219 +285,122 @@ export default function CreateProposalSection({
                       },
                     ])
                   }
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"
+                  variant="primary"
                 >
-                  Add a Row
-                </button>
-                <button
-                  onClick={() => setShowTimeline(false)}
-                  className="px-4 py-2 bg-slate-400 text-white rounded hover:bg-slate-500 font-bold"
-                >
+                  Add Row
+                </Button>
+
+                <Button onClick={() => setShowTimeline(false)} variant="muted">
                   Move Back
-                </button>
-                <button
-                  onClick={() => {
-                    setTimelineSavedMessage("Saved");
-                  }}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold"
+                </Button>
+
+                <Button
+                  onClick={() => setTimelineSavedMessage("Saved")}
+                  variant="success"
                 >
                   Save Changes
-                </button>
-              </div>
+                </Button>
+              </ActionRow>
+
               {timelineSavedMessage && (
-                <p className="text-sm text-green-700 mt-3">
+                <p className="text-sm font-bold text-emerald-600">
                   {timelineSavedMessage}
                 </p>
               )}
-            </div>
-          )}
-          {!showTimeline && (
-            <button
-              onClick={() => setShowTimeline(true)}
-              className="px-6 py-2 bg-[#000066] text-white rounded hover:bg-blue-900 font-bold"
-            >
+            </>
+          ) : (
+            <Button onClick={() => setShowTimeline(true)} variant="primary">
               View Timeline
-            </button>
+            </Button>
           )}
-        </div>
+        </SectionCard>
 
-        <div className="mt-6 border-t pt-6">
-          <h3 className="font-bold text-slate-700 mb-4">Estimated Budget *</h3>
-          {showBudget && (
-            <div className="mb-4">
-              <div className="overflow-x-auto mb-4">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50">
-                      <th className="border border-slate-200 p-2 text-left">
-                        Item
-                      </th>
-                      <th className="border border-slate-200 p-2 text-left">
-                        Description
-                      </th>
-                      <th className="border border-slate-200 p-2 text-left">
-                        Quantity
-                      </th>
-                      <th className="border border-slate-200 p-2 text-left">
-                        Unit price
-                      </th>
-                      <th className="border border-slate-200 p-2 text-left">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {budgetData.map((row, idx) => (
-                      <tr key={idx}>
-                        <td className="border border-slate-200 p-2">
-                          <input
-                            type="text"
-                            value={row.item}
-                            onChange={(event) => {
-                              const newData = [...budgetData];
-                              newData[idx].item = event.target.value;
-                              setBudgetData(newData);
-                            }}
-                            placeholder="Item"
-                            className="w-full p-1 bg-slate-50 rounded"
-                          />
-                        </td>
-                        <td className="border border-slate-200 p-2">
-                          <input
-                            type="text"
-                            value={row.description}
-                            onChange={(event) => {
-                              const newData = [...budgetData];
-                              newData[idx].description = event.target.value;
-                              setBudgetData(newData);
-                            }}
-                            placeholder="Description"
-                            className="w-full p-1 bg-slate-50 rounded"
-                          />
-                        </td>
-                        <td className="border border-slate-200 p-2">
-                          <input
-                            type="number"
-                            value={row.quantity}
-                            onChange={(event) => {
-                              const newData = [...budgetData];
-                              newData[idx].quantity = event.target.value;
-                              newData[idx].total = calculateRowTotal(
-                                newData[idx].quantity,
-                                newData[idx].unitPrice,
-                              );
-                              setBudgetData(newData);
-                            }}
-                            placeholder="Quantity"
-                            className="w-full p-1 bg-slate-50 rounded"
-                          />
-                        </td>
-                        <td className="border border-slate-200 p-2">
-                          <input
-                            type="number"
-                            value={row.unitPrice}
-                            onChange={(event) => {
-                              const newData = [...budgetData];
-                              newData[idx].unitPrice = event.target.value;
-                              newData[idx].total = calculateRowTotal(
-                                newData[idx].quantity,
-                                newData[idx].unitPrice,
-                              );
-                              setBudgetData(newData);
-                            }}
-                            placeholder="Unit price"
-                            className="w-full p-1 bg-slate-50 rounded"
-                          />
-                        </td>
-                        <td className="border border-slate-200 p-2">
-                          <input
-                            type="number"
-                            value={row.total}
-                            readOnly
-                            placeholder="Total"
-                            className="w-full p-1 bg-slate-50 rounded"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() =>
-                    setBudgetData([
-                      ...budgetData,
-                      {
-                        item: "",
-                        description: "",
-                        quantity: "",
-                        unitPrice: "",
-                        total: "",
-                      },
-                    ])
-                  }
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold"
-                >
-                  Add a Row
-                </button>
-                <button
-                  onClick={() => setShowBudget(false)}
-                  className="px-4 py-2 bg-slate-400 text-white rounded hover:bg-slate-500 font-bold"
-                >
-                  Move Back
-                </button>
-                <button
-                  onClick={() => {
-                    setBudgetSavedMessage("Saved");
-                  }}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold"
-                >
-                  Save Changes
-                </button>
-              </div>
-              {budgetSavedMessage && (
-                <p className="text-sm text-green-700 mt-3">
-                  {budgetSavedMessage}
-                </p>
-              )}
-            </div>
-          )}
-          {!showBudget && (
-            <button
-              onClick={() => setShowBudget(true)}
-              className="px-6 py-2 bg-[#000066] text-white rounded hover:bg-blue-900 font-bold"
-            >
-              View Budget
-            </button>
-          )}
-        </div>
+                 
 
         {!isFormValid && (
-          <p className="text-sm text-red-600 mt-6">
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-bold text-rose-600">
             All fields are required. Fill every column to enable submit.
-          </p>
+          </div>
         )}
-        <div className="flex gap-4 pt-6 border-t mt-6">
-          <button
-            onClick={onClear}
-            className="px-6 py-3 bg-red-500 text-white rounded hover:bg-red-600 font-bold"
-          >
+
+        <div className="flex flex-wrap gap-4 border-t border-slate-100 pt-6">
+          <Button onClick={onClear} variant="danger">
             Clear
-          </button>
+          </Button>
+
           <button
+            type="button"
             onClick={onSubmit}
             disabled={!isFormValid}
-            className={`px-6 py-3 text-white rounded font-bold ${
+            className={`rounded-2xl px-7 py-3 text-sm font-black text-white shadow-lg transition ${
               isFormValid
-                ? "bg-blue-800 hover:bg-blue-900"
-                : "bg-slate-300 cursor-not-allowed"
+                ? "bg-gradient-to-r from-indigo-600 to-violet-600 hover:-translate-y-0.5 hover:shadow-xl"
+                : "cursor-not-allowed bg-slate-300"
             }`}
           >
-            Submit
+            Submit Proposal
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+function SectionCard({ title, subtitle, children }) {
+  return (
+    <section className="space-y-5 border-t border-slate-100 pt-7">
+      <div>
+        <h3 className="text-xl font-black text-slate-950">{title}</h3>
+        <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function TableHead({ children }) {
+  return (
+    <th className="px-4 py-4 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+      {children}
+    </th>
+  );
+}
+
+function TableCell({ children }) {
+  return <td className="px-3 py-3">{children}</td>;
+}
+
+function TableInput({ value, onChange, ...props }) {
+  return (
+    <input
+      value={value}
+      onChange={(event) => onChange?.(event.target.value)}
+      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+      {...props}
+    />
+  );
+}
+
+function ActionRow({ children }) {
+  return <div className="flex flex-wrap gap-3">{children}</div>;
+}
+
+function Button({ children, onClick, variant = "primary" }) {
+  const styles = {
+    primary:
+      "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg hover:-translate-y-0.5",
+    muted: "bg-slate-100 text-slate-700 hover:bg-slate-200",
+    success: "bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg",
+    danger: "bg-rose-600 text-white hover:bg-rose-700 shadow-lg",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl px-5 py-3 text-sm font-black transition ${styles[variant]}`}
+    >
+      {children}
+    </button>
   );
 }

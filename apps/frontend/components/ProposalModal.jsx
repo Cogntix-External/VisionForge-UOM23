@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { CheckCircle2, XCircle, X } from "lucide-react";
 import { acceptProposal, rejectProposal } from "@/services/api";
 
 export default function ProposalModal({
@@ -17,11 +18,28 @@ export default function ProposalModal({
 
   if (!isOpen || !proposal) return null;
 
+  const isStatusPending =
+    String(proposal.status || "").toUpperCase() === "PENDING";
+
+  const getStatusStyle = (status) => {
+    const normalized = String(status || "").toUpperCase();
+
+    if (normalized === "ACCEPTED") {
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
+
+    if (normalized === "REJECTED") {
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    }
+
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  };
+
   const handleAccept = async () => {
     if (!clientId || !proposal.id) {
-      const missingError = `Missing client ID or proposal ID (clientId: ${clientId}, proposalId: ${proposal.id})`;
-      setError(missingError);
-      console.error(missingError);
+      setError(
+        `Missing client ID or proposal ID (clientId: ${clientId}, proposalId: ${proposal.id})`
+      );
       return;
     }
 
@@ -29,16 +47,12 @@ export default function ProposalModal({
     setError(null);
 
     try {
-      console.log(`Accepting proposal ${proposal.id} for client ${clientId}`);
       const updatedProposal = await acceptProposal(proposal.id, clientId);
-      console.log("Proposal accepted successfully:", updatedProposal);
       onProposalUpdate(updatedProposal);
       alert("Proposal accepted successfully!");
       onClose();
     } catch (err) {
-      const errorMsg = err.message || "Failed to accept proposal";
-      console.error("Accept proposal error:", err);
-      setError(errorMsg);
+      setError(err.message || "Failed to accept proposal");
     } finally {
       setLoading(false);
     }
@@ -46,9 +60,9 @@ export default function ProposalModal({
 
   const handleRejectSubmit = async () => {
     if (!clientId || !proposal.id) {
-      const missingError = `Missing client ID or proposal ID (clientId: ${clientId}, proposalId: ${proposal.id})`;
-      setError(missingError);
-      console.error(missingError);
+      setError(
+        `Missing client ID or proposal ID (clientId: ${clientId}, proposalId: ${proposal.id})`
+      );
       return;
     }
 
@@ -61,159 +75,131 @@ export default function ProposalModal({
     setError(null);
 
     try {
-      console.log(
-        `Rejecting proposal ${proposal.id} for client ${clientId} with reason: ${rejectionReason}`,
-      );
       const updatedProposal = await rejectProposal(
         proposal.id,
         clientId,
-        rejectionReason,
+        rejectionReason.trim()
       );
-      console.log("Proposal rejected successfully:", updatedProposal);
+
       onProposalUpdate(updatedProposal);
       setShowRejectForm(false);
       setRejectionReason("");
       alert("Proposal rejected successfully!");
       onClose();
     } catch (err) {
-      const errorMsg = err.message || "Failed to reject proposal";
-      console.error("Reject proposal error:", err);
-      setError(errorMsg);
+      setError(err.message || "Failed to reject proposal");
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    const normalizedStatus = String(status || "").toUpperCase();
-    if (normalizedStatus === "ACCEPTED") return "bg-green-100 text-green-800";
-    if (normalizedStatus === "REJECTED") return "bg-red-100 text-red-800";
-    return "bg-yellow-100 text-yellow-800";
-  };
-
-  const isStatusPending =
-    String(proposal.status || "").toUpperCase() === "PENDING";
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-slate-800">
-            Proposal Details
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-slate-500 hover:text-slate-700 text-2xl leading-none"
-          >
-            ✕
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[32px] bg-white shadow-2xl">
+        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-5 text-white">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="mb-1 text-xs font-black uppercase tracking-[0.22em] text-white/70">
+                Proposal Review
+              </p>
+              <h2 className="text-2xl font-black">Proposal Details</h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl bg-white/15 p-2 transition hover:bg-white/25"
+              aria-label="Close proposal modal"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="flex-1 space-y-6 overflow-y-auto p-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3">
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
               {error}
             </div>
           )}
 
-          {/* Status Badge */}
-          <div>
-            <span
-              className={`inline-block px-4 py-2 rounded-lg font-semibold ${getStatusColor(
-                proposal.status,
-              )}`}
-            >
-              {String(proposal.status || "PENDING").toUpperCase()}
-            </span>
-          </div>
+          <span
+            className={`inline-flex rounded-full border px-4 py-2 text-xs font-black uppercase ${getStatusStyle(
+              proposal.status
+            )}`}
+          >
+            {String(proposal.status || "PENDING").toUpperCase()}
+          </span>
 
-          {/* Proposal Details Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="text-sm font-semibold text-slate-600">
-                Project Title
-              </label>
-              <p className="text-lg text-slate-900 mt-1">
-                {proposal.title || "N/A"}
-              </p>
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field label="Project Title" value={proposal.title || "N/A"} />
 
-            <div>
-              <label className="text-sm font-semibold text-slate-600">
-                Proposal ID
-              </label>
-              <p className="text-lg text-slate-900 mt-1 font-mono text-sm break-all">
-                {proposal.id || "N/A"}
-              </p>
-            </div>
+            <Field label="Proposal ID" value={proposal.id || "N/A"} mono />
 
-            <div>
-              <label className="text-sm font-semibold text-slate-600">
-                Company Name
-              </label>
-              <p className="text-lg text-slate-900 mt-1">
-                {proposal.companyId || "N/A"}
-              </p>
-            </div>
+            <Field label="Company Name" value={proposal.companyId || "N/A"} />
 
-            <div>
-              <label className="text-sm font-semibold text-slate-600">
-                Submitted Date
-              </label>
-              <p className="text-lg text-slate-900 mt-1">
-                {proposal.createdAt
+            <Field
+              label="Submitted Date"
+              value={
+                proposal.createdAt
                   ? new Date(proposal.createdAt).toLocaleDateString()
-                  : "N/A"}
-              </p>
-            </div>
+                  : "N/A"
+              }
+            />
           </div>
 
-          {/* Description */}
-          <div>
-            <label className="text-sm font-semibold text-slate-600">
+          <div className="rounded-[24px] border border-slate-100 bg-slate-50/90 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
               Description
-            </label>
-            <p className="text-slate-700 mt-2 leading-relaxed">
+            </p>
+            <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-600">
               {proposal.description || "No description provided"}
             </p>
           </div>
 
-          {/* Rejection Reason (if applicable) */}
           {proposal.rejectionReason && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <label className="text-sm font-semibold text-red-800">
+            <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-500">
                 Rejection Reason
-              </label>
-              <p className="text-red-700 mt-2">{proposal.rejectionReason}</p>
+              </p>
+              <p className="mt-3 text-sm font-bold leading-relaxed text-rose-700">
+                {proposal.rejectionReason}
+              </p>
             </div>
           )}
 
-          {/* Reject Form */}
           {showRejectForm && isStatusPending && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Please provide a reason for rejection..."
-                className="w-full p-3 border border-red-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                rows="4"
-              />
+            <div className="space-y-4 rounded-[24px] border border-rose-200 bg-rose-50 p-5">
+              <div>
+                <label className="mb-2 block text-sm font-black text-rose-700">
+                  Rejection Reason
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Please provide a reason for rejection..."
+                  className="min-h-[120px] w-full rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                  rows="4"
+                />
+              </div>
+
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={handleRejectSubmit}
                   disabled={loading || !rejectionReason.trim()}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 font-semibold"
+                  className="flex-1 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-black text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {loading ? "Processing..." : "Confirm Rejection"}
                 </button>
+
                 <button
+                  type="button"
                   onClick={() => {
                     setShowRejectForm(false);
                     setRejectionReason("");
                   }}
-                  className="flex-1 px-4 py-2 bg-slate-300 text-slate-800 rounded-lg hover:bg-slate-400 font-semibold"
+                  className="flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
                 >
                   Cancel
                 </button>
@@ -222,32 +208,36 @@ export default function ProposalModal({
           )}
         </div>
 
-        {/* Footer - Action Buttons */}
         {isStatusPending && !showRejectForm && (
-          <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 p-6 flex gap-3 justify-end">
+          <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-5">
             <button
+              type="button"
               onClick={() => setShowRejectForm(true)}
               disabled={loading}
-              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 font-semibold"
+              className="inline-flex items-center gap-2 rounded-2xl bg-rose-600 px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-rose-700 disabled:bg-slate-300"
             >
+              <XCircle className="h-4 w-4" />
               {loading ? "Processing..." : "Reject Proposal"}
             </button>
+
             <button
+              type="button"
               onClick={handleAccept}
               disabled={loading}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 font-semibold"
+              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:bg-slate-300"
             >
+              <CheckCircle2 className="h-4 w-4" />
               {loading ? "Processing..." : "Accept Proposal"}
             </button>
           </div>
         )}
 
-        {/* Footer - Close Button */}
         {!isStatusPending && (
-          <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 p-6 flex justify-end">
+          <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-6 py-5">
             <button
+              type="button"
               onClick={onClose}
-              className="px-6 py-2 bg-slate-400 text-white rounded-lg hover:bg-slate-500 font-semibold"
+              className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black text-white shadow-lg transition hover:bg-indigo-600"
             >
               Close
             </button>
@@ -257,3 +247,18 @@ export default function ProposalModal({
     </div>
   );
 }
+
+const Field = ({ label, value, mono = false }) => (
+  <div className="rounded-2xl border border-slate-100 bg-slate-50/90 p-5">
+    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+      {label}
+    </p>
+    <p
+      className={`mt-3 break-words text-sm font-black text-slate-900 ${
+        mono ? "font-mono" : ""
+      }`}
+    >
+      {value || "-"}
+    </p>
+  </div>
+);

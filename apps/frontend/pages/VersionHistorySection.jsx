@@ -150,8 +150,9 @@ export default function VersionHistorySection({ versions = [] }) {
                   <td className="py-4 px-4 text-center">
                     <button
                       onClick={() => viewHistory(row)}
-                      className="border border-[#B2EBF2] text-teal-700 px-4 py-2 rounded-lg text-xs font-semibold hover:bg-cyan-50 transition-colors"
-                    >
+                       className="rounded-full bg-slate-950 px-5 py-2.5 text-xs font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-600"
+                        >
+                    
                       View
                     </button>
                   </td>
@@ -172,9 +173,7 @@ export default function VersionHistorySection({ versions = [] }) {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-2xl sm:text-3xl font-bold text-gray-800">Version History</h3>
-                    <p className="mt-2 text-sm text-gray-500 break-all">
-                      Project: {activeRow.projectId} | PRD: {activeRow.prdId || "-"} | Client: {activeRow.clientId || "-"}
-                    </p>
+                   
                   </div>
                   <button
                     type="button"
@@ -203,7 +202,6 @@ export default function VersionHistorySection({ versions = [] }) {
 
                 <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
                   <div className="px-5 py-4 border-b border-gray-100">
-                    <h4 className="text-lg font-bold text-gray-800">Timeline from 1.0 to current</h4>
                     <p className="text-sm text-gray-500 mt-1">
                       Each version shows what changed, when it was decided, and the exact note saved for that edit.
                     </p>
@@ -232,7 +230,7 @@ export default function VersionHistorySection({ versions = [] }) {
                         {detailRows.map((version, idx) => (
                           <tr key={idx} className="border-b border-gray-50 align-top">
                             <td className="py-4 px-4 font-semibold text-gray-700 whitespace-nowrap">
-                              {idx === 0 ? "1.0" : version.version}
+                              {idx === 0 ? "1.1" : version.version}
                             </td>
                             <td className="py-4 px-4 text-gray-600 whitespace-nowrap">{version.date}</td>
                             <td className="py-4 px-4 text-gray-700 max-w-xl">

@@ -1,197 +1,214 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  Bell,
   ChevronLeft,
   ChevronRight,
   Clock,
   FileText,
   LayoutDashboard,
   Plus,
-  Search
+  Search,
 } from "lucide-react";
 import { cn } from "../utils/cn.js";
 
 export default function DashboardSection({ projects = [], onCreate = () => {} }) {
-  const dashboardStats = useMemo(() => {
-    const totalProjects = projects.length;
-    const activeProjects = projects.filter(
-      (project) => String(project.state || project.status || "").toUpperCase() === "ACTIVE",
-    ).length;
-    const completedProjects = projects.filter(
-      (project) => String(project.state || project.status || "").toUpperCase() === "COMPLETED",
-    ).length;
-    const updatedThisWeek = projects.filter((project) => {
-      if (!project.lastUpdated) return false;
-      const updatedAt = new Date(project.lastUpdated);
-      if (Number.isNaN(updatedAt.getTime())) return false;
+  const [searchTerm, setSearchTerm] = useState("");
 
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      return updatedAt >= oneWeekAgo;
+  const stats = useMemo(() => {
+    const total = projects.length;
+    const active = projects.filter(
+      (p) => (p.status || "").toUpperCase() === "ACTIVE"
+    ).length;
+
+    const updated = projects.filter((p) => {
+      const date = p.lastUpdated || p.updatedAt;
+      if (!date) return false;
+      return new Date(date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     }).length;
 
-    return {
-      totalProjects,
-      activeProjects,
-      completedProjects,
-      updatedThisWeek,
-    };
+    return { total, active, updated };
   }, [projects]);
 
-  const recentProjects = useMemo(
-    () =>
-      [...projects].sort((left, right) => {
-        const leftDate = new Date(left.lastUpdated || left.createdAt || 0).getTime();
-        const rightDate = new Date(right.lastUpdated || right.createdAt || 0).getTime();
-        return rightDate - leftDate;
-      }),
-    [projects],
-  );
+  const filteredProjects = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    return [...projects]
+      .filter((p) => {
+        if (!term) return true;
+
+        return (
+          String(p.title || p.name || "").toLowerCase().includes(term) ||
+          String(p.clientName || "").toLowerCase().includes(term) ||
+          String(p.status || "").toLowerCase().includes(term)
+        );
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.lastUpdated || b.updatedAt || 0) -
+          new Date(a.lastUpdated || a.updatedAt || 0)
+      );
+  }, [projects, searchTerm]);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto w-full">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">
-          Welcome to your Dashboard!
-        </h1>
-        
-      </div>
+    <div className="mx-auto w-full max-w-7xl space-y-7 px-4 py-8">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
+        <Card
+          title="Total Projects"
+          value={stats.total}
+          icon={<LayoutDashboard className="h-5 w-5" />}
+        />
+        <Card
+          title="Active Projects"
+          value={stats.active}
+          icon={<FileText className="h-5 w-5" />}
+        />
+        <Card
+          title="Updated This Week"
+          value={stats.updated}
+          icon={<Clock className="h-5 w-5" />}
+        />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
-            <LayoutDashboard className="w-6 h-6 text-slate-700" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 uppercase font-bold">Total Projects</p>
-            <p className="text-2xl font-bold">{dashboardStats.totalProjects}</p>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center">
-            <FileText className="w-6 h-6 text-purple-700" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 uppercase font-bold">
-              Active Projects
-            </p>
-            <p className="text-2xl font-bold">{dashboardStats.activeProjects}</p>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-            <Clock className="w-6 h-6 text-blue-700" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 uppercase font-bold">
-              Updated This Week
-            </p>
-            <p className="text-2xl font-bold text-slate-700">{dashboardStats.updatedThisWeek}</p>
-          </div>
-        </div>
         <button
+          type="button"
           onClick={onCreate}
-          className="bg-[#000066] text-white p-6 rounded-3xl shadow-lg hover:bg-blue-900 transition-all flex items-center justify-center font-bold text-center gap-2"
+          className="flex min-h-[116px] items-center justify-center gap-3 rounded-[28px] bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-5 text-sm font-black text-white shadow-[0_20px_55px_rgba(79,70,229,0.25)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(79,70,229,0.35)]"
         >
-          <Plus className="w-5 h-5" />
-          Create New Project Proposal
+          <Plus className="h-5 w-5" />
+          Create Proposal
         </button>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-bold text-teal-800">
-            Recent Project Activity
-          </h2>
-          <div className="flex items-center gap-2 text-sm text-slate-400">
-            <span>Sort by :</span>
-            <span className="font-bold text-slate-600">Newest</span>
+      <div className="overflow-hidden rounded-[32px] border border-white bg-white/95 shadow-[0_24px_70px_rgba(15,23,42,0.10)]">
+        <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-6 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-black text-slate-950">
+              Recent Activity
+            </h2>
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              {filteredProjects.length} project
+              {filteredProjects.length === 1 ? "" : "s"} found
+            </p>
+          </div>
+
+          <div className="relative w-full md:w-[360px]">
+            <Search
+              className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+              size={18}
+            />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search project, client, status..."
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+            />
           </div>
         </div>
 
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search"
-            className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-blue-100 transition-all"
-          />
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px]">
+            <thead className="bg-slate-50">
+              <tr>
+                <TableHead>Project</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Updated</TableHead>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {filteredProjects.length > 0 ? (
+                filteredProjects.map((p, i) => (
+                  <tr key={p.id || i} className="transition hover:bg-indigo-50/40">
+                    <td className="px-6 py-5 text-sm font-black text-slate-900">
+                      {p.title || p.name || "-"}
+                    </td>
+
+                    <td className="px-6 py-5">
+                      <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black uppercase text-emerald-700">
+                        {p.status || "ACTIVE"}
+                      </span>
+                    </td>
+
+                    <td className="max-w-[280px] px-6 py-5 text-sm font-semibold text-slate-600">
+                      <div className="truncate">{p.clientName || "-"}</div>
+                    </td>
+
+                    <td className="px-6 py-5 text-sm font-semibold text-slate-500">
+                      {formatDate(p.lastUpdated || p.updatedAt)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-8 py-16 text-center text-sm font-black text-slate-400"
+                  >
+                    No recent project activity found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
-        <table className="w-full text-left">
-          <thead>
-            <tr className="text-slate-300 text-xs uppercase tracking-wider border-b border-slate-50">
-              <th className="pb-4 font-bold">Project Name</th>
-              <th className="pb-4 font-bold">Status</th>
-              <th className="pb-4 font-bold">Client ID</th>
-              <th className="pb-4 font-bold">Client Name</th>
-              <th className="pb-4 font-bold">Last Updated</th>
-              <th className="pb-4 font-bold">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="text-sm">
-            {recentProjects.map((proj) => (
-              <tr key={proj.id} className="border-b border-slate-50 last:border-0">
-                <td className="py-4 font-medium text-slate-700">{proj.title}</td>
-                <td className="py-4">
-                  <span
-                    className={cn(
-                      "font-bold",
-                      String(proj.state || proj.status || "").toUpperCase() === "ACTIVE" && "text-green-500",
-                      String(proj.state || proj.status || "").toUpperCase() === "COMPLETED" && "text-slate-800",
-                      String(proj.state || proj.status || "").toUpperCase() === "CANCELLED" && "text-red-500"
-                    )}
-                  >
-                    {proj.state || proj.status || "ACTIVE"}
-                  </span>
-                </td>
-                <td className="py-4 text-slate-600">{proj.owner}</td>
-                <td className="py-4 text-slate-600">{proj.clientName || "-"}</td>
-                <td className="py-4 text-slate-400">{proj.lastUpdated}</td>
-                <td className="py-4">
-                  <span
-                    className={cn(
-                      "font-bold",
-                      String(proj.state || proj.status || "").toUpperCase() === "ACTIVE" && "text-green-600",
-                      String(proj.state || proj.status || "").toUpperCase() === "DRAFT" && "text-teal-500",
-                      String(proj.state || proj.status || "").toUpperCase() === "CANCELLED" && "text-red-500"
-                    )}
-                  >
-                    {proj.state || proj.status || "ACTIVE"}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="mt-6 flex justify-end gap-2">
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-100 text-slate-400 hover:bg-slate-200">
+        <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-5">
+          <PageBtn>
             <ChevronLeft size={16} />
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-[#5D57C9] text-white">
-            1
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-400">
-            2
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-400">
-            3
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-400">
-            4
-          </button>
-          <span className="px-2 self-center">...</span>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-50 text-slate-400">
-            40
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded bg-slate-100 text-slate-400 hover:bg-slate-200">
+          </PageBtn>
+          <PageBtn active>1</PageBtn>
+          <PageBtn>2</PageBtn>
+          <PageBtn>3</PageBtn>
+          <PageBtn>
             <ChevronRight size={16} />
-          </button>
+          </PageBtn>
         </div>
       </div>
     </div>
   );
 }
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString();
+};
+
+const Card = ({ title, value, icon }) => (
+  <div className="group relative overflow-hidden rounded-[28px] border border-white bg-white p-6 shadow-[0_20px_55px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
+    <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-indigo-500/10 transition group-hover:scale-125" />
+
+    <div className="relative flex items-center gap-4">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+        {icon}
+      </div>
+
+      <div>
+        <p className="text-sm font-bold text-slate-400">{title}</p>
+        <p className="mt-1 text-3xl font-black text-slate-950">{value}</p>
+      </div>
+    </div>
+  </div>
+);
+
+const TableHead = ({ children }) => (
+  <th className="px-6 py-5 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+    {children}
+  </th>
+);
+
+const PageBtn = ({ children, active }) => (
+  <button
+    type="button"
+    className={cn(
+      "flex h-9 w-9 items-center justify-center rounded-xl text-sm font-black transition",
+      active
+        ? "bg-indigo-600 text-white shadow-lg"
+        : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+    )}
+  >
+    {children}
+  </button>
+);

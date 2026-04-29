@@ -24,13 +24,10 @@ const Kanban = () => {
   const loadProjects = async () => {
     try {
       setLoadingProjects(true);
-      setError("");
-
       const data = await getClientProjects();
       setProjects(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Projects could not be loaded.");
+      setError("Projects could not be loaded.");
     } finally {
       setLoadingProjects(false);
     }
@@ -40,7 +37,6 @@ const Kanban = () => {
     const projectId = e.target.value;
     setSelectedProjectId(projectId);
     setBoard(null);
-    setError("");
 
     if (!projectId) return;
 
@@ -49,8 +45,7 @@ const Kanban = () => {
       const data = await getClientProjectKanban(projectId);
       setBoard(data);
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Kanban board could not be loaded.");
+      setError("Kanban board could not be loaded.");
     } finally {
       setLoadingBoard(false);
     }
@@ -59,97 +54,94 @@ const Kanban = () => {
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] px-6 py-8">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <div className="rounded-[28px] bg-white p-8 shadow-xl">
-          <h1 className="text-3xl font-bold text-gray-900">Kanban Board</h1>
-          <p className="mt-2 text-gray-500">
-            Select a project to view its kanban board.
-          </p>
-        </div>
+    <div className="min-h-screen bg-slate-100 px-6 py-8">
+     
 
-        <div className="rounded-[28px] bg-white p-8 shadow-xl">
-          <label className="mb-3 block text-lg font-bold text-gray-800">
+        {/* 🔥 PROJECT SELECT */}
+        <div className="rounded-3xl bg-white p-6 shadow-md border border-slate-100">
+          <label className="block text-lg font-bold text-slate-800 mb-3">
             Select Project
           </label>
 
           <select
             value={selectedProjectId}
             onChange={handleProjectChange}
-            className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-lg outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-300"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           >
-            <option value="">-- Choose a project --</option>
+            <option value="">Choose a project</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
-                {project.name || project.title || project.id}
+                {project.name || project.title}
               </option>
             ))}
           </select>
 
           {loadingProjects && (
-            <p className="mt-4 text-sm font-semibold text-gray-500">
+            <p className="mt-3 text-sm text-slate-500">
               Loading projects...
             </p>
           )}
-        </div>
+        
 
+        {/* ERROR */}
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-4 text-red-600 font-semibold">
+          <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-red-600 font-semibold">
             {error}
           </div>
         )}
 
+        {/* LOADING */}
         {loadingBoard && (
-          <div className="rounded-[28px] bg-white p-8 text-center shadow-xl">
-            <p className="text-lg font-semibold text-gray-500">
-              Loading kanban board...
+          <div className="bg-white p-8 rounded-3xl text-center shadow">
+            <p className="text-slate-500 font-semibold">
+              Loading board...
             </p>
           </div>
         )}
 
+        {/* BOARD */}
         {!loadingBoard && selectedProjectId && board && (
-          <div className="space-y-6">
-            <div className="rounded-[28px] bg-white p-8 shadow-xl">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {selectedProject?.name || "Selected Project"}
+          <>
+            <div className="rounded-3xl bg-white p-6 shadow border border-slate-100">
+              <h2 className="text-2xl font-bold text-slate-900">
+                {selectedProject?.name}
               </h2>
-              <p className="mt-1 text-gray-500">
-                View-only kanban board for this project.
+              <p className="text-sm text-slate-500">
+                Project Kanban overview
               </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="flex gap-6 overflow-x-auto pb-4">
               {(board.columns || []).map((column) => (
                 <div
                   key={column.id}
-                  className="rounded-[24px] bg-white p-5 shadow-xl"
+                  className="min-w-[280px] bg-white rounded-2xl shadow border border-slate-100 p-4"
                 >
-                  <div className="mb-5 flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-gray-900">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800">
                       {column.title}
                     </h3>
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-bold text-gray-600">
+                    <span className="text-xs bg-slate-100 px-2 py-1 rounded-full font-bold">
                       {column.tasks?.length || 0}
                     </span>
                   </div>
 
                   <div className="space-y-4">
-                    {column.tasks && column.tasks.length > 0 ? (
+                    {column.tasks?.length > 0 ? (
                       column.tasks.map((task) => (
                         <div
                           key={task.id}
-                          className="rounded-2xl border border-gray-100 bg-gray-50 p-4"
+                          className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition"
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <h4 className="font-bold text-gray-900">
+                          <div className="flex justify-between">
+                            <h4 className="font-semibold text-slate-900">
                               {task.title}
                             </h4>
 
                             {task.priority && (
                               <span
-                                className={`rounded-full px-2 py-1 text-xs font-bold ${
-                                  priorityStyles[task.priority] ||
-                                  "bg-gray-100 text-gray-600"
+                                className={`text-xs px-2 py-1 rounded-full font-bold ${
+                                  priorityStyles[task.priority]
                                 }`}
                               >
                                 {task.priority}
@@ -158,20 +150,20 @@ const Kanban = () => {
                           </div>
 
                           {task.description && (
-                            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                            <p className="text-sm text-slate-600 mt-2">
                               {task.description}
                             </p>
                           )}
 
                           {task.assignedTo && (
-                            <p className="mt-3 text-xs font-semibold text-gray-400">
-                              Assigned to: {task.assignedTo}
+                            <p className="text-xs text-slate-400 mt-3">
+                              {task.assignedTo}
                             </p>
                           )}
                         </div>
                       ))
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm font-semibold text-gray-400">
+                      <div className="text-center text-sm text-slate-400 py-6 border border-dashed rounded-xl">
                         No tasks
                       </div>
                     )}
@@ -179,16 +171,18 @@ const Kanban = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </>
         )}
 
-        {!selectedProjectId && !loadingBoard && (
-          <div className="rounded-[28px] bg-white p-10 text-center shadow-xl">
-            <p className="text-lg font-semibold text-gray-400">
-              Please select a project to view kanban board.
+        {/* EMPTY */}
+        {!selectedProjectId && (
+          <div className="rounded-3xl bg-white p-10 text-center shadow">
+            <p className="text-slate-400 font-semibold">
+              Select a project to view board
             </p>
           </div>
         )}
+
       </div>
     </div>
   );

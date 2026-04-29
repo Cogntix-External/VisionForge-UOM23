@@ -1,11 +1,12 @@
 "use client";
 
 import React from "react";
+import { X, Bell } from "lucide-react";
 import { getNotificationMeta } from "./notificationMeta";
 
 const NotificationPanel = ({
   isOpen,
-  notifications,
+  notifications = [],
   onClose,
   onNotificationClick,
 }) => {
@@ -13,20 +14,33 @@ const NotificationPanel = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
-      <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-xl font-bold text-gray-900">Notifications</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-black text-2xl"
-          >
-            x
-          </button>
+      <aside className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col overflow-hidden bg-white shadow-2xl">
+        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-5 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-white/70">
+                Activity Center
+              </p>
+              <h2 className="mt-1 text-2xl font-black">Notifications</h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl bg-white/15 p-2 transition hover:bg-white/25"
+              aria-label="Close notifications"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4">
           {notifications.length > 0 ? (
             notifications.map((notification) => {
               const meta = getNotificationMeta(notification.type);
@@ -35,51 +49,65 @@ const NotificationPanel = ({
               return (
                 <button
                   key={notification.id}
+                  type="button"
                   onClick={() => onNotificationClick(notification)}
-                  className={`w-full text-left p-4 rounded-xl border transition ${
+                  className={`w-full rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                     notification.read
-                      ? "bg-gray-50 border-gray-100"
+                      ? "border-slate-100 bg-white"
                       : meta.panelClass
                   }`}
                 >
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="flex items-start gap-3">
-                      <Icon className={`h-5 w-5 mt-0.5 ${meta.iconClass}`} />
-
-                      <div>
-                        <p className="font-bold text-gray-900">
-                          {notification.title}
-                        </p>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-1">
-                          {meta.label}
-                        </p>
-                        <p className="text-sm text-gray-600 mt-2">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-2">
-                          {notification.createdAt
-                            ? new Date(notification.createdAt).toLocaleString()
-                            : "-"}
-                        </p>
-                      </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm">
+                      <Icon className={`h-5 w-5 ${meta.iconClass}`} />
                     </div>
 
-                    {!notification.read && (
-                      <span
-                        className={`w-3 h-3 rounded-full mt-1 ${meta.unreadDotClass}`}
-                      />
-                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-black text-slate-900">
+                          {notification.title || "Notification"}
+                        </p>
+
+                        {!notification.read && (
+                          <span
+                            className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${meta.unreadDotClass}`}
+                          />
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">
+                        {meta.label}
+                      </p>
+
+                      <p className="mt-2 line-clamp-3 text-sm font-medium leading-relaxed text-slate-600">
+                        {notification.message || "-"}
+                      </p>
+
+                      <p className="mt-3 text-xs font-semibold text-slate-400">
+                        {notification.createdAt
+                          ? new Date(notification.createdAt).toLocaleString()
+                          : "-"}
+                      </p>
+                    </div>
                   </div>
                 </button>
               );
             })
           ) : (
-            <div className="text-center text-gray-400 py-10 font-semibold">
-              No notifications
+            <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-slate-400 shadow-sm">
+                <Bell className="h-7 w-7" />
+              </div>
+              <p className="text-lg font-black text-slate-700">
+                No notifications
+              </p>
+              <p className="mt-1 text-sm font-medium text-slate-400">
+                New updates will appear here.
+              </p>
             </div>
           )}
         </div>
-      </div>
+      </aside>
     </>
   );
 };

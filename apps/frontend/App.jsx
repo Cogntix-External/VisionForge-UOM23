@@ -11,6 +11,7 @@ import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import Documents from "./pages/Documents";
+import "./styles/globals.css";
 
 const ROLE = {
   CLIENT: "CLIENT",
@@ -32,69 +33,69 @@ const PAGE_INFO = {
   CLIENT: {
     dashboard: {
       title: "Client Dashboard",
-      subtitle: "Welcome back! Here is your project and request overview.",
+      subtitle: "Track proposals, projects, documents and change requests.",
     },
     projects: {
       title: "Projects",
-      subtitle: "View accepted projects and their current progress.",
+      subtitle: "View your accepted projects and delivery progress.",
     },
     documents: {
       title: "Project Documents",
-      subtitle: "View and download PRDs and related project files.",
+      subtitle: "View and download PRDs and project files.",
     },
     "change-requests": {
       title: "Change Requests",
-      subtitle: "Create and track your project change requests.",
+      subtitle: "Create and monitor your requested changes.",
     },
     proposals: {
       title: "Project Proposals",
-      subtitle: "Review company proposals and accept or reject them.",
+      subtitle: "Review proposals and make approval decisions.",
     },
     kanban: {
-      title: "Project Clientside Kanban",
-      subtitle: "Track your full project workflow and progress.",
+      title: "Client Kanban",
+      subtitle: "Follow project workflow in a visual board.",
     },
     notifications: {
       title: "Notifications",
-      subtitle: "See proposal updates, document uploads, and decisions.",
+      subtitle: "Stay updated with project and proposal alerts.",
     },
     settings: {
       title: "Settings",
-      subtitle: "Manage your account settings and preferences.",
+      subtitle: "Manage your profile and portal preferences.",
     },
   },
   COMPANY: {
     dashboard: {
       title: "Company Dashboard",
-      subtitle: "Manage proposals, projects, and delivery progress.",
+      subtitle: "Manage proposals, projects, PRDs and client requests.",
     },
     projects: {
       title: "Company Projects",
-      subtitle: "Manage all approved and active client projects.",
+      subtitle: "Manage active and approved client projects.",
     },
     documents: {
-      title: "Project Requirement Documents",
-      subtitle: "Upload PRDs and manage project documentation.",
+      title: "PRD Repository",
+      subtitle: "Upload and maintain project requirement documents.",
     },
     "change-requests": {
       title: "Change Requests",
-      subtitle: "Review client change requests and take action.",
+      subtitle: "Review client requests and take action.",
     },
     proposals: {
       title: "Project Proposals",
       subtitle: "Create and manage proposals sent to clients.",
     },
     kanban: {
-      title: "Project Company-side Kanban",
-      subtitle: "Manage tasks and monitor team progress visually.",
+      title: "Company Kanban",
+      subtitle: "Track team delivery workflow visually.",
     },
     notifications: {
       title: "Notifications",
-      subtitle: "Stay updated on approvals, uploads, and requests.",
+      subtitle: "View approvals, uploads and request updates.",
     },
     settings: {
       title: "Settings",
-      subtitle: "Manage company profile and portal preferences.",
+      subtitle: "Manage company profile and preferences.",
     },
   },
 };
@@ -117,7 +118,7 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [activePage, setActivePage] = useState("dashboard");
   const [showNotifications, setShowNotifications] = useState(false);
-  const [sidebarMode, setSidebarMode] = useState("collapsed");
+  const [sidebarMode, setSidebarMode] = useState("expanded");
 
   useEffect(() => {
     const storedToken = localStorage.getItem("crms_token");
@@ -180,11 +181,6 @@ const App = () => {
 
   const safeSetActivePage = (page) => {
     if (!currentRole) return;
-
-    if (typeof page !== "string") {
-      console.error("Invalid page value:", page);
-      return;
-    }
 
     if (PAGE_ACCESS[page]?.includes(currentRole)) {
       setActivePage(page);
@@ -293,26 +289,16 @@ const App = () => {
     }
   };
 
-  const getPageInfo = () => {
-    if (!currentRole) {
-      return {
-        title: "Dashboard",
-        subtitle: "",
-      };
-    }
-
-    return (
-      PAGE_INFO[currentRole]?.[activePage] || {
-        title: "Dashboard",
-        subtitle: "",
-      }
-    );
-  };
-
-  const pageInfo = getPageInfo();
+  const pageInfo =
+    PAGE_INFO[currentRole]?.[activePage] || {
+      title: "Dashboard",
+      subtitle: "",
+    };
 
   return (
-    <div className="flex h-screen bg-[#f3f4f6] overflow-hidden">
+    <div className="relative flex h-screen overflow-hidden bg-slate-950">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.28),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.22),_transparent_35%)]" />
+
       <Sidebar
         activePage={activePage}
         onNavigate={safeSetActivePage}
@@ -324,7 +310,7 @@ const App = () => {
         allowedPages={allowedPages}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header
           title={pageInfo.title}
           subtitle={pageInfo.subtitle}
@@ -336,28 +322,46 @@ const App = () => {
           role={currentRole}
         />
 
-        <main className="flex-1 overflow-y-auto p-8">{renderPage()}</main>
+        <main className="flex-1 overflow-y-auto bg-slate-50/95 p-6 md:p-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-8 rounded-[2rem] border border-white/80 bg-white/90 p-7 shadow-[0_24px_70px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+              <p className="mb-2 text-sm font-bold uppercase tracking-[0.28em] text-indigo-600">
+                {currentRole === ROLE.CLIENT ? "Client Portal" : "Company Portal"}
+              </p>
+              <h1 className="text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+                {pageInfo.title}
+              </h1>
+              <p className="mt-3 max-w-2xl text-base font-medium text-slate-500">
+                {pageInfo.subtitle}
+              </p>
+            </div>
+
+            <div className="rounded-[2rem] border border-white bg-white/80 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl md:p-7">
+              {renderPage()}
+            </div>
+          </div>
+        </main>
 
         {showNotifications && (
           <>
             <div
-              className="fixed inset-0 z-40 bg-transparent"
+              className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-sm"
               onClick={() => setShowNotifications(false)}
             />
-            <div className="absolute top-24 right-8 z-50 w-96 flex flex-col gap-3 pointer-events-auto">
+
+            <div className="absolute right-8 top-24 z-50 flex w-[26rem] max-w-[calc(100vw-2rem)] flex-col gap-4">
               {currentRole === ROLE.CLIENT ? (
                 <>
                   <NotificationCard
                     title="Proposal Received"
                     message="A new project proposal has been sent by the company for your review."
                     time="10 minutes ago"
-                    isNew={true}
+                    isNew
                   />
                   <NotificationCard
                     title="PRD Uploaded"
                     message="A PRD document is now available for one of your projects."
                     time="2 hours ago"
-                    isNew={false}
                   />
                 </>
               ) : (
@@ -366,13 +370,12 @@ const App = () => {
                     title="Proposal Accepted"
                     message="A client has accepted your proposal. You can now proceed with the PRD."
                     time="30 minutes ago"
-                    isNew={true}
+                    isNew
                   />
                   <NotificationCard
                     title="New Change Request"
                     message="A client has submitted a new change request for review."
                     time="3 hours ago"
-                    isNew={false}
                   />
                 </>
               )}
@@ -385,19 +388,23 @@ const App = () => {
 };
 
 const NotificationCard = ({ title, message, time, isNew }) => (
-  <div className="bg-white rounded-xl shadow-2xl p-4 border-l-4 border-purple-500 transform transition-all animate-in slide-in-from-top-4 duration-300">
-    <div className="flex justify-between items-start mb-1">
-      <h4 className="font-bold text-gray-900 text-sm">{title}</h4>
+  <div className="rounded-3xl border border-white bg-white/95 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+    <div className="mb-2 flex items-start justify-between gap-4">
+      <h4 className="text-sm font-black text-slate-950">{title}</h4>
       {isNew && (
-        <span className="bg-purple-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+        <span className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white">
           New
         </span>
       )}
     </div>
-    <p className="text-gray-600 text-xs mb-2 leading-relaxed">{message}</p>
-    <div className="flex items-center text-gray-400 text-[10px]">
+
+    <p className="mb-3 text-xs font-medium leading-relaxed text-slate-500">
+      {message}
+    </p>
+
+    <div className="flex items-center text-[11px] font-bold text-slate-400">
       <svg
-        className="w-3 h-3 mr-1"
+        className="mr-1 h-3.5 w-3.5"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

@@ -1,6 +1,6 @@
 import React from "react";
 import { Icons } from "../constants";
-import CRMSLogo from "../assets/CRMSLogo";
+import logo from "../assets/images/logo.jpeg";
 
 const Sidebar = ({
   activePage,
@@ -9,63 +9,76 @@ const Sidebar = ({
   onToggleMode,
   onLogout,
   user,
+  role,
 }) => {
   const isCollapsed = mode === "collapsed";
   const userName = user?.fullName || user?.name || "User";
   const userEmail = user?.email || "";
+  const portalName = role === "COMPANY" ? "Company Portal" : "Client Portal";
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: Icons.Dashboard },
-    { id: "projects", label: "My Projects", icon: Icons.Projects },
-    { id: "proposals", label: "Project Proposals", icon: Icons.Proposals },
+    {
+      id: "projects",
+      label: role === "COMPANY" ? "Projects" : "My Projects",
+      icon: Icons.Projects,
+    },
+    { id: "proposals", label: "Proposals", icon: Icons.Proposals },
     { id: "documents", label: "Documents", icon: Icons.Documents },
-    
     {
       id: "change-requests",
       label: "Change Requests",
       icon: Icons.ChangeRequests,
     },
-    { id: "kanban", label: "Kanban", icon: Icons.Kanban },
+    { id: "kanban", label: "Kanban Board", icon: Icons.Kanban },
   ];
 
   return (
     <aside
-      className={`h-full bg-[#111827] text-white flex flex-col shrink-0 border-r border-white/5 transition-all duration-300 ${
-        isCollapsed ? "w-[100px]" : "w-[280px]"
+      className={`relative z-20 flex h-full shrink-0 flex-col overflow-hidden border-r border-white/10 bg-gradient-to-b from-[#020617] via-[#0f172a] to-[#111827] text-white shadow-[30px_0_80px_rgba(15,23,42,0.45)] transition-all duration-300 ${
+        isCollapsed ? "w-[96px]" : "w-[292px]"
       }`}
     >
-      {/* Sidebar Header / Logo */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_32%),radial-gradient(circle_at_bottom,_rgba(14,165,233,0.18),_transparent_38%)]" />
+
       <div
-        className={`p-8 flex items-center ${
-          isCollapsed ? "flex-col space-y-8" : "justify-between space-x-4"
-        } w-full`}
+        className={`relative flex items-center gap-4 px-6 py-7 ${
+          isCollapsed ? "flex-col" : "justify-between"
+        }`}
       >
         <div
-          className={`flex items-center ${
-            isCollapsed ? "flex-col" : "flex-row"
+          className={`flex min-w-0 items-center ${
+            isCollapsed ? "flex-col gap-3" : "gap-4"
           }`}
         >
-          <CRMSLogo className="w-14 h-14 shrink-0" />
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white p-2 shadow-2xl">
+            <img
+              src={logo}
+              alt="CRMS Logo"
+              className="h-full w-full rounded-xl object-contain"
+            />
+          </div>
+
           {!isCollapsed && (
-            <div className="ml-4">
-              <h1 className="font-black text-xl leading-none uppercase tracking-tighter text-white">
+            <div className="min-w-0">
+              <h1 className="text-xl font-black uppercase tracking-tight">
                 CRMS
               </h1>
-              <p className="text-[#9ca3af] text-[10px] font-bold mt-1 uppercase tracking-widest">
-                Client Portal
+              <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.28em] text-indigo-300">
+                {portalName}
               </p>
             </div>
           )}
         </div>
 
-        {/* Toggle Button */}
         <button
+          type="button"
           onClick={onToggleMode}
-          className="bg-[#5c67d7] w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[#4a55c8] transition-all shadow-xl active:scale-95 group shrink-0"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white shadow-xl backdrop-blur-xl transition hover:scale-105 hover:bg-white/15 active:scale-95"
           title="Toggle sidebar"
         >
           <svg
-            className={`w-6 h-6 text-[#d1d5db] transition-transform duration-300 ${
+            className={`h-5 w-5 transition-transform duration-300 ${
               isCollapsed ? "rotate-180" : ""
             }`}
             fill="none"
@@ -74,7 +87,7 @@ const Sidebar = ({
           >
             <path
               d="M15 19l-7-7 7-7"
-              strokeWidth="3"
+              strokeWidth="2.8"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -82,81 +95,81 @@ const Sidebar = ({
         </button>
       </div>
 
-      {/* Navigation */}
+      {!isCollapsed && (
+        <div className="relative mx-5 mb-5 rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">
+            Signed in as
+          </p>
+          <p className="mt-2 truncate text-sm font-black text-white">
+            {userName}
+          </p>
+          <p className="mt-1 truncate text-xs font-semibold text-slate-400">
+            {userEmail}
+          </p>
+        </div>
+      )}
+
       <nav
-        className={`flex-1 flex flex-col items-center py-4 space-y-8 ${
-          isCollapsed ? "px-0" : "px-4"
+        className={`relative flex flex-1 flex-col gap-2 overflow-y-auto py-3 ${
+          isCollapsed ? "px-3" : "px-5"
         }`}
       >
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            title={isCollapsed ? item.label : ""}
-            className={`flex items-center transition-all duration-200 group relative ${
-              isCollapsed
-                ? "justify-center w-full py-2"
-                : "w-full space-x-4 px-6 py-4 rounded-xl"
-            } ${
-              activePage === item.id
-                ? isCollapsed
-                  ? "text-[#818cf8]"
-                  : "bg-[#1f2937] text-white border border-white/10"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <div
-              className={`p-1 ${
-                activePage === item.id
-                  ? "transform scale-110"
-                  : "opacity-60 group-hover:opacity-100"
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activePage === item.id;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onNavigate(item.id)}
+              title={isCollapsed ? item.label : ""}
+              className={`group relative flex items-center rounded-2xl font-bold transition-all duration-300 ${
+                isCollapsed
+                  ? "h-14 justify-center px-0"
+                  : "gap-4 px-4 py-4 text-left"
+              } ${
+                isActive
+                  ? "bg-white text-slate-950 shadow-[0_18px_45px_rgba(255,255,255,0.18)]"
+                  : "text-slate-400 hover:bg-white/10 hover:text-white"
               }`}
             >
-              <item.icon />
-            </div>
-            {!isCollapsed && (
+              {isActive && (
+                <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.9)]" />
+              )}
+
               <span
-                className={`font-bold text-base whitespace-nowrap ${
-                  activePage === item.id
-                    ? "text-white"
-                    : "text-gray-400 group-hover:text-white"
+                className={`flex h-10 w-10 items-center justify-center rounded-xl transition ${
+                  isActive
+                    ? "bg-indigo-100 text-indigo-600"
+                    : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white"
                 }`}
               >
-                {item.label}
+                <Icon />
               </span>
-            )}
-            {/* Active Indicator Bar for Collapsed mode */}
-            {isCollapsed && activePage === item.id && (
-              <div className="absolute left-0 w-1.5 h-10 bg-[#818cf8] rounded-r-full shadow-[0_0_15px_rgba(129,140,248,0.5)]"></div>
-            )}
-          </button>
-        ))}
+
+              {!isCollapsed && (
+                <span className="truncate text-sm">{item.label}</span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
-      {/* Bottom User Profile */}
-      <div
-        className={`p-8 border-t border-white/5 mt-auto flex flex-col items-center ${
-          isCollapsed ? "space-y-6" : "space-y-4"
-        }`}
-      >
+      <div className="relative border-t border-white/10 p-5">
         <button
+          type="button"
           onClick={onLogout}
-          className={`flex items-center transition-all duration-200 w-full ${
-            isCollapsed ? "justify-center" : "space-x-4"
-          } hover:opacity-80`}
+          className={`flex w-full items-center rounded-2xl border border-white/10 bg-white/10 font-black text-white shadow-xl backdrop-blur-xl transition hover:scale-[1.02] hover:bg-red-500/20 active:scale-95 ${
+            isCollapsed ? "h-14 justify-center" : "gap-4 px-4 py-4"
+          }`}
           title={isCollapsed ? "Sign Out" : ""}
         >
-          <div className="bg-[#1f2937] p-3 rounded-2xl border border-white/10 shadow-lg cursor-pointer hover:border-purple-400 transition-all">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
             <Icons.User />
-          </div>
-          {!isCollapsed && (
-            <div className="flex flex-col min-w-0 flex-1 text-left">
-              <span className="text-sm font-black truncate">{userName}</span>
-              <span className="text-xs text-gray-500 font-bold truncate">
-                {userEmail}
-              </span>
-            </div>
-          )}
+          </span>
+
+          {!isCollapsed && <span className="text-sm">Sign Out</span>}
         </button>
       </div>
     </aside>

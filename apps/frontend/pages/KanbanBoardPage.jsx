@@ -158,8 +158,10 @@ const normalizeAttachments = (attachments) =>
     : [];
 
 const normalizeAssigneeId = (value) => String(value || "").trim();
+
 const getProjects = () => allProjects;
 const canViewProject = () => true;
+
 const normalizeBoardTitle = (value) => {
   const title = String(value || "").trim();
   if (!title) return "";
@@ -206,12 +208,14 @@ const KanbanBoardPage = () => {
   const [companyUsers, setCompanyUsers] = useState([]);
   const [remoteProject, setRemoteProject] = useState(null);
   const [saveMessage, setSaveMessage] = useState("");
+
   const storageKey = `kanban_columns_${pid || "default"}`;
   const deletedTasksStorageKey = `kanban_deleted_tasks_${pid || "default"}`;
   const todayISO = new Date().toISOString().split("T")[0];
 
   const resolvedProject = useMemo(() => {
     if (project) return project;
+
     if (remoteProject) {
       return {
         pid,
@@ -219,6 +223,7 @@ const KanbanBoardPage = () => {
         description: remoteProject.description || "",
       };
     }
+
     if (!pid) return null;
 
     if (boardData?.projectId || boardData?.id) {
@@ -259,13 +264,9 @@ const KanbanBoardPage = () => {
 
       try {
         const response = await getKanbanProjectById(pid, sessionUser.role);
-        if (mounted) {
-          setRemoteProject(response || null);
-        }
-      } catch (err) {
-        if (mounted) {
-          setRemoteProject(null);
-        }
+        if (mounted) setRemoteProject(response || null);
+      } catch {
+        if (mounted) setRemoteProject(null);
       }
     };
 
@@ -281,6 +282,10 @@ const KanbanBoardPage = () => {
 
     const loadCompanyUsers = async () => {
       try {
+        const users = await getCompanyUsers();
+        if (mounted) setCompanyUsers(Array.isArray(users) ? users : []);
+      } catch {
+        if (mounted) setCompanyUsers([]);
         const users = await getCompanyUsers(resolvedCompanyId);
         if (mounted) {
           setCompanyUsers(Array.isArray(users) ? users : []);
@@ -369,9 +374,11 @@ const KanbanBoardPage = () => {
   const refreshKanbanBoard = async () => {
     const response = await getKanbanBoardWithTasks(pid, sessionUser.role);
     setBoardData(response);
+
     if (response?.id) {
       saveDeletedTaskIds(deletedTasksStorageKey, []);
     }
+
     const savedColumns = response?.id ? null : getSavedColumns(storageKey);
     setColumns(savedColumns || buildColumnsFromResponse(response));
     return response;
@@ -393,9 +400,7 @@ const KanbanBoardPage = () => {
       }
     };
 
-    if (pid) {
-      loadKanbanBoard();
-    }
+    if (pid) loadKanbanBoard();
   }, [pid, storageKey]);
 
   const [openFormColumnId, setOpenFormColumnId] = useState(null);
@@ -407,13 +412,16 @@ const KanbanBoardPage = () => {
     attachments: [],
     assignee: "",
   });
+
   const [mounted, setMounted] = useState(false);
+
   const [openMenu, setOpenMenu] = useState({
     columnId: null,
     cardId: null,
     top: 0,
     left: 0,
   });
+
   const [moveDropdown, setMoveDropdown] = useState({
     columnId: null,
     cardId: null,
@@ -439,6 +447,7 @@ const KanbanBoardPage = () => {
       const day = parseInt(md[2], 10);
       const year = new Date().getFullYear();
       const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+
       if (!Number.isNaN(monthIndex)) {
         const d = new Date(year, monthIndex, day);
         if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
@@ -447,6 +456,7 @@ const KanbanBoardPage = () => {
 
     const parsed = new Date(dateStr);
     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+
     return todayISO;
   };
 
@@ -464,9 +474,6 @@ const KanbanBoardPage = () => {
     if (tag === "Low") return "bg-green-500";
     return "bg-yellow-500";
   };
-
-  const isCompletedCard = (card, columnId) =>
-    columnId === "done" && Boolean(card.statusLabel);
 
   const getCardBorderStyle = () =>
     "border-slate-200 bg-white hover:border-slate-300";
@@ -514,6 +521,7 @@ const KanbanBoardPage = () => {
         .map((column) => column.id)
         .filter((targetId) => targetId !== columnId);
     }
+
     if (columnId === "todo") return ["inprogress"];
     if (columnId === "inprogress") return ["review"];
     return [];
@@ -528,6 +536,7 @@ const KanbanBoardPage = () => {
       (canEditCard ? 1 : 0) +
       (canMoveCard(columnId) ? 1 : 0) +
       (canDeleteCard ? 1 : 0);
+
     const hasDivider = canDeleteCard && (canEditCard || canMoveCard(columnId));
     return 12 + actionCount * 42 + (hasDivider ? 1 : 0);
   };
@@ -559,6 +568,7 @@ const KanbanBoardPage = () => {
       status: columnId,
       assignee: card.assigneeId || card.assignee || "",
     });
+
     setOpenMenu({ columnId: null, cardId: null, top: 0, left: 0 });
     setMoveDropdown({ columnId: null, cardId: null, top: 0, left: 0 });
   };
@@ -602,19 +612,17 @@ const KanbanBoardPage = () => {
     throw new Error("Kanban board could not be initialized.");
   };
 
-const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
-  title: data.title.trim(),
-  assignedTo:
-    data.assignee && data.assignee !== "unassigned" ? data.assignee : null,
-  status: resolveTaskStatus(statusColumnId, data.status),
-  dueDate: safeDate ? `${safeDate}T00:00:00` : null,
+  const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
+    title: data.title.trim(),
+    assignedTo:
+      data.assignee && data.assignee !== "unassigned" ? data.assignee : null,
+    status: resolveTaskStatus(statusColumnId, data.status),
+    dueDate: safeDate ? `${safeDate}T00:00:00` : null,
     priority: String(data.tag || "Medium").toUpperCase(),
     attachments: Array.isArray(data.attachments)
       ? data.attachments
           .map((attachment) =>
-            typeof attachment === "string"
-              ? attachment
-              : attachment?.name || null
+            typeof attachment === "string" ? attachment : attachment?.name || null
           )
           .filter(Boolean)
       : [],
@@ -626,39 +634,6 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
       : {}),
   });
 
-  const buildTaskRequestBody = (data, safeDate, statusColumnId = null) => {
-    const payload = buildTaskPayload(data, safeDate, statusColumnId);
-    const uploadedFiles = Array.isArray(data.attachments)
-      ? data.attachments.filter(
-          (attachment) =>
-            typeof File !== "undefined" && attachment instanceof File
-        )
-      : [];
-
-    if (uploadedFiles.length === 0) {
-      return payload;
-    }
-
-    const formData = new FormData();
-    formData.append("title", payload.title || "");
-    formData.append("assignedTo", payload.assignedTo || "");
-    formData.append("dueDate", payload.dueDate || "");
-    formData.append("priority", payload.priority || "");
-    if (payload.completionPercentage !== undefined) {
-      formData.append(
-        "completionPercentage",
-        String(payload.completionPercentage)
-      );
-    }
-    (payload.attachments || []).forEach((attachmentName) => {
-      formData.append("attachments", attachmentName);
-    });
-    uploadedFiles.forEach((file) => {
-      formData.append("files", file);
-    });
-    return formData;
-  };
-
   const getUploadedFiles = (attachments) =>
     Array.isArray(attachments)
       ? attachments.filter(
@@ -668,9 +643,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
       : [];
 
   const uploadAttachmentsIfPossible = async (taskId, files) => {
-    if (!taskId || !Array.isArray(files) || files.length === 0) {
-      return false;
-    }
+    if (!taskId || !Array.isArray(files) || files.length === 0) return false;
 
     try {
       const result = await uploadTaskAttachments(
@@ -701,9 +674,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
       return Boolean(result);
     } catch (err) {
       console.warn("Attachment upload skipped:", err);
-      setSaveMessage(
-        "Task saved, but attachments could not be uploaded."
-      );
+      setSaveMessage("Task saved, but attachments could not be uploaded.");
       return false;
     }
   };
@@ -724,6 +695,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
 
   const handleDownloadAttachment = async (taskId, attachment) => {
     const attachmentId = getAttachmentId(attachment);
+
     if (!attachmentId) {
       alert("This attachment does not have a downloadable file.");
       return;
@@ -747,8 +719,10 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
     try {
       const normalizedColumns =
         sanitizeStoredColumns(columns) || createEmptyColumns();
+
       localStorage.setItem(storageKey, JSON.stringify(normalizedColumns));
       setColumns(normalizedColumns);
+
       setSaveMessage(
         `Saved changes at ${new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -763,6 +737,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
 
   const handleFormSubmit = async (columnId, formData) => {
     const data = formData || newCardData;
+
     if (!data.title?.trim()) return;
 
     if (data.date && isPastDate(data.date)) {
@@ -778,15 +753,18 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
 
       if (editingCard) {
         const uploadedFiles = getUploadedFiles(data.attachments);
+
         await updateTask(
           pid,
           editingCard.cardId,
           buildTaskPayload(data, safeDate),
           sessionUser.role
         );
+
         if (uploadedFiles.length > 0) {
           await uploadAttachmentsIfPossible(editingCard.cardId, uploadedFiles);
         }
+
         await refreshKanbanBoard();
         closeForm();
         return;
@@ -794,12 +772,14 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
 
       const boardId = await ensureBoardId();
       const uploadedFiles = getUploadedFiles(data.attachments);
+
       const createdTask = await createTask(
         pid,
         boardId,
         buildTaskPayload(data, safeDate, columnId),
         sessionUser.role
       );
+
       if (createdTask?.id) {
         removeDeletedTaskMarker(createdTask.id);
       }
@@ -850,6 +830,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
     ) {
       return;
     }
+
     setIsDragging(true);
     setStartX(e.pageX - boardRef.current.offsetLeft);
     setScrollLeft(boardRef.current.scrollLeft);
@@ -874,20 +855,23 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
     const closeOnOutsideClick = (e) => {
       const clickedMenuButton = e.target.closest(".menu-btn");
       if (clickedMenuButton) return;
+
       const insideMenu = menuRef.current?.contains(e.target);
       const insideMove = moveRef.current?.contains(e.target);
+
       if (!insideMenu && !insideMove) closeAllMenus();
     };
 
     document.addEventListener("mousedown", closeOnOutsideClick);
-    return () =>
-      document.removeEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
   }, []);
 
   useEffect(() => {
     const handleViewportChange = () => closeAllMenus();
+
     window.addEventListener("resize", handleViewportChange);
     window.addEventListener("scroll", handleViewportChange, true);
+
     return () => {
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, true);
@@ -896,10 +880,12 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
 
   const openActionMenu = (e, columnId, cardId) => {
     e.stopPropagation();
+
     const rect = e.currentTarget.getBoundingClientRect();
     const menuWidth = 198;
     const menuHeight = getActionMenuHeight(columnId);
     const gap = 6;
+
     let left = rect.right - menuWidth;
     let top = rect.bottom + gap;
 
@@ -912,6 +898,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
     }
 
     setMoveDropdown({ columnId: null, cardId: null, top: 0, left: 0 });
+
     setOpenMenu((prev) =>
       prev.cardId === cardId && prev.columnId === columnId
         ? { columnId: null, cardId: null, top: 0, left: 0 }
@@ -921,6 +908,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
 
   const openMoveMenu = (e, columnId, cardId) => {
     e.stopPropagation();
+
     const rect = e.currentTarget.getBoundingClientRect();
     const menuWidth = 180;
     const estimatedHeight = Math.max(
@@ -928,12 +916,14 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
       getAllowedMoveTargets(columnId).length * 46 + 12
     );
     const gap = 6;
+
     let left = rect.right + gap;
     let top = rect.top;
 
     if (left + menuWidth > window.innerWidth - 12) {
       left = rect.left - menuWidth - gap;
     }
+
     if (top + estimatedHeight > window.innerHeight - 12) {
       top = Math.max(12, window.innerHeight - estimatedHeight - 12);
     }
@@ -967,9 +957,11 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
       setColumns((cols) => {
         const srcIndex = cols.findIndex((c) => c.id === srcColumnId);
         const tgtIndex = cols.findIndex((c) => c.id === targetColumnId);
+
         if (srcIndex === -1 || tgtIndex === -1) return cols;
 
         const card = cols[srcIndex].cards.find((c) => c.id === cardId);
+
         if (!card) return cols;
 
         const movedCard =
@@ -1003,6 +995,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
               count: Math.max(0, (col.cards?.length || 1) - 1),
             };
           }
+
           if (idx === tgtIndex) {
             return {
               ...col,
@@ -1010,6 +1003,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
               count: (col.cards?.length || 0) + 1,
             };
           }
+
           return col;
         });
       });
@@ -1030,6 +1024,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
       } else {
         rememberDeletedTask(cardId);
       }
+
       setColumns((cols) =>
         cols.map((col) =>
           col.id === columnId
@@ -1041,6 +1036,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
             : col
         )
       );
+
       setSaveMessage("Task deleted.");
     } catch (err) {
       console.error("Error deleting card:", err);
@@ -1050,14 +1046,17 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
 
   const handleSendToClient = (columnId, cardId) => {
     if (!isPrivilegedUser) return;
+
     const confirmed = window.confirm(
       "Are you sure you want to send this update to the client?"
     );
+
     if (!confirmed) return;
 
     setColumns((cols) =>
       cols.map((col) => {
         if (col.id !== columnId) return col;
+
         return {
           ...col,
           cards: col.cards.map((card) =>
@@ -1102,11 +1101,9 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
 
   const closeCompletedCardModal = () => setOpenCompletedCard(null);
 
-  const formatTime = (d = new Date()) =>
-    d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
   const handleSendComment = async () => {
     const text = commentText.trim();
+
     if (!text || !openComments) return;
 
     const { cardId } = openComments;
@@ -1212,31 +1209,29 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
               .filter((col) =>
                 getAllowedMoveTargets(moveDropdown.columnId).includes(col.id)
               )
-              .map((col) => {
-                return (
-                  <button
-                    key={col.id}
-                    type="button"
-                    onClick={() => {
-                      handleMoveToColumn(
-                        moveDropdown.columnId,
-                        moveDropdown.cardId,
-                        col.id
-                      );
-                    }}
-                    className="flex w-full items-center gap-3 rounded-[10px] bg-white px-3 py-2.5 text-left text-slate-700 hover:bg-slate-50"
-                  >
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${getColumnDotClass(
-                        col.id
-                      )}`}
-                    />
-                    <span className="flex-1 text-sm font-semibold">
-                      {col.title}
-                    </span>
-                  </button>
-                );
-              })}
+              .map((col) => (
+                <button
+                  key={col.id}
+                  type="button"
+                  onClick={() => {
+                    handleMoveToColumn(
+                      moveDropdown.columnId,
+                      moveDropdown.cardId,
+                      col.id
+                    );
+                  }}
+                  className="flex w-full items-center gap-3 rounded-[10px] bg-white px-3 py-2.5 text-left text-slate-700 hover:bg-slate-50"
+                >
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${getColumnDotClass(
+                      col.id
+                    )}`}
+                  />
+                  <span className="flex-1 text-sm font-semibold">
+                    {col.title}
+                  </span>
+                </button>
+              ))}
           </div>
         )}
       </>,
@@ -1246,28 +1241,75 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
 
   return (
     <Layout title={resolvedProject?.name || "Kanban"}>
-      <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="mb-4 shrink-0">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">
-                {resolvedProject?.name || "Project access not available"}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {resolvedProject
-                  ? "Manage and track your team's tasks"
-                  : "You do not have permission to view this project."}
-              </p>
-              {saveMessage && (
-                <p className="mt-2 text-xs font-medium text-emerald-600">
-                  {saveMessage}
-                </p>
-              )}
-            </div>
-
-          </div>
+      {resolvedProject && (
+        <div className="mb-5 flex justify-end">
+          <button
+            type="button"
+            onClick={handleSaveChanges}
+            className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-black text-white shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl active:scale-95"
+          >
+            Save Board
+          </button>
         </div>
+      )}
 
+      {saveMessage && (
+        <p className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+          {saveMessage}
+        </p>
+      )}
+
+      {loading ? (
+        <div className="rounded-[28px] border border-white bg-white/90 px-6 py-14 text-center shadow-xl">
+          <p className="text-xl font-black text-slate-900">
+            Loading Kanban Board...
+          </p>
+          <p className="mt-2 text-sm font-medium text-slate-500">
+            Please wait while we fetch your tasks.
+          </p>
+        </div>
+      ) : error ? (
+        <div className="rounded-[28px] border border-red-200 bg-red-50 px-6 py-14 text-center shadow-xl">
+          <p className="text-xl font-black text-red-700">{error}</p>
+          <p className="mt-2 text-sm font-medium text-red-500">
+            Failed to load kanban board. Please refresh the page.
+          </p>
+        </div>
+      ) : !resolvedProject ? (
+        <div className="rounded-[28px] border border-white bg-white/90 px-6 py-14 text-center shadow-xl">
+          <p className="text-xl font-black text-slate-900">Access Restricted</p>
+          <p className="mt-2 text-sm font-medium text-slate-500">
+            This Kanban board is not available for your current role.
+          </p>
+        </div>
+      ) : (
+        <div
+          ref={boardRef}
+          className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onMouseMove={handleMouseMove}
+        >
+          <div className="flex h-full min-w-max items-start gap-6 pb-4">
+            {columns.map((column) => (
+              <div
+                key={column.id}
+                className={`flex max-h-[calc(100vh-235px)] min-h-[calc(100vh-235px)] w-[20rem] flex-shrink-0 flex-col self-start rounded-[28px] border bg-white/90 shadow-[0_20px_55px_rgba(15,23,42,0.10)] backdrop-blur-xl transition hover:shadow-[0_24px_70px_rgba(15,23,42,0.14)] ${getColumnBorder(
+                  column.id
+                )}`}
+              >
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-5">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`h-3 w-3 rounded-full shadow ${getColumnDotClass(
+                        column.id
+                      )}`}
+                    />
+
+                    <h3 className="text-sm font-black text-slate-900">
+                      {column.title}
+                    </h3>
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
             <p className="text-lg font-semibold text-slate-800">
@@ -1325,19 +1367,19 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openForm(column.id);
-                      }}
-                      className="rounded-lg p-1.5 transition-colors hover:bg-slate-200"
-                      title="Add ticket"
-                    >
-                      <Plus className="h-4 w-4 text-slate-500" />
-                    </button>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-500">
+                      {column.count}
+                    </span>
                   </div>
 
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openForm(column.id);
+                    }}
+                    className="rounded-xl bg-indigo-50 p-2 text-indigo-600 transition hover:bg-indigo-100"
+                    title="Add ticket"
                   <div
                     className={`kanban-scroll-column space-y-4 p-3.5 ${
                       column.cards.length === ""
@@ -1347,46 +1389,60 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
                         : ""
                     }`}
                   >
-                    {column.cards.map((card) => (
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="custom-kanban-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4 pr-2">
+                  {column.cards.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-10 text-center">
+                      <p className="text-sm font-bold text-slate-400">
+                        No tasks here yet
+                      </p>
+                    </div>
+                  ) : (
+                    column.cards.map((card) => (
                       <div
                         key={card.id}
-                        className={`kanban-card relative flex min-h-[120px] cursor-pointer flex-col rounded-[12px] border px-3.5 pb-3.5 pt-3 shadow-sm transition-all hover:shadow-md ${getCardBorderStyle(
-                          card,
-                          column.id
-                        )}`}
-                        onClick={() => {
-                          closeAllMenus();
-                        }}
+                        className={`kanban-card relative flex min-h-[140px] cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white px-4 pb-4 pt-4 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl ${getCardBorderStyle()}`}
+                        onClick={() => closeAllMenus()}
                       >
                         <span
-                          className={`absolute left-0 top-0 h-full w-[6px] rounded-l-[12px] ${getPriorityBarColor(
+                          className={`absolute left-0 top-0 h-full w-[6px] ${getPriorityBarColor(
                             card.tag
                           )}`}
                         />
 
-                        <div className="mb-3 flex items-start justify-between gap-3 pl-2">
-                          <h4 className="text-[14px] font-semibold leading-5 text-slate-800">
+                        <div className="mb-4 flex items-start justify-between gap-3 pl-2">
+                          <h4 className="text-[15px] font-black leading-5 text-slate-900">
                             {card.title}
                           </h4>
+
                           <span
-                            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${card.tagColor}`}
+                            className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black ${card.tagColor}`}
                           >
                             {card.tag}
                           </span>
                         </div>
 
-                        <div className="mb-3 flex items-center gap-2 pl-2">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-[11px] font-semibold text-indigo-700">
+                        <div className="mb-4 flex items-center gap-3 pl-2">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-xs font-black text-white shadow">
                             {getAssigneeInitials(card.assignee)}
                           </div>
-                          <span className="max-w-[9rem] truncate text-xs font-medium text-slate-600">
-                            {card.assignee || "Unassigned"}
-                          </span>
+
+                          <div className="min-w-0">
+                            <p className="max-w-[11rem] truncate text-xs font-black text-slate-700">
+                              {card.assignee || "Unassigned"}
+                            </p>
+                            <p className="text-[11px] font-medium text-slate-400">
+                              Assignee
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-3 pl-2">
+                        <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 pl-2">
                           <div className="flex items-center gap-3 text-slate-400">
-                            <div className="flex items-center gap-1 text-[11px]">
+                            <div className="flex items-center gap-1 text-[11px] font-bold">
                               <Calendar className="h-3.5 w-3.5" />
                               <span>{card.date}</span>
                             </div>
@@ -1397,7 +1453,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
                                 e.stopPropagation();
                                 openCommentsModal(column.id, card.id);
                               }}
-                              className="flex items-center gap-1 text-[11px] transition-colors hover:text-indigo-600"
+                              className="flex items-center gap-1 text-[11px] font-bold transition hover:text-indigo-600"
                               title="Ticket messages"
                             >
                               <MessageSquare className="h-3.5 w-3.5" />
@@ -1410,7 +1466,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
                                 e.stopPropagation();
                                 openAttachmentsModal(column.id, card.id);
                               }}
-                              className="flex items-center gap-1 text-[11px] transition-colors hover:text-indigo-600"
+                              className="flex items-center gap-1 text-[11px] font-bold transition hover:text-indigo-600"
                               title="Attachments"
                             >
                               <Paperclip className="h-3.5 w-3.5" />
@@ -1421,7 +1477,7 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
                           {hasCardActions(column.id) && (
                             <button
                               type="button"
-                              className="menu-btn rounded-full p-1.5 transition-colors hover:bg-slate-100"
+                              className="menu-btn rounded-full p-2 transition hover:bg-slate-100"
                               onClick={(e) =>
                                 openActionMenu(e, column.id, card.id)
                               }
@@ -1432,14 +1488,73 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
                           )}
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    ))
+                  )}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
+      {renderFloatingMenus()}
+
+      <AddCardModal
+        show={openFormColumnId !== null}
+        initialData={newCardData}
+        onCancel={closeForm}
+        onSave={(data) => handleFormSubmit(openFormColumnId, data)}
+        isEditMode={!!editingCard}
+        minDate={todayISO}
+        companyId={boardData?.companyId || null}
+      />
+
+      {openComments && openedCard && (
+        <ModalWrapper>
+          <div className="w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">
+                  Ticket Messages
+                </h3>
+                <p className="text-sm font-medium text-slate-500">
+                  {openedCard.title}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeCommentsModal}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[320px] space-y-3 overflow-y-auto px-6 py-5">
+              {(openedCard.commentsData || []).length === 0 ? (
+                <p className="text-sm font-medium text-slate-500">
+                  No messages yet.
+                </p>
+              ) : (
+                openedCard.commentsData.map((message) => (
+                  <div
+                    key={message.id}
+                    className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3"
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <span className="text-sm font-black text-slate-800">
+                        {message.user}
+                      </span>
+                      <span className="text-xs font-bold text-slate-400">
+                        {message.time}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600">{message.text}</p>
+                  </div>
+                ))
+              )}
+            </div>
         {renderFloatingMenus()}
 
         <AddCardModal
@@ -1464,195 +1579,188 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
                   <p className="text-sm text-slate-500">{openedCard.title}</p>
                 </div>
 
+            <div className="border-t border-slate-100 px-6 py-5">
+              <div className="flex items-end gap-3">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows={3}
+                  placeholder="Write a message..."
+                  className="min-h-[92px] flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+                />
                 <button
                   type="button"
-                  onClick={closeCommentsModal}
-                  className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                  onClick={handleSendComment}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-black text-white transition hover:bg-indigo-700"
                 >
-                  <X className="h-5 w-5" />
+                  <Send className="h-4 w-4" />
+                  Send
                 </button>
               </div>
+            </div>
+          </div>
+        </ModalWrapper>
+      )}
 
-              <div className="max-h-[320px] space-y-3 overflow-y-auto px-6 py-5">
-                {(openedCard.commentsData || []).length === 0 ? (
-                  <p className="text-sm text-slate-500">No messages yet.</p>
-                ) : (
-                  openedCard.commentsData.map((message) => (
+      {openAttachments && openedAttachmentCard && (
+        <ModalWrapper>
+          <div className="w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">
+                  Attachments
+                </h3>
+                <p className="text-sm font-medium text-slate-500">
+                  {openedAttachmentCard.title}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeAttachmentsModal}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[320px] space-y-3 overflow-y-auto px-6 py-5">
+              {(openedAttachmentCard.attachmentsData || []).length === 0 ? (
+                <p className="text-sm font-medium text-slate-500">
+                  No attachments yet.
+                </p>
+              ) : (
+                openedAttachmentCard.attachmentsData.map(
+                  (attachment, index) => (
                     <div
-                      key={message.id}
-                      className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                      key={`${
+                        getAttachmentId(attachment) ||
+                        getAttachmentName(attachment)
+                      }-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3"
                     >
-                      <div className="mb-1 flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold text-slate-800">
-                          {message.user}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {message.time}
+                      <div className="flex items-center gap-3">
+                        <Paperclip className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-bold text-slate-700">
+                          {getAttachmentName(attachment)}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600">{message.text}</p>
+
+                      {getAttachmentId(attachment) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDownloadAttachment(
+                              openedAttachmentCard.id,
+                              attachment
+                            )
+                          }
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-100"
+                        >
+                          Download
+                        </button>
+                      )}
                     </div>
-                  ))
+                  )
+                )
+              )}
+            </div>
+          </div>
+        </ModalWrapper>
+      )}
+
+      {openCompletedCard && openedCompletedCard && (
+        <ModalWrapper>
+          <div className="w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+              <h3 className="text-lg font-black text-slate-900">
+                Completed Ticket
+              </h3>
+
+              <button
+                type="button"
+                onClick={closeCompletedCardModal}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5 px-6 py-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700">
+                  Completed
+                </span>
+
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-black ${openedCompletedCard.tagColor}`}
+                >
+                  {openedCompletedCard.tag}
+                </span>
+
+                {openedCompletedCard.clientNotified && (
+                  <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-700">
+                    Sent to Client
+                  </span>
                 )}
               </div>
 
-              <div className="border-t border-slate-200 px-6 py-4">
-                <div className="flex items-end gap-3">
-                  <textarea
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    rows={3}
-                    placeholder="Write a message..."
-                    className="min-h-[92px] flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                  />
+              <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                <p className="text-sm text-slate-600">
+                  Completed by{" "}
+                  <span className="font-black text-slate-900">
+                    {openedCompletedCard.completedBy}
+                  </span>
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  {openedCompletedCard.completedOn}
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoBox label="Assignee" value={openedCompletedCard.assignee} />
+                <InfoBox label="Due Date" value={openedCompletedCard.date} />
+              </div>
+
+              {isPrivilegedUser && !openedCompletedCard.clientNotified && (
+                <div className="flex justify-end">
                   <button
                     type="button"
-                    onClick={handleSendComment}
-                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                    onClick={() =>
+                      handleSendToClient(
+                        openCompletedCard.columnId,
+                        openCompletedCard.cardId
+                      )
+                    }
+                    className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition hover:bg-blue-700"
                   >
                     <Send className="h-4 w-4" />
-                    Send
+                    Send to Client
                   </button>
                 </div>
-              </div>
+              )}
             </div>
           </div>
-        )}
+        </ModalWrapper>
+      )}
 
-        {openAttachments && openedAttachmentCard && (
-          <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/40 px-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    Attachments
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    {openedAttachmentCard.title}
-                  </p>
-                </div>
+      <style jsx global>{`
+        .custom-kanban-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
 
-                <button
-                  type="button"
-                  onClick={closeAttachmentsModal}
-                  className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+        .custom-kanban-scroll::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 999px;
+        }
 
-              <div className="max-h-[320px] space-y-3 overflow-y-auto px-6 py-5">
-                {(openedAttachmentCard.attachmentsData || []).length === 0 ? (
-                  <p className="text-sm text-slate-500">No attachments yet.</p>
-                ) : (
-                  openedAttachmentCard.attachmentsData.map(
-                    (attachment, index) => (
-                      <div
-                        key={`${getAttachmentId(attachment) || getAttachmentName(attachment)}-${index}`}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Paperclip className="h-4 w-4 text-slate-400" />
-                          <span className="text-sm text-slate-700">
-                            {getAttachmentName(attachment)}
-                          </span>
-                        </div>
-                        {getAttachmentId(attachment) && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDownloadAttachment(
-                                openedAttachmentCard.id,
-                                attachment
-                              )
-                            }
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
-                          >
-                            Download
-                          </button>
-                        )}
-                      </div>
-                    )
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        .custom-kanban-scroll::-webkit-scrollbar-thumb {
+          background: #c4b5fd;
+          border-radius: 999px;
+        }
 
-        {openCompletedCard && openedCompletedCard && (
-          <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/40 px-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    Completed Ticket
-                  </h3>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={closeCompletedCardModal}
-                  className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="space-y-5 px-6 py-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex items-center rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700"
-                  >
-                    Completed
-                  </button>
-
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${openedCompletedCard.tagColor}`}
-                  >
-                    {openedCompletedCard.tag}
-                  </span>
-
-                  {openedCompletedCard.clientNotified && (
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
-                      Sent to Client
-                    </span>
-                  )}
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 px-4 py-4">
-                  <p className="text-sm text-slate-600">
-                    Completed by{" "}
-                    <span className="font-semibold text-slate-900">
-                      {openedCompletedCard.completedBy}
-                    </span>
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {openedCompletedCard.completedOn}
-                  </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 px-4 py-3">
-                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400">
-                      Assignee
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-slate-800">
-                      {openedCompletedCard.assignee || "Unassigned"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 px-4 py-3">
-                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400">
-                      Due Date
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-slate-800">
-                      {openedCompletedCard.date || "No due date"}
-                    </p>
-                  </div>
-                </div>
-
+        .custom-kanban-scroll::-webkit-scrollbar-thumb:hover {
+          background: #8b5cf6;
                 {isPrivilegedUser && !openedCompletedCard.clientNotified && (
                   <div className="flex justify-end">
                     <button
@@ -1709,5 +1817,26 @@ const buildTaskPayload = (data, safeDate, statusColumnId = null) => ({
     </Layout>
   );
 };
+
+function ModalWrapper({ children }) {
+  return (
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
+      {children}
+    </div>
+  );
+}
+
+function InfoBox({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 px-4 py-3">
+      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-bold text-slate-800">
+        {value || "N/A"}
+      </p>
+    </div>
+  );
+}
 
 export default KanbanBoardPage;
