@@ -440,12 +440,15 @@ export async function downloadDocument(documentId) {
     typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
 
   try {
-    const response = await fetch(`${API_BASE}/documents/${documentId}/download`, {
-      method: "GET",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    const response = await fetch(
+      `${API_BASE}/documents/${documentId}/download`,
+      {
+        method: "GET",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`;
@@ -455,8 +458,7 @@ export async function downloadDocument(documentId) {
 
         if (contentType.includes("application/json")) {
           const errorData = await response.json();
-          errorMessage =
-            errorData.message || errorData.error || errorMessage;
+          errorMessage = errorData.message || errorData.error || errorMessage;
         } else {
           const text = await response.text();
           errorMessage = text || errorMessage;
@@ -529,22 +531,33 @@ export function getCompanyChangeRequestsByProject(projectId, companyId) {
   });
 }
 
-export function getCompanyChangeRequestsByProjectAndPrd(projectId, prdId, companyId) {
+export function getCompanyChangeRequestsByProjectAndPrd(
+  projectId,
+  prdId,
+  companyId,
+) {
   const resolvedCompanyId = getCompanyId(companyId);
 
   if (!resolvedCompanyId) {
     throw new Error("Company ID is required");
   }
 
-  return request(`/company/projects/${projectId}/prds/${prdId}/change-requests`, {
-    method: "GET",
-    headers: {
-      "X-Company-Id": resolvedCompanyId,
+  return request(
+    `/company/projects/${projectId}/prds/${prdId}/change-requests`,
+    {
+      method: "GET",
+      headers: {
+        "X-Company-Id": resolvedCompanyId,
+      },
     },
-  });
+  );
 }
 
-export function decideCompanyChangeRequest(changeRequestId, payload, companyId) {
+export function decideCompanyChangeRequest(
+  changeRequestId,
+  payload,
+  companyId,
+) {
   const resolvedCompanyId = getCompanyId(companyId);
 
   if (!resolvedCompanyId) {
@@ -560,7 +573,11 @@ export function decideCompanyChangeRequest(changeRequestId, payload, companyId) 
   });
 }
 
-export function markCompanyChangeRequestImplemented(changeRequestId, payload, companyId) {
+export function markCompanyChangeRequestImplemented(
+  changeRequestId,
+  payload,
+  companyId,
+) {
   const resolvedCompanyId = getCompanyId(companyId);
 
   if (!resolvedCompanyId) {
@@ -587,7 +604,7 @@ export async function downloadCompanyChangeRequest(changeRequestId) {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-    }
+    },
   );
 
   if (!response.ok) {
@@ -629,12 +646,15 @@ export function getCompanyVersionHistoryEntries(projectId, prdId, companyId) {
     throw new Error("Company ID is required");
   }
 
-  return request(`/company/version-history/projects/${projectId}/prds/${prdId}`, {
-    method: "GET",
-    headers: {
-      "X-Company-Id": resolvedCompanyId,
+  return request(
+    `/company/version-history/projects/${projectId}/prds/${prdId}`,
+    {
+      method: "GET",
+      headers: {
+        "X-Company-Id": resolvedCompanyId,
+      },
     },
-  });
+  );
 }
 
 // NOTIFICATIONS
@@ -666,7 +686,9 @@ function getAuthToken() {
 }
 
 function normalizeKanbanUserRole(userRole) {
-  const normalizedRole = String(userRole || "").trim().toUpperCase();
+  const normalizedRole = String(userRole || "")
+    .trim()
+    .toUpperCase();
   return normalizedRole === "CLIENT" || normalizedRole === "ROLE_CLIENT"
     ? "client"
     : "company";
@@ -690,7 +712,9 @@ function buildKanbanRequestHeaders(endpoint) {
 
 async function parseKanbanResponse(response) {
   if (!response.ok) {
-    const error = new Error(`Request failed with status code ${response.status}`);
+    const error = new Error(
+      `Request failed with status code ${response.status}`,
+    );
     error.response = {
       status: response.status,
       data: await response.text().catch(() => ""),
@@ -822,11 +846,7 @@ export function getProjectById(projectId) {
 }
 
 export async function createKanbanBoard(projectId, data) {
-  return sendKanbanRequest(
-    "POST",
-    `/company/kanban/${projectId}/board`,
-    data
-  );
+  return sendKanbanRequest("POST", `/company/kanban/${projectId}/board`, data);
 }
 
 export async function getKanbanBoard(projectId) {
@@ -842,7 +862,9 @@ export async function getKanbanBoard(projectId) {
 }
 
 function normalizeTaskStatus(status) {
-  const normalized = String(status || "").trim().toUpperCase();
+  const normalized = String(status || "")
+    .trim()
+    .toUpperCase();
 
   if (normalized === "INPROGRESS") return "IN_PROGRESS";
   if (normalized === "REVIEW") return "IN_REVIEW";
@@ -862,10 +884,7 @@ function normalizeTaskStatus(status) {
 
 export async function getTasksByBoard(projectId) {
   try {
-    return await sendKanbanRequest(
-      "GET",
-      `/company/kanban/${projectId}/tasks`
-    );
+    return await sendKanbanRequest("GET", `/company/kanban/${projectId}/tasks`);
   } catch (error) {
     if (error?.response?.status === 404) {
       return [];
@@ -909,11 +928,7 @@ export async function getKanbanBoardWithTasks(projectId) {
 export async function createTask(projectId, boardId, data) {
   if (!projectId) throw new Error("Project ID is missing");
 
-  return sendKanbanRequest(
-    "POST",
-    `/company/kanban/${projectId}/tasks`,
-    data
-  );
+  return sendKanbanRequest("POST", `/company/kanban/${projectId}/tasks`, data);
 }
 
 export async function updateTask(projectId, taskId, data) {
@@ -923,7 +938,7 @@ export async function updateTask(projectId, taskId, data) {
   return sendKanbanRequest(
     "PUT",
     `/company/kanban/${projectId}/tasks/${taskId}`,
-    data
+    data,
   );
 }
 
@@ -933,7 +948,7 @@ export async function updateTaskStatus(projectId, taskId, data) {
   return sendKanbanRequest(
     "PUT",
     `/company/kanban/tasks/${taskId}/status`,
-    data
+    data,
   );
 }
 
@@ -943,7 +958,7 @@ export async function deleteTask(projectId, taskId) {
 
   return sendKanbanRequest(
     "DELETE",
-    `/company/kanban/${projectId}/tasks/${taskId}`
+    `/company/kanban/${projectId}/tasks/${taskId}`,
   );
 }
 
@@ -954,8 +969,8 @@ export async function addTaskComment(projectId, taskId, comment) {
   return sendKanbanRequest(
     "POST",
     `/company/kanban/${projectId}/tasks/${taskId}/comments?comment=${encodeURIComponent(
-      comment
-    )}`
+      comment,
+    )}`,
   );
 }
 export function getClientProjectKanban(projectId) {
@@ -974,7 +989,7 @@ export async function uploadTaskAttachments(projectId, taskId, files) {
   return sendKanbanMultipartRequest(
     "POST",
     `/company/kanban/${projectId}/tasks/${taskId}/attachments`,
-    formData
+    formData,
   );
 }
 
@@ -982,18 +997,17 @@ export async function downloadTaskAttachment(
   projectId,
   taskId,
   attachmentId,
-  fileName
+  fileName,
 ) {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
   const companyId = getCompanyId();
   const proxyPath =
     `/api/company/kanban/${encodeURIComponent(
-      projectId
+      projectId,
     )}/tasks/${encodeURIComponent(taskId)}/attachments/${encodeURIComponent(
-      attachmentId
-    )}` +
-    (companyId ? `?companyId=${encodeURIComponent(companyId)}` : "");
+      attachmentId,
+    )}` + (companyId ? `?companyId=${encodeURIComponent(companyId)}` : "");
 
   const response = await fetch(proxyPath, {
     method: "GET",
@@ -1014,7 +1028,7 @@ export async function downloadTaskAttachment(
   const blob = await response.blob();
   const contentDisposition = response.headers.get("content-disposition") || "";
   const matchedFileName = contentDisposition.match(
-    /filename\*?=(?:UTF-8'')?["']?([^;"']+)["']?/i
+    /filename\*?=(?:UTF-8'')?["']?([^;"']+)["']?/i,
   );
   const resolvedFileName =
     fileName ||

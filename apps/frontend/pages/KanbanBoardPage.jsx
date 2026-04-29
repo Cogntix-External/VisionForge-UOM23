@@ -240,6 +240,15 @@ const KanbanBoardPage = () => {
     return null;
   }, [boardData, pid, project, remoteProject]);
 
+  const resolvedCompanyId = useMemo(
+    () =>
+      boardData?.companyId ||
+      remoteProject?.companyId ||
+      project?.companyId ||
+      null,
+    [boardData?.companyId, project?.companyId, remoteProject?.companyId]
+  );
+
   useEffect(() => {
     setProjects(getProjects());
   }, []);
@@ -277,6 +286,14 @@ const KanbanBoardPage = () => {
         if (mounted) setCompanyUsers(Array.isArray(users) ? users : []);
       } catch {
         if (mounted) setCompanyUsers([]);
+        const users = await getCompanyUsers(resolvedCompanyId);
+        if (mounted) {
+          setCompanyUsers(Array.isArray(users) ? users : []);
+        }
+      } catch (err) {
+        if (mounted) {
+          setCompanyUsers([]);
+        }
       }
     };
 
@@ -285,7 +302,7 @@ const KanbanBoardPage = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [resolvedCompanyId]);
 
   const assigneeNameById = useMemo(() => {
     const entries = (Array.isArray(companyUsers) ? companyUsers : [])
@@ -1293,6 +1310,62 @@ const KanbanBoardPage = () => {
                     <h3 className="text-sm font-black text-slate-900">
                       {column.title}
                     </h3>
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
+            <p className="text-lg font-semibold text-slate-800">
+              Loading Kanban Board...
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              Please wait while we fetch your tasks.
+            </p>
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center shadow-sm">
+            <p className="text-lg font-semibold text-red-800">{error}</p>
+            <p className="mt-2 text-sm text-red-600">
+              Failed to load kanban board. Please refresh the page.
+            </p>
+          </div>
+        ) : !resolvedProject ? (
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
+            <p className="text-lg font-semibold text-slate-800">
+              Access Restricted
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              This Kanban board is not available for your current role.
+            </p>
+          </div>
+        ) : (
+          <div
+            ref={boardRef}
+            className="kanban-scroll-shell flex-1 min-h-0 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onMouseMove={handleMouseMove}
+          >
+            <div className="flex h-full min-w-max items-start gap-5 pb-3">
+              {columns.map((column) => (
+                <div
+                  key={column.id}
+                  className={`flex max-h-full min-h-0 w-[18rem] flex-shrink-0 flex-col self-start rounded-[24px] border bg-slate-50/80 ${getColumnBorder(
+                    column.id
+                  )}`}
+                >
+                  <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${getColumnDotClass(
+                          column.id
+                        )}`}
+                      />
+                      <h3 className="text-sm font-semibold text-slate-800">
+                        {column.title}
+                      </h3>
+                      <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                        {column.count}
+                      </span>
+                    </div>
 
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-500">
                       {column.count}
@@ -1307,6 +1380,14 @@ const KanbanBoardPage = () => {
                     }}
                     className="rounded-xl bg-indigo-50 p-2 text-indigo-600 transition hover:bg-indigo-100"
                     title="Add ticket"
+                  <div
+                    className={`kanban-scroll-column space-y-4 p-3.5 ${
+                      column.cards.length === ""
+                        ? ""
+                        : column.cards.length > 0
+                        ? "flex-1 min-h-0 overflow-y-auto"
+                        : ""
+                    }`}
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -1474,6 +1555,29 @@ const KanbanBoardPage = () => {
                 ))
               )}
             </div>
+        {renderFloatingMenus()}
+
+        <AddCardModal
+          show={openFormColumnId !== null}
+          initialData={newCardData}
+          onCancel={closeForm}
+          onSave={(data) => handleFormSubmit(openFormColumnId, data)}
+          isEditMode={!!editingCard}
+          minDate={todayISO}
+          companyId={resolvedCompanyId}
+          assignees={companyUsers}
+        />
+
+        {openComments && openedCard && (
+          <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/40 px-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    Ticket Messages
+                  </h3>
+                  <p className="text-sm text-slate-500">{openedCard.title}</p>
+                </div>
 
             <div className="border-t border-slate-100 px-6 py-5">
               <div className="flex items-end gap-3">
@@ -1657,6 +1761,57 @@ const KanbanBoardPage = () => {
 
         .custom-kanban-scroll::-webkit-scrollbar-thumb:hover {
           background: #8b5cf6;
+                {isPrivilegedUser && !openedCompletedCard.clientNotified && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleSendToClient(
+                          openCompletedCard.columnId,
+                          openCompletedCard.cardId
+                        )
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                    >
+                      <Send className="h-4 w-4" />
+                      Send to Client
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      <style jsx global>{`
+        .kanban-scroll-shell,
+        .kanban-scroll-column {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(148, 163, 184, 0.55) rgba(241, 245, 249, 0.65);
+        }
+
+        .kanban-scroll-shell::-webkit-scrollbar,
+        .kanban-scroll-column::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+
+        .kanban-scroll-shell::-webkit-scrollbar-track,
+        .kanban-scroll-column::-webkit-scrollbar-track {
+          background: rgba(241, 245, 249, 0.7);
+          border-radius: 999px;
+        }
+
+        .kanban-scroll-shell::-webkit-scrollbar-thumb,
+        .kanban-scroll-column::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.6);
+          border-radius: 999px;
+          border: 2px solid rgba(241, 245, 249, 0.85);
+        }
+
+        .kanban-scroll-shell::-webkit-scrollbar-thumb:hover,
+        .kanban-scroll-column::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.8);
         }
       `}</style>
     </Layout>

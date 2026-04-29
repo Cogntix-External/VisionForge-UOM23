@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Bell, Menu, PanelLeftClose, PanelLeftOpen, User } from "lucide-react";
 import UserProfileDropdown from "../pages/UserProfileDropdown";
 import {
   getNotifications,
@@ -12,8 +12,31 @@ import {
 import NotificationPanel from "./NotificationPanel";
 import NotificationToastManager from "./NotificationToastManager";
 
-export default function TopNavbar({
+const pageTitles = [
+  ["/company/DashboardSection", "Company Dashboard"],
+  ["/company/PrdRepository", "PRD Repository"],
+  ["/company/Prd-details&Editor", "PRD Details & Editors"],
+  ["/company/ProposalsListSection", "Project Proposals"],
+  ["/company/CreateProposalSection", "Create Project Proposal"],
+  ["/company/KanbanOverviewPage", "Kanban Board Overview"],
+  ["/company/KanbanBoardPage", "Kanban Board"],
+  ["/company/Audit-trail", "Audit Trail & Full History"],
+  ["/company/Version-history", "Version History"],
+  ["/client/dashboard", "Client Dashboard"],
+  ["/client/Project", "Projects"],
+  ["/client/ProposalDetailsSection", "Proposal Details"],
+  ["/client/Proposal", "Project Proposals"],
+  ["/client/Document", "Documents"],
+  ["/client/ChangeRequest", "Change Requests"],
+  ["/client/Kanban", "Kanban Board"],
+  ["/company/ChangePasswordPage", "Change Password"],
+  ["/user-management", "User Management"],
+];
+
+const TopNavbar = ({
   setSidebarOpen = () => {},
+  section = "company",
+  title,
   desktopSidebarOpen = true,
   setDesktopSidebarOpen = () => {},
 }) {
@@ -121,7 +144,34 @@ export default function TopNavbar({
             )}
           </div>
 
-          <UserProfileDropdown />
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={handleBellClick}
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 transition hover:bg-white"
+                title="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+              </button>
+
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {notificationCount}
+                </span>
+              )}
+            </div>
+ {section === "company" ? (
+              <UserProfileDropdown />
+            ) : (
+              <div
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600"
+                title="User"
+              >
+                <User className="h-5 w-5" />
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
