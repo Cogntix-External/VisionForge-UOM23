@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -114,6 +115,24 @@ public class KanbanService {
         return createBoardForProject(projectId);
     }
 
+    public KanbanBoard touchBoard(String projectId, String title) {
+        KanbanBoard board = createBoardForProject(projectId);
+        LocalDateTime now = LocalDateTime.now();
+
+        if (title != null && !title.isBlank()) {
+            board.setTitle(title);
+        }
+
+        if (board.getCreatedAt() == null) {
+            board.setCreatedAt(now);
+        }
+
+        board.setUpdatedAt(now);
+        KanbanBoard savedBoard = kanbanBoardRepository.save(board);
+        touchProject(projectId);
+        return savedBoard;
+    }
+
     public List<KanbanTask> getTasksByProjectId(String projectId) {
         return kanbanTaskRepository.findByProjectId(projectId);
     }
@@ -133,7 +152,9 @@ public class KanbanService {
         task.setComments(new ArrayList<>());
         task.setAttachments(new ArrayList<>());
 
-        return kanbanTaskRepository.save(task);
+        KanbanTask savedTask = kanbanTaskRepository.save(task);
+        touchBoard(projectId, board.getTitle());
+        return savedTask;
     }
 
     public KanbanTask updateTask(String projectId, String taskId, CreateTaskRequestDto dto) {
@@ -151,7 +172,9 @@ public class KanbanService {
         task.setPriority(dto.getPriority());
         task.setAssignedTo(dto.getAssignedTo());
 
-        return kanbanTaskRepository.save(task);
+        KanbanTask savedTask = kanbanTaskRepository.save(task);
+        touchProject(projectId);
+        return savedTask;
     }
 
     public KanbanTask updateTaskStatus(String taskId, UpdateTaskStatusDto dto) {
@@ -159,7 +182,9 @@ public class KanbanService {
                 .orElseThrow(() -> new RuntimeException("Task not found"));
 
         task.setStatus(dto.getStatus());
-        return kanbanTaskRepository.save(task);
+        KanbanTask savedTask = kanbanTaskRepository.save(task);
+        touchProject(task.getProjectId());
+        return savedTask;
     }
 
     public KanbanTask addComment(String projectId, String taskId, String commentText) {
@@ -193,7 +218,9 @@ public class KanbanService {
         ));
 
         task.setComments(comments);
-        return kanbanTaskRepository.save(task);
+        KanbanTask savedTask = kanbanTaskRepository.save(task);
+        touchProject(projectId);
+        return savedTask;
     }
 
     public KanbanTask uploadAttachments(String projectId, String taskId, MultipartFile[] files) throws IOException {
@@ -227,7 +254,9 @@ public class KanbanService {
         }
 
         task.setAttachments(attachments);
-        return kanbanTaskRepository.save(task);
+        KanbanTask savedTask = kanbanTaskRepository.save(task);
+        touchProject(projectId);
+        return savedTask;
     }
 
     public void deleteTask(String projectId, String taskId) {
@@ -245,6 +274,7 @@ public class KanbanService {
         }
 
         kanbanTaskRepository.delete(task);
+        touchProject(projectId);
     }
 
     public KanbanAttachment getAttachmentMetadata(String projectId, String taskId, String attachmentId) {
@@ -275,11 +305,34 @@ public class KanbanService {
     public KanbanBoard createBoardForProject(String projectId) {
         return kanbanBoardRepository.findByProjectId(projectId)
                 .orElseGet(() -> {
+                    LocalDateTime now = LocalDateTime.now();
                     KanbanBoard board = new KanbanBoard();
                     board.setProjectId(projectId);
                     board.setTitle("Project Kanban Board");
+                    board.setCreatedAt(now);
+                    board.setUpdatedAt(now);
                     return kanbanBoardRepository.save(board);
                 });
+    }
+
+    private void touchProject(String projectId) {
+        if (projectId == null || projectId.isBlank()) {
+            return;
+        }
+
+        projectRepository.findById(projectId).ifPresent(project -> {
+            project.setUpdatedAt(LocalDateTime.now());
+            projectRepository.save(project);
+        });
+
+        kanbanBoardRepository.findByProjectId(projectId).ifPresent(board -> {
+            LocalDateTime now = LocalDateTime.now();
+            if (board.getCreatedAt() == null) {
+                board.setCreatedAt(now);
+            }
+            board.setUpdatedAt(now);
+            kanbanBoardRepository.save(board);
+        });
     }
 
     private KanbanBoardResponse mapToResponse(KanbanBoard board, List<KanbanTask> tasks) {

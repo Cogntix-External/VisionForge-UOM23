@@ -62,10 +62,18 @@ const AddCardModal = ({
         if (!mounted) return;
 
         const mapped = Array.isArray(users)
-          ? users.map((u) => ({
-              id: u.id || u._id || u.name,
-              label: u.name || u.email || "User",
-            }))
+          ? users.map((u) => {
+              const id = u.id || u._id || u.userId || u.name || "unknown";
+              const displayName = u.name || u.fullName || u.email || "User";
+
+              return {
+                id,
+                label:
+                  String(displayName) === String(id)
+                    ? String(displayName)
+                    : `${displayName} (${id})`,
+              };
+            })
           : [];
 
         setTeam([
