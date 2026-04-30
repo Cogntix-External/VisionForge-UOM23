@@ -52,6 +52,10 @@ export default function ClientProposalsPage() {
           summary: proposal.description || "No description provided.",
           budget: 0,
           timeline: "-",
+          totalBudget: proposal.totalBudget ?? null,
+          totalDurationDays: proposal.totalDurationDays ?? null,
+          budgetData: proposal.budgetData || [],
+          timelines: proposal.timelines || [],
           submittedBy: proposal.companyId || "Company",
           submittedAt: proposal.createdAt
             ? new Date(proposal.createdAt).toLocaleDateString()

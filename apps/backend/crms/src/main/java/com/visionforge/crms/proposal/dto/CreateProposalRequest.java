@@ -3,6 +3,9 @@ package com.visionforge.crms.proposal.dto;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+import java.util.List;
+import java.util.Map;
+
 @Data
 public class CreateProposalRequest {
 
@@ -18,6 +21,8 @@ public class CreateProposalRequest {
     private String clientName;
     private Double totalBudget;
     private Integer totalDurationDays;
+    private List<Map<String, Object>> budgetData;
+    private List<Map<String, Object>> timelines;
 
      private String companyId;
 }

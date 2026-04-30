@@ -52,9 +52,9 @@ function buildBudgetRows(project, projectBudgetData) {
     return [
       {
         item: "Total Budget",
-        description: project.description || "Budget summary",
-        quantity: "-",
-        unitPrice: "-",
+        unit: "-",
+        qty: "-",
+        unitCost: "-",
         total: project.totalBudget,
       },
     ];
@@ -83,7 +83,6 @@ function buildTimelineRows(project, projectTimelineData) {
         endDate: "-",
         duration: `${project.totalDurationDays} days`,
         assignedTo: "-",
-        status: normalizeStatus(project.status),
       },
     ];
   }
@@ -302,17 +301,17 @@ export default function ProposalDetailsSection({
       {detailsView === "budget" && (
         <SectionCard title="Estimated Budget">
           <ReadOnlyTable
-            headers={["Item", "Description", "Quantity", "Unit Price", "Total"]}
+            headers={["Item", "Unit", "Qty", "Unit Cost", "Total"]}
             rows={budgetRows}
             emptyMessage="No budget details available."
             renderRow={(row, idx) => (
               <tr key={`${row.item || "budget"}-${idx}`} className="hover:bg-slate-50">
                 <TableCell>{row.item || "-"}</TableCell>
-                <TableCell>{row.description || "-"}</TableCell>
-                <TableCell>{row.quantity || "-"}</TableCell>
+                <TableCell>{row.unit || "-"}</TableCell>
+                <TableCell>{row.qty ?? row.quantity ?? "-"}</TableCell>
                 <TableCell>
-                  {row.unitPrice && row.unitPrice !== "-"
-                    ? formatCurrency(row.unitPrice)
+                  {(row.unitCost ?? row.unitPrice) && (row.unitCost ?? row.unitPrice) !== "-"
+                    ? formatCurrency(row.unitCost ?? row.unitPrice)
                     : "-"}
                 </TableCell>
                 <TableCell>{formatCurrency(row.total)}</TableCell>
@@ -332,7 +331,6 @@ export default function ProposalDetailsSection({
               "End Date",
               "Duration",
               "Assigned To",
-              "Status",
             ]}
             rows={timelineRows}
             emptyMessage="No timeline details available."
@@ -343,7 +341,6 @@ export default function ProposalDetailsSection({
                 <TableCell>{row.endDate || "-"}</TableCell>
                 <TableCell>{row.duration || "-"}</TableCell>
                 <TableCell>{row.assignedTo || "-"}</TableCell>
-                <TableCell>{row.status || "-"}</TableCell>
               </tr>
             )}
           />

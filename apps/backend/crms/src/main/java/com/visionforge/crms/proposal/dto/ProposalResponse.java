@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -20,6 +22,8 @@ public class ProposalResponse {
     private String clientName;
     private Double totalBudget;
     private Integer totalDurationDays;
+    private List<Map<String, Object>> budgetData;
+    private List<Map<String, Object>> timelines;
     private String companyId;
     private ProposalStatus status;
     private String rejectionReason;
