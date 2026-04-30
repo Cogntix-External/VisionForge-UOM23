@@ -35,6 +35,20 @@ export default function ProposalModal({
     return "border-amber-200 bg-amber-50 text-amber-700";
   };
 
+  const formatCurrency = (value) => {
+    if (value === null || value === undefined || value === "") return "-";
+    const amount = Number(value);
+    if (Number.isNaN(amount)) return String(value);
+    return `$${amount.toFixed(2)}`;
+  };
+
+  const budgetRows = Array.isArray(proposal.budgetData)
+    ? proposal.budgetData
+    : [];
+  const timelineRows = Array.isArray(proposal.timelines)
+    ? proposal.timelines
+    : [];
+
   const handleAccept = async () => {
     if (!clientId || !proposal.id) {
       setError(
@@ -77,7 +91,6 @@ export default function ProposalModal({
     try {
       const updatedProposal = await rejectProposal(
         proposal.id,
-        clientId,
         rejectionReason.trim()
       );
 
@@ -156,6 +169,43 @@ export default function ProposalModal({
               {proposal.description || "No description provided"}
             </p>
           </div>
+
+          <DetailTable
+            title="Estimated Budget"
+            headers={["Item", "Unit", "Qty", "Unit Cost", "Total"]}
+            rows={budgetRows}
+            emptyMessage="No budget details available."
+            renderRow={(row, idx) => (
+              <tr key={`${row.item || "budget"}-${idx}`}>
+                <TableCell>{row.item || "-"}</TableCell>
+                <TableCell>{row.unit || "-"}</TableCell>
+                <TableCell>{row.qty ?? row.quantity ?? "-"}</TableCell>
+                <TableCell>
+                  {(row.unitCost ?? row.unitPrice) &&
+                  (row.unitCost ?? row.unitPrice) !== "-"
+                    ? formatCurrency(row.unitCost ?? row.unitPrice)
+                    : "-"}
+                </TableCell>
+                <TableCell>{formatCurrency(row.total)}</TableCell>
+              </tr>
+            )}
+          />
+
+          <DetailTable
+            title="Estimated Timeline"
+            headers={["Phase", "Start Date", "End Date", "Duration", "Assigned To"]}
+            rows={timelineRows}
+            emptyMessage="No timeline details available."
+            renderRow={(row, idx) => (
+              <tr key={`${row.phase || "timeline"}-${idx}`}>
+                <TableCell>{row.phase || "-"}</TableCell>
+                <TableCell>{row.startDate || "-"}</TableCell>
+                <TableCell>{row.endDate || "-"}</TableCell>
+                <TableCell>{row.duration || "-"}</TableCell>
+                <TableCell>{row.assignedTo || "-"}</TableCell>
+              </tr>
+            )}
+          />
 
           {proposal.rejectionReason && (
             <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-5">
@@ -262,3 +312,47 @@ const Field = ({ label, value, mono = false }) => (
     </p>
   </div>
 );
+
+function DetailTable({ title, headers, rows, renderRow, emptyMessage }) {
+  return (
+    <div className="rounded-[24px] border border-slate-100 bg-white p-5">
+      <p className="mb-4 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+        {title}
+      </p>
+      <div className="overflow-x-auto rounded-2xl border border-slate-100">
+        <table className="w-full min-w-[620px] text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              {headers.map((header) => (
+                <th
+                  key={header}
+                  className="px-4 py-3 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-400"
+                >
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.length > 0 ? (
+              rows.map(renderRow)
+            ) : (
+              <tr>
+                <td
+                  colSpan={headers.length}
+                  className="px-4 py-6 text-center text-sm font-bold text-slate-400"
+                >
+                  {emptyMessage}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function TableCell({ children }) {
+  return <td className="px-4 py-3 font-semibold text-slate-700">{children}</td>;
+}

@@ -1,0 +1,96 @@
+
+> crms-cognitix-frontend@1.0.0 dev
+> next dev
+
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.56.1:3000
+
+ ✓ Starting...
+ ✓ Ready in 4.1s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 2s (114 modules)
+ ○ Compiling /company/CreateProposalSection ...
+ ✓ Compiled /company/CreateProposalSection in 11.7s (677 modules)
+ GET /company/CreateProposalSection 200 in 13475ms
+ GET /company/CreateProposalSection 200 in 435ms
+ GET /company/CreateProposalSection 200 in 749ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 780ms (690 modules)
+ GET /login 200 in 1027ms
+ ○ Compiling /company/DashboardSection ...
+ ✓ Compiled /company/DashboardSection in 828ms (713 modules)
+ GET /company/DashboardSection 200 in 1019ms
+ GET /company/CreateProposalSection 200 in 81ms
+ ○ Compiling /company/ProposalsListSection ...
+ ✓ Compiled /company/ProposalsListSection in 945ms (707 modules)
+ GET /company/ProposalsListSection 200 in 1220ms
+ ○ Compiling /company/ProposalDetailsSection ...
+ ✓ Compiled /company/ProposalDetailsSection in 1125ms (730 modules)
+ GET /company/ProposalDetailsSection?proposalId=69f37506ed85118cdc61fbf5 200 in 1518ms
+ ✓ Compiled /login in 435ms (439 modules)
+ GET /login 200 in 636ms
+ ○ Compiling /client/dashboard ...
+ ✓ Compiled /client/dashboard in 2.6s (753 modules)
+ GET /client/dashboard 200 in 3677ms
+ GET /client/dashboard 200 in 3061ms
+ ○ Compiling /client/Proposal ...
+ ✓ Compiled /client/Proposal in 866ms (772 modules)
+ GET /client/Proposal 200 in 1084ms
+ ○ Compiling /client/ProposalDetailsSection ...
+ ✓ Compiled /client/ProposalDetailsSection in 1072ms (779 modules)
+ GET /client/ProposalDetailsSection?proposalId=69f37506ed85118cdc61fbf5 200 in 1278ms
+ GET /client/Proposal 200 in 194ms
+ GET /login 200 in 78ms
+ GET /client/dashboard 200 in 98ms
+ GET /client/dashboard 200 in 474ms
+ GET /login 200 in 62ms
+ ○ Compiling /company/DashboardSection ...
+ ✓ Compiled /company/DashboardSection in 2.1s (464 modules)
+ GET /company/DashboardSection 200 in 3000ms
+ GET /company/DashboardSection 200 in 3105ms
+ ○ Compiling /company/ProposalsListSection ...
+ ✓ Compiled /company/ProposalsListSection in 849ms (471 modules)
+ GET /company/ProposalsListSection 200 in 1072ms
+ ✓ Compiled /company/ProposalDetailsSection in 471ms (476 modules)
+ GET /company/ProposalDetailsSection?proposalId=69f37506ed85118cdc61fbf5 200 in 679ms
+ ○ Compiling /company/KanbanOverviewPage ...
+ ✓ Compiled /company/KanbanOverviewPage in 1752ms (796 modules)
+ GET /company/KanbanOverviewPage 200 in 1997ms
+ ○ Compiling /company/KanbanBoardPage/[pid] ...
+ ✓ Compiled /company/KanbanBoardPage/[pid] in 1377ms (814 modules)
+ GET /company/KanbanBoardPage/69e92056ba76d3dd733f5bf2 200 in 3217ms
+ GET /company/DashboardSection 200 in 98ms
+ ○ Compiling /company/PrdRepository ...
+ ✓ Compiled /company/PrdRepository in 2.1s (812 modules)
+ GET /company/PrdRepository 200 in 2352ms
+ GET /company/PrdRepository 200 in 95ms
+ ○ Compiling /company/Prd-details&Editor ...
+ ✓ Compiled /company/Prd-details&Editor in 1296ms (814 modules)
+ GET /company/Prd-details&Editor?prdId=69f375a7ed85118cdc61fbf7 200 in 1581ms
+ GET /company/PrdRepository 200 in 73ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 723ms (469 modules)
+ GET /login 200 in 987ms
+ ○ Compiling /client/dashboard ...
+ ✓ Compiled /client/dashboard in 1085ms (464 modules)
+ GET /client/dashboard 200 in 1637ms
+ GET /client/dashboard 200 in 1001ms
+ ○ Compiling /client/Document ...
+ ✓ Compiled /client/Document in 1064ms (819 modules)
+ GET /client/Document 200 in 1219ms
+ GET /client/Document 200 in 75ms
+ ○ Compiling /client/Proposal ...
+ ✓ Compiled /client/Proposal in 901ms (457 modules)
+ GET /client/Proposal 200 in 1203ms
+ GET /login 200 in 83ms
+ ○ Compiling /company/DashboardSection ...
+ ✓ Compiled /company/DashboardSection in 673ms (458 modules)
+ GET /company/DashboardSection 200 in 881ms
+ GET /company/DashboardSection 200 in 552ms
+ ○ Compiling /company/KanbanOverviewPage ...
+ ✓ Compiled /company/KanbanOverviewPage in 1089ms (468 modules)
+ GET /company/KanbanOverviewPage 200 in 1260ms
+ ○ Compiling /company/KanbanBoardPage/[pid] ...
+ ✓ Compiled /company/KanbanBoardPage/[pid] in 803ms (486 modules)
+ GET /company/KanbanBoardPage/69f375a7ed85118cdc61fbf7 200 in 1199ms

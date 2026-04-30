@@ -42,8 +42,7 @@ export default function CreateProposalSection({
         isNonEmpty(row.startDate) &&
         isNonEmpty(row.endDate) &&
         isNonEmpty(row.duration) &&
-        isNonEmpty(row.assignedTo) &&
-        isNonEmpty(row.status)
+        isNonEmpty(row.assignedTo)
     );
 
   const isBudgetComplete =
@@ -51,9 +50,9 @@ export default function CreateProposalSection({
     budgetData.every(
       (row) =>
         isNonEmpty(row.item) &&
-        isNonEmpty(row.description) &&
-        isNonEmpty(row.quantity) &&
-        isNonEmpty(row.unitPrice) &&
+        isNonEmpty(row.unit) &&
+        isNonEmpty(row.qty) &&
+        isNonEmpty(row.unitCost) &&
         isNonEmpty(row.total)
     );
 
@@ -73,17 +72,17 @@ export default function CreateProposalSection({
     return `${diffInDays} days`;
   };
 
-  const calculateRowTotal = (quantity, unitPrice) => {
-    if (quantity === "" || unitPrice === "") return "";
+  const calculateRowTotal = (qty, unitCost) => {
+    if (qty === "" || unitCost === "") return "";
 
-    const parsedQuantity = Number(quantity);
-    const parsedUnitPrice = Number(unitPrice);
+    const parsedQuantity = Number(qty);
+    const parsedUnitCost = Number(unitCost);
 
-    if (Number.isNaN(parsedQuantity) || Number.isNaN(parsedUnitPrice)) {
+    if (Number.isNaN(parsedQuantity) || Number.isNaN(parsedUnitCost)) {
       return "";
     }
 
-    return String(Number((parsedQuantity * parsedUnitPrice).toFixed(2)));
+    return String(Number((parsedQuantity * parsedUnitCost).toFixed(2)));
   };
 
   return (
@@ -171,12 +170,12 @@ export default function CreateProposalSection({
 
         <SectionCard
           title="Timeline *"
-          subtitle="Add delivery phases, dates, assigned members and progress status."
+          subtitle="Add delivery phases, dates and assigned members."
         >
           {showTimeline ? (
             <>
               <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                <table className="w-full min-w-[920px] text-sm">
+                <table className="w-full min-w-[820px] text-sm">
                   <thead className="bg-slate-50">
                     <tr>
                       <TableHead>Phase</TableHead>
@@ -184,7 +183,6 @@ export default function CreateProposalSection({
                       <TableHead>End Date</TableHead>
                       <TableHead>Duration</TableHead>
                       <TableHead>Assigned To</TableHead>
-                      <TableHead>Status</TableHead>
                     </tr>
                   </thead>
 
@@ -253,17 +251,6 @@ export default function CreateProposalSection({
                           />
                         </TableCell>
 
-                        <TableCell>
-                          <TableInput
-                            value={row.status}
-                            placeholder="Status"
-                            onChange={(value) => {
-                              const newData = [...timelineData];
-                              newData[idx].status = value;
-                              setTimelineData(newData);
-                            }}
-                          />
-                        </TableCell>
                       </tr>
                     ))}
                   </tbody>
@@ -281,7 +268,6 @@ export default function CreateProposalSection({
                         endDate: "",
                         duration: "",
                         assignedTo: "",
-                        status: "",
                       },
                     ])
                   }
@@ -315,7 +301,145 @@ export default function CreateProposalSection({
           )}
         </SectionCard>
 
-                 
+        <SectionCard
+          title="Estimated Budget *"
+          subtitle="Add line items, units, quantity and cost estimates."
+        >
+          {showBudget ? (
+            <>
+              <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                <table className="w-full min-w-[820px] text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <TableHead>Item</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead>Qty</TableHead>
+                      <TableHead>Unit Cost</TableHead>
+                      <TableHead>Total</TableHead>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {budgetData.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <TableCell>
+                          <TableInput
+                            value={row.item}
+                            placeholder="Item"
+                            onChange={(value) => {
+                              const newData = [...budgetData];
+                              newData[idx].item = value;
+                              setBudgetData(newData);
+                            }}
+                          />
+                        </TableCell>
+
+                        <TableCell>
+                          <TableSelect
+                            value={row.unit || "hours"}
+                            onChange={(value) => {
+                              const newData = [...budgetData];
+                              newData[idx].unit = value;
+                              setBudgetData(newData);
+                            }}
+                          >
+                            <option value="hours">hours</option>
+                            <option value="days">days</option>
+                            <option value="weeks">weeks</option>
+                            <option value="months">months</option>
+                          </TableSelect>
+                        </TableCell>
+
+                        <TableCell>
+                          <TableInput
+                            type="number"
+                            min="0"
+                            value={row.qty}
+                            placeholder="Qty"
+                            onChange={(value) => {
+                              const newData = [...budgetData];
+                              newData[idx].qty = value;
+                              newData[idx].total = calculateRowTotal(
+                                newData[idx].qty,
+                                newData[idx].unitCost
+                              );
+                              setBudgetData(newData);
+                            }}
+                          />
+                        </TableCell>
+
+                        <TableCell>
+                          <TableInput
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={row.unitCost}
+                            placeholder="Unit Cost"
+                            onChange={(value) => {
+                              const newData = [...budgetData];
+                              newData[idx].unitCost = value;
+                              newData[idx].total = calculateRowTotal(
+                                newData[idx].qty,
+                                newData[idx].unitCost
+                              );
+                              setBudgetData(newData);
+                            }}
+                          />
+                        </TableCell>
+
+                        <TableCell>
+                          <TableInput value={row.total} readOnly placeholder="Total" />
+                        </TableCell>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <ActionRow>
+                <Button
+                  onClick={() =>
+                    setBudgetData([
+                      ...budgetData,
+                      {
+                        item: "",
+                        unit: "hours",
+                        qty: "",
+                        unitCost: "",
+                        total: "",
+                      },
+                    ])
+                  }
+                  variant="primary"
+                >
+                  Add Row
+                </Button>
+
+                <Button onClick={() => setShowBudget(false)} variant="muted">
+                  Move Back
+                </Button>
+
+                <Button
+                  onClick={() => setBudgetSavedMessage("Saved")}
+                  variant="success"
+                >
+                  Save Changes
+                </Button>
+              </ActionRow>
+
+              {budgetSavedMessage && (
+                <p className="text-sm font-bold text-emerald-600">
+                  {budgetSavedMessage}
+                </p>
+              )}
+            </>
+          ) : (
+            <Button onClick={() => setShowBudget(true)} variant="primary">
+              View Estimated Budget
+            </Button>
+          )}
+        </SectionCard>
+
 
         {!isFormValid && (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-bold text-rose-600">
@@ -378,6 +502,18 @@ function TableInput({ value, onChange, ...props }) {
       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
       {...props}
     />
+  );
+}
+
+function TableSelect({ value, onChange, children }) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange?.(event.target.value)}
+      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+    >
+      {children}
+    </select>
   );
 }
 

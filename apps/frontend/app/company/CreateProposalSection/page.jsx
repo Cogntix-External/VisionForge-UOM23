@@ -12,14 +12,13 @@ const emptyTimelineRow = {
   endDate: "",
   duration: "",
   assignedTo: "",
-  status: "",
 };
 
 const emptyBudgetRow = {
   item: "",
-  description: "",
-  quantity: "",
-  unitPrice: "",
+  unit: "hours",
+  qty: "",
+  unitCost: "",
   total: "",
 };
 
@@ -114,6 +113,8 @@ export default function CompanyCreateProposalSectionPage() {
           clientName: newProposal.clientName.trim(),
           totalBudget,
           totalDurationDays,
+          budgetData,
+          timelines: timelineData,
         },
         companyId,
       );

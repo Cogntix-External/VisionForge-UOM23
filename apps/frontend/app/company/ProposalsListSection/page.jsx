@@ -41,11 +41,13 @@ const mapProposal = (proposal) => ({
       ? `$${proposal.totalBudget.toFixed(2)}`
       : "$0.00",
   totalBudget: proposal.totalBudget ?? null,
+  budgetData: proposal.budgetData || [],
   duration:
     typeof proposal.totalDurationDays === "number"
       ? `${proposal.totalDurationDays} days`
       : "0 days",
   totalDurationDays: proposal.totalDurationDays ?? null,
+  timelines: proposal.timelines || [],
   status: String(proposal.status || "PENDING").toUpperCase(),
   createdAt: formatDate(proposal.createdAt),
   submittedAt: formatDate(proposal.createdAt),
