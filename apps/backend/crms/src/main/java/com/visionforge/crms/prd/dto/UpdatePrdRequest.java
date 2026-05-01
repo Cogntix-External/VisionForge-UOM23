@@ -11,6 +11,7 @@ public class UpdatePrdRequest {
     private String author;
     private String dateSubmitted;
     private String reviewerName;
+    private String version;
 
     private String purpose;
     private String problemToSolve;

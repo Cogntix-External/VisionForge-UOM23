@@ -40,6 +40,9 @@ public class PrdService {
     private final UserRepository userRepository;
 
     public List<PrdResponse> getAllPrds() {
+        // 🔥 Cleanup any empty PRDs before returning the list
+        cleanupEmptyPrds();
+        
         return prdRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
                 .stream()
                 .map(this::toResponse)
@@ -56,9 +59,51 @@ public class PrdService {
                 .orElse(null);
     }
 
+    // Delete empty/incomplete PRDs (cleanup existing ones)
+    public void deleteEmptyPrd(String prdId) {
+        Prd prd = findPrd(prdId);
+        if (isPrdEmpty(prd)) {
+            prdRepository.deleteById(prdId);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete: PRD contains data");
+        }
+    }
+
+    // Clean up ALL empty PRDs from database
+    public int cleanupEmptyPrds() {
+        List<Prd> allPrds = prdRepository.findAll();
+        int deletedCount = 0;
+        
+        for (Prd prd : allPrds) {
+            if (isPrdEmpty(prd)) {
+                prdRepository.deleteById(prd.getId());
+                deletedCount++;
+            }
+        }
+        
+        return deletedCount;
+    }
+
+    // Check if PRD is empty (minimal/placeholder data)
+    private boolean isPrdEmpty(Prd prd) {
+        if (prd == null) return true;
+        return isBlank(prd.getAuthor()) ||
+                isBlank(prd.getPurpose()) ||
+                isBlank(prd.getProblemToSolve()) ||
+                isBlank(prd.getProjectGoal()) ||
+                (prd.getStakeholders() == null || prd.getStakeholders().isEmpty()) ||
+                (prd.getMilestones() == null || prd.getMilestones().isEmpty());
+    }
+
     public PrdResponse createPrd(CreatePrdRequest request) {
+        validateCreateRequest(request);
+
         if (request.getProjectId() == null || request.getProjectId().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project ID is required");
+        }
+
+        if (prdRepository.existsByProjectId(request.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A PRD already exists for this project");
         }
 
         Prd prd = Prd.builder()
@@ -106,8 +151,79 @@ public class PrdService {
         return toResponse(savedPrd);
     }
 
+    private void validateCreateRequest(CreatePrdRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PRD request is required");
+        }
+
+        if (isBlank(request.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project ID is required");
+        }
+        if (isBlank(request.getProjectName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project name is required");
+        }
+        if (isBlank(request.getAuthor())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Author is required");
+        }
+        if (isBlank(request.getDateSubmitted())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date submitted is required");
+        }
+        if (isBlank(request.getPurpose())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Purpose is required");
+        }
+        if (isBlank(request.getProblemToSolve())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Problem to solve is required");
+        }
+        if (isBlank(request.getProjectGoal())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project goal is required");
+        }
+        if (isBlank(request.getInScope())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "In scope is required");
+        }
+        if (isBlank(request.getOutOfScope())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Out of scope is required");
+        }
+        if (isBlank(request.getMainFeatures())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Main features are required");
+        }
+        if (isBlank(request.getFunctionalRequirement())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Functional requirement is required");
+        }
+        if (isBlank(request.getNonFunctionalRequirement())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Non-functional requirement is required");
+        }
+        if (isBlank(request.getUserRoles())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User roles are required");
+        }
+        if (isBlank(request.getRisksDependencies())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Risks and dependencies are required");
+        }
+
+        if (request.getStakeholders() == null || request.getStakeholders().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one stakeholder is required");
+        }
+        if (request.getMilestones() == null || request.getMilestones().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one milestone is required");
+        }
+
+        request.getStakeholders().forEach(item -> {
+            if (item == null || isBlank(item.getRole()) || isBlank(item.getName()) || isBlank(item.getResponsibility())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Each stakeholder requires role, name, and responsibility");
+            }
+        });
+
+        request.getMilestones().forEach(item -> {
+            if (item == null || isBlank(item.getPhase()) || isBlank(item.getTask()) || isBlank(item.getDuration()) || isBlank(item.getResponsibility())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Each milestone requires phase, task, duration, and responsibility");
+            }
+        });
+    }
+
     public PrdResponse updatePrd(String id, UpdatePrdRequest request) {
         Prd prd = findPrd(id);
+        String currentVersion = prd.getVersion();
+        String requestedVersion = normalizeVersion(request.getVersion());
+        boolean hasManualVersion = requestedVersion != null && !requestedVersion.equals(currentVersion);
 
         if (request.getProjectName() != null) {
             prd.setProjectName(request.getProjectName());
@@ -169,22 +285,29 @@ public class PrdService {
                 prd.setStatus("Drafted");
                 prd.setReviewedByChecker(false);
                 prd.setSentToClient(false);
+                if (requestedVersion != null) {
+                    prd.setVersion(requestedVersion);
+                }
             }
             case "APPROVE" -> {
                 prd.setStatus("Approved");
                 prd.setReviewedByChecker(true);
                 prd.setSentToClient(true);
-                prd.setVersion(incrementVersion(prd.getVersion()));
+                prd.setVersion(hasManualVersion ? requestedVersion : incrementVersion(currentVersion));
             }
             case "REJECTED", "REJECT" -> {
                 prd.setStatus("Rejected");
                 prd.setReviewedByChecker(false);
                 prd.setSentToClient(false);
+                if (requestedVersion != null) {
+                    prd.setVersion(requestedVersion);
+                }
             }
             default -> {
                 prd.setStatus("In Review");
                 prd.setReviewedByChecker(false);
                 prd.setSentToClient(false);
+                prd.setVersion(hasManualVersion ? requestedVersion : incrementVersion(currentVersion));
             }
         }
 
@@ -434,7 +557,19 @@ public class PrdService {
         return major + "." + minor;
     }
 
+    private String normalizeVersion(String version) {
+        if (version == null || version.isBlank()) {
+            return null;
+        }
+
+        return version.trim();
+    }
+
     private String nvl(String value) {
         return value == null || value.isBlank() ? "-" : value;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

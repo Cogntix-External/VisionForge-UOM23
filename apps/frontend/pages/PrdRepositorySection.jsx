@@ -45,6 +45,8 @@ const createEmptyForm = () => ({
 
 const hasText = (value) => String(value || "").trim().length > 0;
 
+const getProjectId = (project) => project?.id || project?._id || "";
+
 function validateForm(form) {
   const scalarFields = [
     form.projectId,
@@ -277,6 +279,35 @@ export default function CompanyPrdRepositorySection() {
   const [errorMessage, setErrorMessage] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
 
+  // Check if PRD is empty/incomplete (should not be displayed)
+  const isPrdEmpty = (prd) => {
+    if (!prd) return true;
+    const fields = [
+      prd.author,
+      prd.purpose,
+      prd.problemToSolve,
+      prd.projectGoal,
+      prd.inScope,
+      prd.outOfScope,
+      prd.mainFeatures,
+      prd.functionalRequirement,
+      prd.nonFunctionalRequirement,
+      prd.userRoles,
+      prd.risksDependencies,
+    ];
+
+    // Check if any critical field is missing
+    if (fields.some((field) => !field || String(field).trim() === "" || String(field) === "-")) {
+      return true;
+    }
+
+    // Check if stakeholders or milestones are missing
+    if (!prd.stakeholders || prd.stakeholders.length === 0) return true;
+    if (!prd.milestones || prd.milestones.length === 0) return true;
+
+    return false;
+  };
+
   const loadProjectsAndPrds = async () => {
     const token = getToken();
     if (!token) return;
@@ -293,18 +324,27 @@ export default function CompanyPrdRepositorySection() {
 
       setCompanyProjects(activeProjects);
 
-      const results = await Promise.allSettled(
-        activeProjects.map(async (project) => {
-          const prd = await fetchPrds(project.id || project._id);
-          return prd ? normalizePrd(prd, project) : null;
-        })
+      const projectMap = new Map(
+        activeProjects.map((project) => [String(getProjectId(project)), project])
       );
+      const allPrds = await fetchPrds();
+      const prdsByProject = new Map();
 
-      const prds = results
-        .filter((result) => result.status === "fulfilled" && result.value)
-        .map((result) => result.value);
+      // Filter out empty/incomplete PRDs - only show PRDs with complete information
+      (Array.isArray(allPrds) ? allPrds : [])
+        .map((prd) =>
+          normalizePrd(prd, projectMap.get(String(prd?.projectId || "")))
+        )
+        .filter((prd) => !isPrdEmpty(prd))
+        .forEach((prd) => {
+          const key = String(prd.projectId || prd.id || "");
 
-      setPrdList(prds);
+          if (key && !prdsByProject.has(key)) {
+            prdsByProject.set(key, prd);
+          }
+        });
+
+      setPrdList(Array.from(prdsByProject.values()));
     } catch (error) {
       console.error("Failed to load PRDs:", error);
       setPrdList([]);
@@ -334,8 +374,18 @@ export default function CompanyPrdRepositorySection() {
                 String(project.status || "").toUpperCase() === "ACTIVE"
             )
           : [];
+        const existingPrds = await fetchPrds();
+        const projectIdsWithPrds = new Set(
+          (Array.isArray(existingPrds) ? existingPrds : [])
+            .map((prd) => String(prd?.projectId || ""))
+            .filter(Boolean)
+        );
 
-        setCompanyProjects(acceptedProjects);
+        setCompanyProjects(
+          acceptedProjects.filter(
+            (project) => !projectIdsWithPrds.has(String(getProjectId(project)))
+          )
+        );
       } catch (error) {
         console.error("Failed to load projects:", error);
         setCompanyProjects([]);
@@ -366,12 +416,12 @@ export default function CompanyPrdRepositorySection() {
 
   const applyProjectSelection = (projectId) => {
     const selectedProject = companyProjects.find(
-      (project) => String(project.id || project._id) === String(projectId)
+      (project) => String(getProjectId(project)) === String(projectId)
     );
 
     setForm((prev) => ({
       ...prev,
-      projectId: selectedProject?.id || selectedProject?._id || "",
+      projectId: getProjectId(selectedProject),
       projectName: selectedProject?.name || selectedProject?.title || "",
       author:
         selectedProject?.clientId ||
@@ -496,6 +546,11 @@ export default function CompanyPrdRepositorySection() {
       return;
     }
 
+    if (prdList.some((prd) => String(prd.projectId) === String(form.projectId))) {
+      setErrorMessage("A PRD already exists for this project.");
+      return;
+    }
+
     const token = getToken();
 
     if (!token) {
@@ -595,7 +650,7 @@ export default function CompanyPrdRepositorySection() {
                     )}
 
                     {companyProjects.map((project) => {
-                      const projectId = project.id || project._id;
+                      const projectId = getProjectId(project);
 
                       return (
                         <option key={projectId} value={projectId}>
