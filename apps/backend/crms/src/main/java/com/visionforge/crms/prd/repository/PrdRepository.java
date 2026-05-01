@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface PrdRepository extends MongoRepository<Prd, String> {
     Optional<Prd> findTopByOrderByCreatedAtDesc();
     Optional<Prd> findByProjectId(String projectId);
+    boolean existsByProjectId(String projectId);
 }

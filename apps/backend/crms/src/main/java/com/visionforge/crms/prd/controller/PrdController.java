@@ -80,4 +80,18 @@ public class PrdController {
 
         return new ResponseEntity<>(content, headers, HttpStatus.OK);
     }
+
+    // DELETE EMPTY/INCOMPLETE PRD
+    @DeleteMapping("/prds/{id}/empty")
+    public ResponseEntity<String> deleteEmptyPrd(@PathVariable String id) {
+        prdService.deleteEmptyPrd(id);
+        return ResponseEntity.ok("Empty PRD deleted successfully");
+    }
+
+    // CLEANUP ALL EMPTY PRDS
+    @PostMapping("/prds/cleanup/empty")
+    public ResponseEntity<String> cleanupEmptyPrds() {
+        int deletedCount = prdService.cleanupEmptyPrds();
+        return ResponseEntity.ok("Deleted " + deletedCount + " empty PRD(s)");
+    }
 }

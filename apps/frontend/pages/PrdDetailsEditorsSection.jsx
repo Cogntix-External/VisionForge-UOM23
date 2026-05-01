@@ -65,6 +65,7 @@ function mapEditFormToUpdatePayload(prd, editForm, action) {
     author: editForm.lastModified,
     dateSubmitted: prd?.dateSubmitted || prd?.createdDate || "",
     reviewerName: editForm.reviewerName,
+    version: editForm.version,
     purpose: projectOverview[0],
     problemToSolve: projectOverview[1],
     projectGoal: projectOverview[2],
@@ -559,6 +560,7 @@ if (!prd) {
     return (
       hasText(editPrdForm.title) &&
       hasText(editPrdForm.lastModified) &&
+      hasText(editPrdForm.version) &&
       editPrdForm.functionalRequirements.every(hasText) &&
       editPrdForm.projectOverview.every(hasText) &&
       hasText(editPrdForm.reviewerName)
