@@ -1065,102 +1065,56 @@ export async function downloadTaskAttachment(
   window.URL.revokeObjectURL(objectUrl);
   return true;
 }
-// User Profile Section
-const USER_PROFILE_PATH = "/user-profile/me";
+const getToken = () => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("crms_token") || localStorage.getItem("token");
+};
 
-function normalizeProfile(profile) {
-  if (!profile || typeof profile !== "object") return profile;
+export const getCurrentUserProfile = async () => {
+  const token = getToken();
 
-  const name =
-    profile.username || profile.fullName || profile.name || "";
-
-  return {
-    ...profile,
-    id: profile.id || "",
-    userId: profile.userId || profile.id || "",
-    username: name,
-    name,
-    fullName: profile.fullName || name,
-    email: profile.email || "",
-    role: profile.role || "",
-    profileImage: profile.profileImage || "",
-    assignedTasks: Array.isArray(profile.assignedTasks)
-      ? profile.assignedTasks
-      : [],
-    assignedProjects: Array.isArray(profile.assignedProjects)
-      ? profile.assignedProjects
-      : [],
-  };
-}
-
-export function getCurrentUserProfile() {
-  return request(USER_PROFILE_PATH, {
+  const res = await fetch(`${API_BASE}/user-profile/me`, {
     method: "GET",
-    suppressNetworkErrorLog: true,
-  })
-    .then(normalizeProfile)
-    .catch((error) => {
-      const isNetworkError =
-        error instanceof TypeError ||
-        /Failed to fetch|NetworkError|Load failed/i.test(
-          String(error?.message || "")
-        );
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
-      if (!isNetworkError) {
-        throw error;
-      }
+  const text = await res.text();
 
-      return normalizeProfile(getStoredUser());
-    });
-}
-
-export async function updateCurrentUserProfile(payload) {
-  let response;
-
-  try {
-    response = await request(USER_PROFILE_PATH, {
-      method: "PUT",
-      suppressNetworkErrorLog: true,
-      body: JSON.stringify({
-        username: payload?.username ?? payload?.name ?? "",
-        userId: payload?.userId ?? "",
-        profileImage: payload?.profileImage ?? "",
-      }),
-    });
-  } catch (error) {
-    const isNetworkError =
-      error instanceof TypeError ||
-      /Failed to fetch|NetworkError|Load failed/i.test(
-        String(error?.message || "")
-      );
-
-    if (!isNetworkError) {
-      throw error;
-    }
-
-    response = {
-      ...getStoredUser(),
-      username: payload?.username ?? payload?.name ?? "",
-      userId: payload?.userId ?? getStoredUser()?.userId ?? "",
-      profileImage:
-        payload?.profileImage ?? getStoredUser()?.profileImage ?? "",
-    };
-  }
-
-  const normalized = normalizeProfile(response);
-
-  if (typeof window !== "undefined") {
-    const existingUser = getStoredUser();
-    localStorage.setItem(
-      "crms_user",
-      JSON.stringify({
-        ...existingUser,
-        ...normalized,
-      })
+  if (!res.ok) {
+    console.error(
+      `Profile API Error → status: ${res.status}, url: ${API_BASE}/user-profile/me, response: ${text}`
     );
+    throw new Error(`Failed to fetch profile. Status: ${res.status}`);
   }
 
-  return normalized;
-}
+  return text ? JSON.parse(text) : {};
+};
+
+export const updateCurrentUserProfile = async (data) => {
+  const token = getToken();
+
+  const res = await fetch(`${API_BASE}/user-profile/me`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  const text = await res.text();
+
+  if (!res.ok) {
+    console.error(
+      `Profile Update Error → status: ${res.status}, url: ${API_BASE}/user-profile/me, response: ${text}`
+    );
+    throw new Error(`Failed to update profile. Status: ${res.status}`);
+  }
+
+  return text ? JSON.parse(text) : {};
+};
+
 
 export { API_BASE };

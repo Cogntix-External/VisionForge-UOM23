@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, Menu, PanelLeftClose, PanelLeftOpen, User } from "lucide-react";
+import { Bell, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import UserProfileDropdown from "../pages/UserProfileDropdown";
 import {
   getNotifications,
@@ -11,27 +11,6 @@ import {
 } from "../services/api";
 import NotificationPanel from "./NotificationPanel";
 import NotificationToastManager from "./NotificationToastManager";
-
-const pageTitles = [
-  ["/company/DashboardSection", "Company Dashboard"],
-  ["/company/PrdRepository", "PRD Repository"],
-  ["/company/Prd-details&Editor", "PRD Details & Editors"],
-  ["/company/ProposalsListSection", "Project Proposals"],
-  ["/company/CreateProposalSection", "Create Project Proposal"],
-  ["/company/KanbanOverviewPage", "Kanban Board Overview"],
-  ["/company/KanbanBoardPage", "Kanban Board"],
-  ["/company/Audit-trail", "Audit Trail & Full History"],
-  ["/company/Version-history", "Version History"],
-  ["/client/dashboard", "Client Dashboard"],
-  ["/client/Project", "Projects"],
-  ["/client/ProposalDetailsSection", "Proposal Details"],
-  ["/client/Proposal", "Project Proposals"],
-  ["/client/Document", "Documents"],
-  ["/client/ChangeRequest", "Change Requests"],
-  ["/client/Kanban", "Kanban Board"],
-  ["/company/ChangePasswordPage", "Change Password"],
-  ["/user-management", "User Management"],
-];
 
 const TopNavbar = ({
   setSidebarOpen = () => {},
@@ -44,21 +23,36 @@ const TopNavbar = ({
 
   const [notificationCount, setNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
-  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] =
+    useState(false);
 
-  const getPageTitle = () => {
-    if (title) {
-      return title;
-    }
+  const getTitle = () => {
+    const path = String(pathname || "").toLowerCase();
 
-    if (pathname === "/" || pathname === "/dashboard") {
-      return "Dashboard";
-    }
+    if (path.includes("/company/dashboardsection")) return "Company Dashboard";
+    if (path.includes("/company/proposalslistsection")) return "Proposals";
+    if (path.includes("/company/createproposalsection")) return "Create Proposal";
+    if (path.includes("/company/prdrepository")) return "PRD Repository";
+    if (path.includes("/company/prd-details&editor"))
+      return "PRD Details & Editor";
+    if (path.includes("/company/editprofile")) return "Edit Profile";
+    if (path.includes("/company/changepasswordpage"))
+      return "Change Password";
+    if (path.includes("/company/audit-trail")) return "Audit Trail";
+    if (path.includes("/company/version-history")) return "Version History";
+    if (path.includes("/company/kanban")) return "Kanban";
 
-    const currentPage = pageTitles.find(([route]) =>
-      pathname.startsWith(route),
-    );
-    return currentPage?.[1] || "Dashboard";
+    if (path.includes("/client/dashboard")) return "Client Dashboard";
+    if (path.includes("/client/editprofile")) return "Edit Profile";
+    if (path.includes("/client/changepasswordpage"))
+      return "Change Password";
+    if (path.includes("/client/project")) return "Projects";
+    if (path.includes("/client/proposal")) return "Proposals";
+    if (path.includes("/client/document")) return "Documents";
+    if (path.includes("/client/changerequest")) return "Change Requests";
+    if (path.includes("/client/kanban")) return "Kanban";
+
+    return title || "Dashboard";
   };
 
   const loadUnreadCount = async () => {
@@ -98,66 +92,49 @@ const TopNavbar = ({
 
   useEffect(() => {
     loadUnreadCount();
-  }, []);
+  }, [pathname]);
 
   return (
     <>
-      <header className="sticky top-0 z-30 shrink-0 border-b border-[var(--nav-border)] bg-[var(--nav-bg)] px-4 py-4 shadow-[0_1px_0_rgba(255,255,255,0.7)] sm:px-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="rounded-lg p-2 transition-colors hover:bg-white/70 lg:hidden"
-            >
-              <Menu className="h-6 w-6 text-[#4b5563]" />
-            </button>
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-white">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden"
+          >
+            <Menu />
+          </button>
 
+          <button
+            type="button"
+            onClick={() => setDesktopSidebarOpen((prev) => !prev)}
+            className="hidden rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800 lg:flex"
+          >
+            {desktopSidebarOpen ? <PanelLeftClose /> : <PanelLeftOpen />}
+          </button>
+
+          <h1 className="text-xl font-bold">{getTitle()}</h1>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="relative">
             <button
               type="button"
-              onClick={() => setDesktopSidebarOpen((prev) => !prev)}
-              className="hidden h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white/80 text-slate-600 transition hover:bg-white lg:inline-flex"
-              title={desktopSidebarOpen ? "Hide navigation" : "Show navigation"}
+              onClick={handleBellClick}
+              className="rounded-full bg-gray-100 p-2 transition hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700"
             >
-              {desktopSidebarOpen ? (
-                <PanelLeftClose className="h-4 w-4" />
-              ) : (
-                <PanelLeftOpen className="h-4 w-4" />
-              )}
+              <Bell />
             </button>
 
-            <h1 className="text-xl font-normal text-[#1f2433]">
-              {getPageTitle()}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={handleBellClick}
-                className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 transition hover:bg-white"
-                title="Notifications"
-              >
-                <Bell className="h-5 w-5" />
-              </button>
-
-              {notificationCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                  {notificationCount}
-                </span>
-              )}
-            </div>
- {section === "company" ? (
-              <UserProfileDropdown />
-            ) : (
-              <div
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600"
-                title="User"
-              >
-                <User className="h-5 w-5" />
-              </div>
+            {notificationCount > 0 && (
+              <span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-2 text-xs text-white">
+                {notificationCount}
+              </span>
             )}
           </div>
+
+          <UserProfileDropdown section={section} />
         </div>
       </header>
 

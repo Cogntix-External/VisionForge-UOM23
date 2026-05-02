@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Camera, Info, SquareCheckBig } from "lucide-react";
+import { Camera, Info, SquareCheckBig, X } from "lucide-react";
 import {
   getCurrentUserProfile,
   updateCurrentUserProfile,
@@ -18,187 +18,62 @@ const readFileAsDataUrl = (file) =>
     reader.readAsDataURL(file);
   });
 
-const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
+const EditProfileModal = ({ isOpen = true, onClose, userData = null, onSave }) => {
   const [formData, setFormData] = useState({
     username: "",
+    role: "",
     userId: "",
-    profileImage: null,
+    email: "",
+    profileImage: "",
     previewImage: "",
     assignedTasks: [],
     assignedProjects: [],
   });
+
   const [errors, setErrors] = useState({});
   const [saveError, setSaveError] = useState("");
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
-  useEffect(() => {
-    if (!userData) return;
-
-    setFormData((prev) => ({
-      ...prev,
-      username: userData.username || userData.fullName || userData.name || "",
-      userId: userData.userId || userData.id || "",
-      profileImage: null,
-      previewImage: userData.profileImage || "",
-      assignedTasks: Array.isArray(userData.assignedTasks)
-        ? userData.assignedTasks
-        : [],
-      assignedProjects: Array.isArray(userData.assignedProjects)
-        ? userData.assignedProjects
-        : [],
-    }));
-  }, [userData]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let active = true;
-
-    const loadProfile = async () => {
+  const loadProfile = async () => {
+    try {
       setIsLoadingProfile(true);
       setSaveError("");
 
-      try {
-        const profile = await getCurrentUserProfile();
+      const profile = userData || (await getCurrentUserProfile());
 
-        if (!active || !profile) return;
+      const image = profile?.profileImage || "";
 
-        setFormData({
-          username: profile.username || profile.fullName || profile.name || "",
-          userId: profile.userId || profile.id || "",
-          profileImage: null,
-          previewImage: profile.profileImage || "",
-          assignedTasks: Array.isArray(profile.assignedTasks)
-            ? profile.assignedTasks
-            : [],
-          assignedProjects: Array.isArray(profile.assignedProjects)
-            ? profile.assignedProjects
-            : [],
-        });
-      } catch (error) {
-        if (active) {
-          setSaveError(error.message || "Failed to load profile");
-        }
-      } finally {
-        if (active) {
-          setIsLoadingProfile(false);
-        }
-      }
-    };
-
-    const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        handleClose();
-      }
-    };
-
-    loadProfile();
-    document.addEventListener("keydown", handleEscape);
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      active = false;
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "auto";
-    };
-  }, [isOpen]);
-
-  const handleClose = () => {
-    setErrors({});
-    setSaveError("");
-    onClose();
-  };
-
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    setErrors((prev) => ({
-      ...prev,
-      [name]: "",
-    }));
-    setSaveError("");
-  };
-
-  const handleImageChange = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const imageDataUrl = await readFileAsDataUrl(file);
-
-      setFormData((prev) => ({
-        ...prev,
-        profileImage: file,
-        previewImage: imageDataUrl,
-      }));
-      setSaveError("");
-    } catch (error) {
-      setSaveError(error.message || "Failed to load selected image");
-    }
-  };
-
-  const handleSave = async () => {
-    const nextErrors = {};
-
-    if (!formData.username.trim()) {
-      nextErrors.username = "Display name is required";
-    }
-
-    if (!formData.userId.trim()) {
-      nextErrors.userId = "User ID is required";
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveError("");
-
-    try {
-      const updatedProfile = await updateCurrentUserProfile({
-        username: formData.username.trim(),
-        userId: formData.userId.trim(),
-        profileImage: formData.previewImage || "",
+      setFormData({
+        username:
+          profile?.username ||
+          profile?.fullName ||
+          profile?.name ||
+          profile?.companyName ||
+          "",
+        role: profile?.role || "",
+        userId: profile?.userId || profile?.id || "",
+        email: profile?.email || "",
+        profileImage: image,
+        previewImage: image,
+        assignedTasks: Array.isArray(profile?.assignedTasks)
+          ? profile.assignedTasks
+          : [],
+        assignedProjects: Array.isArray(profile?.assignedProjects)
+          ? profile.assignedProjects
+          : [],
       });
-
-      onSave?.({
-        ...userData,
-        ...updatedProfile,
-      });
-
-      handleClose();
     } catch (error) {
-      setSaveError(error.message || "Failed to update profile");
+      console.error("Profile load error:", error);
+      setSaveError("Failed to load profile details.");
     } finally {
-      setIsSaving(false);
+      setIsLoadingProfile(false);
     }
   };
 
-  const handleCancel = () => {
-    setFormData({
-      username: userData?.username || userData?.fullName || userData?.name || "",
-      userId: userData?.userId || userData?.id || "",
-      profileImage: null,
-      previewImage: userData?.profileImage || "",
-      assignedTasks: Array.isArray(userData?.assignedTasks)
-        ? userData.assignedTasks
-        : [],
-      assignedProjects: Array.isArray(userData?.assignedProjects)
-        ? userData.assignedProjects
-        : [],
-    });
-    setErrors({});
-    setSaveError("");
-    handleClose();
-  };
+  useEffect(() => {
+    if (isOpen) loadProfile();
+  }, [isOpen, userData]);
 
   if (!isOpen) return null;
 
@@ -209,6 +84,100 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
       .join("")
       .slice(0, 2)
       .toUpperCase() || "U";
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [e.target.name]: "",
+    }));
+
+    setSaveError("");
+  };
+
+  const handleImageChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+
+      setFormData((prev) => ({
+        ...prev,
+        profileImage: dataUrl,
+        previewImage: dataUrl,
+      }));
+    } catch (error) {
+      console.error("Image read error:", error);
+      setSaveError("Failed to read selected image.");
+    }
+  };
+
+  const handleCancel = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      window.history.back();
+    }
+  };
+
+  const handleSave = async () => {
+    if (!formData.username.trim()) {
+      setErrors({ username: "Name is required" });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError("");
+
+      const payload = {
+        username: formData.username,
+        profileImage: formData.profileImage || formData.previewImage || "",
+      };
+
+      const updatedProfile = onSave
+        ? await onSave({
+            ...userData,
+            ...formData,
+            ...payload,
+          })
+        : await updateCurrentUserProfile(payload);
+
+      if (updatedProfile) {
+        setFormData((prev) => ({
+          ...prev,
+          username:
+            updatedProfile.username ||
+            updatedProfile.fullName ||
+            updatedProfile.name ||
+            prev.username,
+
+          profileImage:
+            updatedProfile.profileImage && updatedProfile.profileImage !== ""
+              ? updatedProfile.profileImage
+              : prev.profileImage,
+
+          previewImage:
+            updatedProfile.profileImage && updatedProfile.profileImage !== ""
+              ? updatedProfile.profileImage
+              : prev.previewImage,
+        }));
+      }
+
+      alert("Profile updated successfully ✅");
+      handleCancel();
+    } catch (error) {
+      console.error("Profile save error:", error);
+      setSaveError("Failed to update profile. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[100] bg-white">
@@ -224,6 +193,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
                 Keep your profile clean and your recent work easy to scan.
               </p>
             </div>
+
             <div className="flex gap-3">
               <button
                 type="button"
@@ -232,13 +202,22 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
               >
                 Close
               </button>
+
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving || isLoadingProfile}
-                className="inline-flex h-10 items-center justify-center bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSaving ? "Saving..." : "Save"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="inline-flex h-10 w-10 items-center justify-center border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50"
+              >
+                <X size={18} />
               </button>
             </div>
           </div>
@@ -291,6 +270,7 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
                   <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-400">
                     Profile details
                   </p>
+
                   <div className="mt-5 space-y-4">
                     <FieldCard
                       label="Display name"
@@ -299,16 +279,29 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
                       onChange={handleChange}
                       error={errors.username}
                     />
+
+                    <FieldCard
+                      label="Role"
+                      name="role"
+                      value={formData.role}
+                      readOnly
+                    />
+
                     <FieldCard
                       label="User ID"
                       name="userId"
                       value={formData.userId}
-                      error={errors.userId}
+                      readOnly
+                    />
+
+                    <FieldCard
+                      label="Email"
+                      name="email"
+                      value={formData.email}
                       readOnly
                     />
                   </div>
                 </div>
-
               </div>
             </section>
 
@@ -320,9 +313,9 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
               >
                 {formData.assignedTasks.length > 0 ? (
                   <div className="space-y-6">
-                    {formData.assignedTasks.map((task) => (
+                    {formData.assignedTasks.map((task, index) => (
                       <RecentWorkItem
-                        key={task.id}
+                        key={task.id || index}
                         icon={<SquareCheckBig className="h-4 w-4" />}
                         title={task.title}
                         badge={task.status}
@@ -332,6 +325,28 @@ const EditProfileModal = ({ isOpen, onClose, userData, onSave }) => {
                   </div>
                 ) : (
                   <EmptyState text="No recent work items found." />
+                )}
+              </PanelSection>
+
+              <PanelSection
+                title="Assigned projects"
+                countLabel={`${formData.assignedProjects.length} projects`}
+                icon={<Info className="h-3.5 w-3.5" />}
+              >
+                {formData.assignedProjects.length > 0 ? (
+                  <div className="space-y-6">
+                    {formData.assignedProjects.map((project, index) => (
+                      <RecentWorkItem
+                        key={project.id || index}
+                        icon={<SquareCheckBig className="h-4 w-4" />}
+                        title={project.name || project.title}
+                        badge={project.status}
+                        projectName={project.description}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState text="No assigned projects found." />
                 )}
               </PanelSection>
             </section>
@@ -354,16 +369,18 @@ const FieldCard = ({
     <label className="text-xs font-medium uppercase tracking-[0.14em] text-slate-400">
       {label}
     </label>
+
     <input
       type="text"
       name={name}
-      value={value}
+      value={value || ""}
       onChange={onChange}
       readOnly={readOnly}
       className={`mt-2 w-full border-0 bg-transparent px-0 py-0 text-[16px] font-medium outline-none ${
         readOnly ? "cursor-default text-slate-500" : "text-slate-900"
       }`}
     />
+
     {error ? <p className="mt-2 text-xs text-red-500">{error}</p> : null}
   </div>
 );
@@ -378,14 +395,17 @@ const PanelSection = ({ title, countLabel, description, icon = null, children })
           </h3>
           {icon ? <span className="text-slate-400">{icon}</span> : null}
         </div>
+
         {description ? (
           <p className="mt-1 text-sm text-slate-500">{description}</p>
         ) : null}
       </div>
+
       <span className="border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
         {countLabel}
       </span>
     </div>
+
     <div className="mt-5">{children}</div>
   </div>
 );
@@ -396,19 +416,24 @@ const RecentWorkItem = ({ icon, title, badge, projectName }) => (
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
         {icon}
       </div>
+
       <div className="min-w-0 flex-1">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className="truncate text-[16px] font-semibold text-slate-900">
-              {title || "Untitled task"}
+              {title || "Untitled"}
             </p>
+
             {projectName ? (
-              <p className="mt-1 text-sm text-slate-500">{projectName}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-slate-500">
+                {projectName}
+              </p>
             ) : null}
           </div>
+
           {badge ? (
             <span className="inline-flex border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
-              {badge.replaceAll("_", " ")}
+              {String(badge).replaceAll("_", " ")}
             </span>
           ) : null}
         </div>

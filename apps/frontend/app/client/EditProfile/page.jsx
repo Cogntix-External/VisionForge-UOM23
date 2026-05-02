@@ -2,7 +2,7 @@
 
 import EditProfileModal from "../../../pages/EditProfile";
 
-export default function CompanyEditProfilePage() {
+export default function ClientEditProfilePage() {
   return (
     <EditProfileModal
       isOpen={true}
