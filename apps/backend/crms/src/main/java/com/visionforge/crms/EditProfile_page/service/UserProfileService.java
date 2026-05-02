@@ -12,12 +12,7 @@ import com.visionforge.crms.user.User;
 import com.visionforge.crms.user.UserRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class UserProfileService {
@@ -43,6 +38,7 @@ public class UserProfileService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Profile not found"));
 
+        ensureProfileExists(user, null);
         return mapToResponse(user);
     }
 
@@ -50,23 +46,52 @@ public class UserProfileService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Profile not found"));
 
-        if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
+        if (request != null &&
+                request.getUsername() != null &&
+                !request.getUsername().trim().isEmpty()) {
             user.setName(request.getUsername().trim());
         }
 
         User savedUser = userRepository.save(user);
-        saveProfileMetadata(savedUser, request);
+        ensureProfileExists(savedUser, request);
 
         return mapToResponse(savedUser);
+    }
+
+    private UserProfile ensureProfileExists(User user, UpdateProfileRequest request) {
+        UserProfile profile = findProfile(user);
+
+        if (profile == null) {
+            profile = new UserProfile();
+        }
+
+        profile.setUserId(safeText(user.getId()));
+        profile.setUsername(safeText(user.getName()));
+        profile.setEmail(safeText(user.getEmail()));
+        profile.setRole(user.getRole() == null ? "" : user.getRole().name());
+
+        if (request != null &&
+                request.getProfileImage() != null &&
+                !request.getProfileImage().isBlank()) {
+            profile.setProfileImage(request.getProfileImage());
+        }
+
+        return userProfileRepository.save(profile);
     }
 
     private UserProfileResponse mapToResponse(User user) {
         String resolvedUserId = safeText(user.getId());
         String assignmentUserId = safeText(user.getId());
+
         UserProfile profile = findProfile(user);
+
+        if (profile == null) {
+            profile = ensureProfileExists(user, null);
+        }
 
         List<UserProfile.AssignedProject> assignedProjects =
                 buildAssignedProjects(user, assignmentUserId);
+
         List<UserProfile.AssignedTask> assignedTasks =
                 buildAssignedTasks(assignmentUserId, assignedProjects);
 
@@ -84,11 +109,13 @@ public class UserProfileService {
 
     private UserProfile findProfile(User user) {
         String userId = safeText(user.getId());
+
         if (!userId.isBlank()) {
             return userProfileRepository.findByUserId(userId).orElse(null);
         }
 
         String email = safeText(user.getEmail());
+
         if (!email.isBlank()) {
             return userProfileRepository.findByEmail(email).orElse(null);
         }
@@ -96,30 +123,12 @@ public class UserProfileService {
         return null;
     }
 
-    private void saveProfileMetadata(User user, UpdateProfileRequest request) {
-        if (request == null || request.getProfileImage() == null) {
-            return;
-        }
-
-        UserProfile profile = findProfile(user);
-        if (profile == null) {
-            profile = new UserProfile();
-        }
-
-        profile.setUserId(safeText(user.getId()));
-        profile.setUsername(safeText(user.getName()));
-        profile.setEmail(safeText(user.getEmail()));
-        profile.setRole(user.getRole() == null ? "" : user.getRole().name());
-        profile.setProfileImage(request.getProfileImage());
-
-        userProfileRepository.save(profile);
-    }
-
     private List<UserProfile.AssignedProject> buildAssignedProjects(
             User user,
             String assignmentUserId
     ) {
         Map<String, UserProfile.AssignedProject> assignedProjects = new LinkedHashMap<>();
+
         if (assignmentUserId.isBlank()) {
             return new ArrayList<>();
         }
@@ -154,6 +163,7 @@ public class UserProfileService {
         }
 
         List<KanbanTask> tasks = kanbanTaskRepository.findByAssignedTo(assignmentUserId);
+
         for (KanbanTask task : tasks) {
             if (task == null || task.getId() == null) {
                 continue;
@@ -161,11 +171,15 @@ public class UserProfileService {
 
             String taskProjectId = task.getProjectId();
             String projectName = projectNameById.get(taskProjectId);
+
             if ((projectName == null || projectName.isBlank()) &&
                     taskProjectId != null &&
                     !taskProjectId.isBlank()) {
                 projectRepository.findById(taskProjectId)
-                        .ifPresent(project -> projectNameById.put(taskProjectId, safeText(project.getName())));
+                        .ifPresent(project ->
+                                projectNameById.put(taskProjectId, safeText(project.getName()))
+                        );
+
                 projectName = projectNameById.get(taskProjectId);
             }
 
@@ -204,18 +218,22 @@ public class UserProfileService {
         Set<String> projectIds = new LinkedHashSet<>();
 
         kanbanTaskRepository.findByAssignedTo(assignmentUserId).forEach(task -> {
-            if (task != null && task.getProjectId() != null && !task.getProjectId().isBlank()) {
+            if (task != null &&
+                    task.getProjectId() != null &&
+                    !task.getProjectId().isBlank()) {
                 projectIds.add(task.getProjectId());
             }
         });
 
         for (String projectId : projectIds) {
             projectRepository.findById(projectId)
-                    .ifPresent(project -> target.put(projectId, UserProfile.AssignedProject.builder()
-                            .pid(project.getId())
-                            .name(safeText(project.getName()))
-                            .description(safeText(project.getDescription()))
-                            .build()));
+                    .ifPresent(project -> target.put(projectId,
+                            UserProfile.AssignedProject.builder()
+                                    .pid(project.getId())
+                                    .name(safeText(project.getName()))
+                                    .description(safeText(project.getDescription()))
+                                    .build()
+                    ));
         }
     }
 

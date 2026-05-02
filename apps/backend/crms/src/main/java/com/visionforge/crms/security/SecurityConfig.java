@@ -1,5 +1,6 @@
 package com.visionforge.crms.security;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -9,7 +10,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -26,18 +26,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // CORS enable
                 .cors(Customizer.withDefaults())
-
-                // CSRF disable for REST APIs
                 .csrf(csrf -> csrf.disable())
-
-                // Stateless session because JWT use pannrom
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-
                 .authorizeHttpRequests(auth -> auth
+
                         // public auth endpoints
                         .requestMatchers(
                                 "/api/auth/login",
@@ -51,17 +46,22 @@ public class SecurityConfig {
                         // preflight request allow
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // notifications
                         .requestMatchers("/api/notifications/**").authenticated()
 
+                        // profile route - any logged-in user can use
+                        .requestMatchers("/api/user-profile/**").authenticated()
+
                         // role-based routes
-                        .requestMatchers("/api/client/**").hasRole("CLIENT")
-                        .requestMatchers("/api/company/**").hasRole("COMPANY")
-                         
+                        .requestMatchers("/api/client/**")
+                        .hasAnyAuthority("CLIENT", "ROLE_CLIENT")
+
+                        .requestMatchers("/api/company/**")
+                        .hasAnyAuthority("COMPANY", "ROLE_COMPANY")
+
                         // everything else needs auth
                         .anyRequest().authenticated()
                 )
-
-                // JWT filter
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -89,7 +89,9 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", configuration);
 
         return source;
