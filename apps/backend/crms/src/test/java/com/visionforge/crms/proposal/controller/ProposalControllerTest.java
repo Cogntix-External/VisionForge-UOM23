@@ -114,7 +114,9 @@ class ProposalControllerTest {
         mockMvc.perform(get("/api/client/proposals"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].title").value("E-Commerce Website"));
+                .andExpect(jsonPath("$[0].id").value("proposal001"))
+                .andExpect(jsonPath("$[0].title").value("E-Commerce Website"))
+                .andExpect(jsonPath("$[0].status").value("PENDING"));
 
         verify(proposalService).getCurrentClientProposals();
     }
@@ -128,7 +130,8 @@ class ProposalControllerTest {
         mockMvc.perform(get("/api/client/proposals/proposal001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value("proposal001"))
-                .andExpect(jsonPath("$.title").value("E-Commerce Website"));
+                .andExpect(jsonPath("$.title").value("E-Commerce Website"))
+                .andExpect(jsonPath("$.status").value("PENDING"));
 
         verify(proposalService).getCurrentClientProposalById("proposal001");
     }

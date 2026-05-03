@@ -1,26 +1,24 @@
 package com.visionforge.crms.prd.controller;
 
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import static org.mockito.ArgumentMatchers.any;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import static org.mockito.Mockito.when;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-
 import com.visionforge.crms.prd.dto.CreatePrdRequest;
 import com.visionforge.crms.prd.dto.PrdResponse;
 import com.visionforge.crms.prd.dto.UpdatePrdRequest;
 import com.visionforge.crms.prd.service.PrdService;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PrdControllerTest {
@@ -32,8 +30,33 @@ class PrdControllerTest {
     private PrdController prdController;
 
     @Test
+    void shouldReturnClientProjectPrd() {
+        PrdResponse response = PrdResponse.builder()
+                .id("prd-1")
+                .projectId("project-1")
+                .title("CRMS PRD")
+                .status("Approved")
+                .version("1.0")
+                .build();
+
+        when(prdService.getPrdByProjectId("project-1")).thenReturn(response);
+
+        ResponseEntity<PrdResponse> result =
+                prdController.getClientProjectPrd("project-1");
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(response);
+        assertThat(result.getBody().getId()).isEqualTo("prd-1");
+        assertThat(result.getBody().getProjectId()).isEqualTo("project-1");
+    }
+
+    @Test
     void getPrdsReturnsOk() {
-        PrdResponse response = PrdResponse.builder().id("prd-1").title("PRD 1").build();
+        PrdResponse response = PrdResponse.builder()
+                .id("prd-1")
+                .title("PRD 1")
+                .build();
+
         when(prdService.getAllPrds()).thenReturn(List.of(response));
 
         ResponseEntity<List<PrdResponse>> result = prdController.getPrds();
@@ -43,9 +66,28 @@ class PrdControllerTest {
     }
 
     @Test
+    void getPrdByIdReturnsOk() {
+        PrdResponse response = PrdResponse.builder()
+                .id("prd-1")
+                .title("PRD 1")
+                .build();
+
+        when(prdService.getPrdById("prd-1")).thenReturn(response);
+
+        ResponseEntity<PrdResponse> result = prdController.getPrdById("prd-1");
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(response);
+    }
+
+    @Test
     void createPrdReturnsCreated() {
         CreatePrdRequest request = new CreatePrdRequest();
-        PrdResponse response = PrdResponse.builder().id("prd-2").build();
+
+        PrdResponse response = PrdResponse.builder()
+                .id("prd-2")
+                .build();
+
         when(prdService.createPrd(any(CreatePrdRequest.class))).thenReturn(response);
 
         ResponseEntity<PrdResponse> result = prdController.createPrd(request);
@@ -57,36 +99,47 @@ class PrdControllerTest {
     @Test
     void updatePrdReturnsOk() {
         UpdatePrdRequest request = new UpdatePrdRequest();
-        PrdResponse response = PrdResponse.builder().id("prd-3").build();
+
+        PrdResponse response = PrdResponse.builder()
+                .id("prd-3")
+                .build();
+
         when(prdService.updatePrd("prd-3", request)).thenReturn(response);
 
-        ResponseEntity<PrdResponse> result = prdController.updatePrd("prd-3", request);
+        ResponseEntity<PrdResponse> result =
+                prdController.updatePrd("prd-3", request);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(response);
     }
 
     @Test
-    void downloadDocumentReturnsFileResponse() {
-        byte[] content = "prd document".getBytes(StandardCharsets.UTF_8);
+    void downloadDocumentReturnsPdfResponse() {
+        byte[] content = "%PDF-1.4 test pdf content"
+                .getBytes(StandardCharsets.UTF_8);
+
         when(prdService.generatePrdDocument("prd-1")).thenReturn(content);
 
         ResponseEntity<byte[]> result = prdController.downloadDocument("prd-1");
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(result.getHeaders().getContentType()).isEqualTo(MediaType.TEXT_PLAIN);
-        assertThat(result.getHeaders().getContentLength()).isEqualTo(content.length);
-        assertThat(new String(result.getBody(), StandardCharsets.UTF_8)).isEqualTo("prd document");
-        assertThat(result.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains("prd-1.txt");
+        assertThat(result.getHeaders().getContentType())
+                .isEqualTo(MediaType.APPLICATION_PDF);
+        assertThat(result.getHeaders().getContentLength())
+                .isEqualTo(content.length);
+        assertThat(result.getBody()).isEqualTo(content);
+        assertThat(result.getHeaders().getFirst("Content-Disposition"))
+                .contains("prd-document-prd-1.pdf");
     }
 
     @Test
-    @Disabled("Client-side PRD download behavior is out of scope for company-side testing")
     void downloadDocumentReturnsServerErrorWhenServiceFails() {
-        when(prdService.generatePrdDocument("prd-1")).thenThrow(new RuntimeException("boom"));
+        when(prdService.generatePrdDocument("prd-1"))
+                .thenThrow(new RuntimeException("boom"));
 
         ResponseEntity<byte[]> result = prdController.downloadDocument("prd-1");
 
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(result.getStatusCode())
+                .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
