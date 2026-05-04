@@ -1,3 +1,5 @@
+
+
 package com.visionforge.crms.notification.model;
 
 public enum NotificationType {

@@ -236,9 +236,9 @@ const Projects = () => {
                           setActiveTab("changeRequests");
                           console.log("SELECTED PROJECT =", project);
                         }}
-                        className="px-8 py-2 bg-[#bbf7d0] text-[#166534] text-base font-bold rounded-full hover:bg-[#86efac] transition-all shadow-sm active:scale-95"
+                        className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-violet-700"
                       >
-                        view
+                        View
                       </button>
                     </td>
                   </tr>

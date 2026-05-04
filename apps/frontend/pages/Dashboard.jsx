@@ -7,6 +7,7 @@ import {
   getCompanyDashboard,
   getClientChangeRequests,
 } from "../services/api";
+import { getUser, normalizeRole as authNormalizeRole } from "../utils/auth";
 
 const normalizeRole = (rawRole) => {
   if (!rawRole) return "";
@@ -16,13 +17,24 @@ const normalizeRole = (rawRole) => {
   return role;
 };
 
-const Dashboard = ({ user, role }) => {
-  const resolvedRole = normalizeRole(role);
+const Dashboard = ({ user: initialUser, role: initialRole }) => {
+  const [user, setUser] = useState(initialUser || null);
+  const [role, setRole] = useState(initialRole || "");
+
+  useEffect(() => {
+    if (!user || !role) {
+      const storedUser = getUser();
+      const storedRole = localStorage.getItem("crms_role") || (storedUser?.role);
+      
+      if (storedUser && !user) setUser(storedUser);
+      if (storedRole && !role) setRole(storedRole);
+    }
+  }, [initialUser, initialRole]);
+
+  const resolvedRole = normalizeRole(role || initialRole);
   const isCompany = resolvedRole === "COMPANY";
 
   const [dashboardData, setDashboardData] = useState({});
-  const [pendingCRs, setPendingCRs] = useState(0);
-  const [approvedCRs, setApprovedCRs] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,28 +58,6 @@ const Dashboard = ({ user, role }) => {
     }
   };
 
-  useEffect(() => {
-    if (resolvedRole !== "CLIENT") return;
-
-    const loadCR = async () => {
-      try {
-        const crs = await getClientChangeRequests();
-        let p = 0;
-        let a = 0;
-
-        crs.forEach((cr) => {
-          const status = cr.status?.toUpperCase();
-          if (status?.includes("PENDING")) p++;
-          if (status?.includes("APPROVED") || status?.includes("ACCEPTED")) a++;
-        });
-
-        setPendingCRs(p);
-        setApprovedCRs(a);
-      } catch {}
-    };
-
-    loadCR();
-  }, [resolvedRole]);
 
   if (loading) {
     return (
@@ -83,7 +73,7 @@ const Dashboard = ({ user, role }) => {
       {/* HERO */}
       <div className="rounded-[28px] bg-gradient-to-r from-indigo-600 to-violet-600 p-8 text-white shadow-xl">
         <h2 className="text-3xl font-black">
-          Welcome, {user?.name || "User"} 👋
+          Welcome, {user?.fullName || user?.name || user?.email || "User"} 👋
         </h2>
         <p className="opacity-90 mt-2">
           {isCompany
@@ -105,8 +95,8 @@ const Dashboard = ({ user, role }) => {
           <>
             <StatCard title="Accepted Projects" value={dashboardData.acceptedProjectsCount} />
             <StatCard title="Pending Proposals" value={dashboardData.pendingProposalsCount} />
-            <StatCard title="Pending CRs" value={pendingCRs} />
-            <StatCard title="Approved CRs" value={approvedCRs} />
+            <StatCard title="Pending CRs" value={dashboardData.pendingChangeRequestsCount} />
+            <StatCard title="Approved CRs" value={dashboardData.approvedChangeRequestsCount} />
           </>
         )}
       </div>
@@ -121,12 +111,12 @@ const Dashboard = ({ user, role }) => {
           </h3>
 
           <div className="space-y-4">
-            {(dashboardData.recentProjects || []).map((item, i) => (
+            {(isCompany ? dashboardData.recentProjects : (dashboardData.recentProposals || dashboardData.recentProjects) || []).map((item, i) => (
               <div
                 key={i}
                 className="p-4 rounded-xl border hover:bg-gray-50 transition"
               >
-                <h4 className="font-bold">{item.name || item.projectName}</h4>
+                <h4 className="font-bold">{item.name || item.projectName || item.title}</h4>
                 <p className="text-sm text-gray-500">
                   {item.description || "No description"}
                 </p>
@@ -140,8 +130,8 @@ const Dashboard = ({ user, role }) => {
           <h3 className="text-xl font-bold mb-4">Overview</h3>
 
           <div className="space-y-4">
-            <ProgressItem label="Progress" value={70} />
-            <ProgressItem label="Completion" value={50} />
+            <ProgressItem label="Progress" value={dashboardData.progress || 0} />
+            <ProgressItem label="Completion" value={dashboardData.completion || 0} />
           </div>
 
           <button className="w-full mt-6 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700">

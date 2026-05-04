@@ -20,6 +20,9 @@ public class ClientDashboardResponse {
     private long pendingChangeRequestsCount;
     private long approvedChangeRequestsCount;
 
+    private int progress;
+    private int completion;
+
     private List<Proposal> recentProposals;
     private List<Project> recentProjects;
 }

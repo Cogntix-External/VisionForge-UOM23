@@ -34,18 +34,6 @@ public class AuthSecurityConfig {
     @Order(1)
     public SecurityFilterChain authSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher(
-                        "/api/auth/**",
-                        "/api/notifications/**",
-                        "/api/client/**",
-                        "/api/company/**",
-                        "/api/projects/**",
-                        "/api/user/**",
-                        "/api/prds/**",
-                        "/api/documents/**",
-                        "/error",
-                        "/error/**"
-                )
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
@@ -55,6 +43,7 @@ public class AuthSecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/v1/**").permitAll()
                         .requestMatchers("/error", "/error/**").permitAll()
 
                         // PRD endpoints
@@ -65,6 +54,7 @@ public class AuthSecurityConfig {
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/user/**").authenticated()
                         .requestMatchers("/api/projects/**").authenticated()
+                        .requestMatchers("/api/user-profile/**").authenticated()
 
                         // Role based endpoints
                         .requestMatchers("/api/client/**").hasRole("CLIENT")

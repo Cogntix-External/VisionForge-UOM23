@@ -15,6 +15,8 @@ public class CompanyDashboardResponse {
     private long acceptedProposals;
     private long rejectedProposals;
     private long activeProjects;
+    private int progress;
+    private int completion;
     private List<ProjectTableRow> recentProjects;
 
     @Data

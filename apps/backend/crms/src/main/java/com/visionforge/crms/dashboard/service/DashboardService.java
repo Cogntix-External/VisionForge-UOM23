@@ -8,6 +8,11 @@ import com.visionforge.crms.project.repository.ProjectRepository;
 import com.visionforge.crms.proposal.model.Proposal;
 import com.visionforge.crms.proposal.model.ProposalStatus;
 import com.visionforge.crms.proposal.repository.ProposalRepository;
+import com.visionforge.crms.changerequest.model.ChangeRequest;
+import com.visionforge.crms.changerequest.model.ChangeRequestStatus;
+import com.visionforge.crms.changerequest.repository.ChangeRequestRepository;
+import com.visionforge.crms.kanban.model.KanbanTask;
+import com.visionforge.crms.kanban.repository.KanbanTaskRepository;
 import com.visionforge.crms.user.User;
 import com.visionforge.crms.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +30,8 @@ public class DashboardService {
     private final ProposalRepository proposalRepository;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
-    // later add changeRequestRepository
+    private final ChangeRequestRepository changeRequestRepository;
+    private final KanbanTaskRepository kanbanTaskRepository;
 
     public ClientDashboardResponse getClientDashboard(String clientId) {
         List<Proposal> allClientProposals = proposalRepository.findByClientId(clientId);
@@ -37,8 +43,48 @@ public class DashboardService {
 
         long acceptedProjectsCount = allClientProjects.size();
 
-        long pendingChangeRequestsCount = 0;
-        long approvedChangeRequestsCount = 0;
+        List<ChangeRequest> allClientCRs = changeRequestRepository.findByClientId(clientId);
+        long pendingChangeRequestsCount = allClientCRs.stream()
+                .filter(cr -> cr.getStatus() == ChangeRequestStatus.PENDING)
+                .count();
+        long approvedChangeRequestsCount = allClientCRs.stream()
+                .filter(cr -> cr.getStatus() == ChangeRequestStatus.ACCEPTED || cr.getStatus() == ChangeRequestStatus.IMPLEMENTED)
+                .count();
+
+        // Calculate Progress and Completion based on tasks
+        int totalProgress = 0;
+        int totalCompletion = 0;
+        int projectCountWithTasks = 0;
+        for (Project project : allClientProjects) {
+            List<KanbanTask> tasks = kanbanTaskRepository.findByProjectId(project.getId());
+            if (!tasks.isEmpty()) {
+                double projectProgress = tasks.stream()
+                        .mapToDouble(t -> {
+                            String status = t.getStatus() != null ? t.getStatus().toUpperCase() : "";
+                            if (status.contains("DONE")) return 100.0;
+                            if (status.contains("REVIEW")) return 80.0;
+                            if (status.contains("PROGRESS")) return 50.0;
+                            return 0.0;
+                        })
+                        .average()
+                        .orElse(0.0);
+                
+                double projectCompletion = tasks.stream()
+                        .mapToDouble(t -> {
+                            String status = t.getStatus() != null ? t.getStatus().toUpperCase() : "";
+                            if (status.contains("DONE")) return 100.0;
+                            return 0.0;
+                        })
+                        .average()
+                        .orElse(0.0);
+
+                totalProgress += (int) projectProgress;
+                totalCompletion += (int) projectCompletion;
+                projectCountWithTasks++;
+            }
+        }
+        int avgProgress = projectCountWithTasks > 0 ? totalProgress / projectCountWithTasks : 0;
+        int avgCompletion = projectCountWithTasks > 0 ? totalCompletion / projectCountWithTasks : 0;
 
         List<Proposal> recentProposals = allClientProposals.stream()
                 .limit(5)
@@ -53,6 +99,8 @@ public class DashboardService {
                 .acceptedProjectsCount(acceptedProjectsCount)
                 .pendingChangeRequestsCount(pendingChangeRequestsCount)
                 .approvedChangeRequestsCount(approvedChangeRequestsCount)
+                .progress(avgProgress)
+                .completion(avgCompletion)
                 .recentProposals(recentProposals)
                 .recentProjects(recentProjects)
                 .build();
@@ -114,6 +162,41 @@ public class DashboardService {
                         .build())
                 .collect(Collectors.toList());
 
+        // Calculate Progress and Completion based on tasks
+        int totalCompanyProgress = 0;
+        int totalCompanyCompletion = 0;
+        int companyProjectCountWithTasks = 0;
+        for (Project project : projects) {
+            List<KanbanTask> tasks = kanbanTaskRepository.findByProjectId(project.getId());
+            if (!tasks.isEmpty()) {
+                double projectProgress = tasks.stream()
+                        .mapToDouble(t -> {
+                            String status = t.getStatus() != null ? t.getStatus().toUpperCase() : "";
+                            if (status.contains("DONE")) return 100.0;
+                            if (status.contains("REVIEW")) return 80.0;
+                            if (status.contains("PROGRESS")) return 50.0;
+                            return 0.0;
+                        })
+                        .average()
+                        .orElse(0.0);
+
+                double projectCompletion = tasks.stream()
+                        .mapToDouble(t -> {
+                            String status = t.getStatus() != null ? t.getStatus().toUpperCase() : "";
+                            if (status.contains("DONE")) return 100.0;
+                            return 0.0;
+                        })
+                        .average()
+                        .orElse(0.0);
+
+                totalCompanyProgress += (int) projectProgress;
+                totalCompanyCompletion += (int) projectCompletion;
+                companyProjectCountWithTasks++;
+            }
+        }
+        int avgCompanyProgress = companyProjectCountWithTasks > 0 ? totalCompanyProgress / companyProjectCountWithTasks : 0;
+        int avgCompanyCompletion = companyProjectCountWithTasks > 0 ? totalCompanyCompletion / companyProjectCountWithTasks : 0;
+
         return CompanyDashboardResponse.builder()
                 .totalProjects(totalProjects)
                 .pendingApprovals(pendingApprovals)
@@ -121,6 +204,8 @@ public class DashboardService {
                 .acceptedProposals(acceptedProposals)
                 .rejectedProposals(rejectedProposals)
                 .activeProjects(activeProjects)
+                .progress(avgCompanyProgress)
+                .completion(avgCompanyCompletion)
                 .recentProjects(recentProjects)
                 .build();
     }
