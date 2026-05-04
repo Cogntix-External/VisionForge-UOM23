@@ -129,7 +129,7 @@ class PrdControllerTest {
                 .isEqualTo(content.length);
         assertThat(result.getBody()).isEqualTo(content);
         assertThat(result.getHeaders().getFirst("Content-Disposition"))
-                .contains("prd-document-prd-1.pdf");
+                .contains("PRD-prd-1.pdf");
     }
 
     @Test

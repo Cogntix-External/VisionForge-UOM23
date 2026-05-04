@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChangeRequestResponse {
-
     private String id;
     private String projectId;
     private String prdId;
