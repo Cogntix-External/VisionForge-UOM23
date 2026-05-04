@@ -67,18 +67,23 @@ public class PrdController {
     // DOWNLOAD PRD DOCUMENT
     @GetMapping("/documents/{documentId}/download")
     public ResponseEntity<byte[]> downloadDocument(@PathVariable String documentId) {
-        byte[] content = prdService.generatePrdDocument(documentId);
+        try {
+            byte[] content = prdService.generatePrdDocument(documentId);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_PLAIN);
-        headers.setContentDisposition(
-                ContentDisposition.attachment()
-                        .filename("PRD-" + documentId + ".txt", StandardCharsets.UTF_8)
-                        .build()
-        );
-        headers.setContentLength(content.length);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(
+                    ContentDisposition.attachment()
+                            .filename("PRD-" + documentId + ".pdf", StandardCharsets.UTF_8)
+                            .build()
+            );
+            headers.setContentLength(content.length);
 
-        return new ResponseEntity<>(content, headers, HttpStatus.OK);
+            return new ResponseEntity<>(content, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // DELETE EMPTY/INCOMPLETE PRD

@@ -1,29 +1,5 @@
 package com.visionforge.crms.proposal.service;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import com.visionforge.crms.email.EmailService;
 import com.visionforge.crms.notification.model.NotificationType;
 import com.visionforge.crms.notification.service.NotificationService;
@@ -38,6 +14,21 @@ import com.visionforge.crms.user.CurrentUserService;
 import com.visionforge.crms.user.Role;
 import com.visionforge.crms.user.User;
 import com.visionforge.crms.user.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Proposal Service Tests")
@@ -45,14 +36,19 @@ class ProposalServiceTest {
 
     @Mock
     private ProposalRepository proposalRepository;
+
     @Mock
     private CurrentUserService currentUserService;
+
     @Mock
     private ProjectService projectService;
+
     @Mock
     private NotificationService notificationService;
+
     @Mock
     private EmailService emailService;
+
     @Mock
     private UserRepository userRepository;
 
@@ -60,7 +56,7 @@ class ProposalServiceTest {
     private ProposalService proposalService;
 
     private Proposal proposal;
-    private CreateProposalRequest request;
+    private CreateProposalRequest createRequest;
     private User clientUser;
     private User companyUser;
 
@@ -78,11 +74,11 @@ class ProposalServiceTest {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        request = new CreateProposalRequest();
-        request.setTitle("E-Commerce Website");
-        request.setDescription("Build website");
-        request.setClientId("client001");
-        request.setClientName("Test Client");
+        createRequest = new CreateProposalRequest();
+        createRequest.setTitle("E-Commerce Website");
+        createRequest.setDescription("Build website");
+        createRequest.setClientId("client001");
+        createRequest.setClientName("Test Client");
 
         clientUser = new User();
         clientUser.setId("client001");
@@ -101,8 +97,7 @@ class ProposalServiceTest {
         when(userRepository.findById("client001"))
                 .thenReturn(Optional.of(clientUser));
 
-        ProposalResponse response = proposalService
-                .createProposal(request, "company001");
+        ProposalResponse response = proposalService.createProposal(createRequest, "company001");
 
         assertNotNull(response);
         assertEquals("E-Commerce Website", response.getTitle());
@@ -117,7 +112,8 @@ class ProposalServiceTest {
                 anyString(),
                 eq(NotificationType.NEW_PROPOSAL),
                 eq("proposal001"),
-                eq("PROPOSAL"));
+                eq("PROPOSAL")
+        );
         verify(emailService, times(1))
                 .sendEmail(eq("client@test.com"), eq("New Proposal Received"), anyString());
     }
@@ -128,11 +124,11 @@ class ProposalServiceTest {
         when(proposalRepository.findByCompanyId("company001"))
                 .thenReturn(List.of(proposal));
 
-        List<ProposalResponse> responses = proposalService
-                .getProposalsByCompany("company001");
+        List<ProposalResponse> responses = proposalService.getProposalsByCompany("company001");
 
         assertEquals(1, responses.size());
         assertEquals("E-Commerce Website", responses.get(0).getTitle());
+
         verify(proposalRepository, times(1)).findByCompanyId("company001");
     }
 
@@ -142,10 +138,10 @@ class ProposalServiceTest {
         when(proposalRepository.findByCompanyId("company999"))
                 .thenReturn(List.of());
 
-        List<ProposalResponse> responses = proposalService
-                .getProposalsByCompany("company999");
+        List<ProposalResponse> responses = proposalService.getProposalsByCompany("company999");
 
         assertTrue(responses.isEmpty());
+        verify(proposalRepository, times(1)).findByCompanyId("company999");
     }
 
     @Test
@@ -156,12 +152,13 @@ class ProposalServiceTest {
         when(proposalRepository.findByIdAndClientId("proposal001", "client001"))
                 .thenReturn(Optional.of(proposal));
 
-        ProposalResponse response = proposalService
-                .getCurrentClientProposalById("proposal001");
+        ProposalResponse response = proposalService.getCurrentClientProposalById("proposal001");
 
         assertNotNull(response);
         assertEquals("proposal001", response.getId());
         assertEquals("E-Commerce Website", response.getTitle());
+
+        verify(proposalRepository, times(1)).findByIdAndClientId("proposal001", "client001");
     }
 
     @Test
@@ -174,7 +171,8 @@ class ProposalServiceTest {
 
         RuntimeException ex = assertThrows(
                 RuntimeException.class,
-                () -> proposalService.getCurrentClientProposalById("invalid"));
+                () -> proposalService.getCurrentClientProposalById("invalid")
+        );
 
         assertTrue(ex.getMessage().contains("Proposal not found"));
     }
@@ -187,13 +185,14 @@ class ProposalServiceTest {
         when(proposalRepository.findByIdAndClientId("proposal001", "client001"))
                 .thenReturn(Optional.of(proposal));
         when(proposalRepository.save(any(Proposal.class)))
-                .thenReturn(proposal);
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.findById("company001"))
                 .thenReturn(Optional.of(companyUser));
 
         ProposalResponse response = proposalService.acceptCurrentClientProposal("proposal001");
 
         assertEquals(ProposalStatus.ACCEPTED, response.getStatus());
+
         verify(projectService, times(1)).createProjectFromProposal(any(Proposal.class));
         verify(notificationService, times(1)).createNotification(
                 eq("company001"),
@@ -201,7 +200,8 @@ class ProposalServiceTest {
                 anyString(),
                 eq(NotificationType.PROPOSAL_ACCEPTED),
                 eq("proposal001"),
-                eq("PROPOSAL"));
+                eq("PROPOSAL")
+        );
         verify(emailService, times(1))
                 .sendEmail(eq("company@test.com"), eq("Proposal Accepted"), anyString());
     }
@@ -213,10 +213,12 @@ class ProposalServiceTest {
 
         RuntimeException ex = assertThrows(
                 RuntimeException.class,
-                () -> proposalService.acceptCurrentClientProposal("proposal001"));
+                () -> proposalService.acceptCurrentClientProposal("proposal001")
+        );
 
         assertTrue(ex.getMessage().contains("Only client"));
         verify(proposalRepository, never()).save(any());
+        verify(projectService, never()).createProjectFromProposal(any());
     }
 
     @Test
@@ -230,22 +232,24 @@ class ProposalServiceTest {
         when(proposalRepository.findByIdAndClientId("proposal001", "client001"))
                 .thenReturn(Optional.of(proposal));
         when(proposalRepository.save(any(Proposal.class)))
-                .thenReturn(proposal);
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.findById("company001"))
                 .thenReturn(Optional.of(companyUser));
 
-        ProposalResponse response = proposalService
-                .rejectCurrentClientProposal("proposal001", decisionRequest);
+        ProposalResponse response =
+                proposalService.rejectCurrentClientProposal("proposal001", decisionRequest);
 
         assertEquals(ProposalStatus.REJECTED, response.getStatus());
         assertEquals("Budget too high", response.getRejectionReason());
+
         verify(notificationService, times(1)).createNotification(
                 eq("company001"),
                 eq("Proposal Rejected"),
                 contains("Budget too high"),
                 eq(NotificationType.PROPOSAL_REJECTED),
                 eq("proposal001"),
-                eq("PROPOSAL"));
+                eq("PROPOSAL")
+        );
     }
 
     @Test
@@ -258,9 +262,50 @@ class ProposalServiceTest {
 
         RuntimeException ex = assertThrows(
                 RuntimeException.class,
-                () -> proposalService.rejectCurrentClientProposal("proposal001", decisionRequest));
+                () -> proposalService.rejectCurrentClientProposal("proposal001", decisionRequest)
+        );
 
         assertTrue(ex.getMessage().contains("Only client"));
         verify(proposalRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Client accepts proposal and project is created")
+    void clientShouldAcceptProposalAndCreateProject() {
+        when(currentUserService.getCurrentUserRole()).thenReturn(Role.CLIENT);
+        when(currentUserService.getCurrentUserId()).thenReturn("client001");
+        when(proposalRepository.findByIdAndClientId("proposal001", "client001"))
+                .thenReturn(Optional.of(proposal));
+        when(proposalRepository.save(any(Proposal.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.findById("company001"))
+                .thenReturn(Optional.of(companyUser));
+
+        ProposalResponse result = proposalService.acceptCurrentClientProposal("proposal001");
+
+        assertEquals(ProposalStatus.ACCEPTED, result.getStatus());
+        verify(projectService).createProjectFromProposal(any(Proposal.class));
+    }
+
+    @Test
+    @DisplayName("Client rejects proposal with reason")
+    void clientShouldRejectProposal() {
+        ProposalDecisionRequest decisionRequest = new ProposalDecisionRequest();
+        decisionRequest.setRejectionReason("Budget too high");
+
+        when(currentUserService.getCurrentUserRole()).thenReturn(Role.CLIENT);
+        when(currentUserService.getCurrentUserId()).thenReturn("client001");
+        when(proposalRepository.findByIdAndClientId("proposal001", "client001"))
+                .thenReturn(Optional.of(proposal));
+        when(proposalRepository.save(any(Proposal.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.findById("company001"))
+                .thenReturn(Optional.of(companyUser));
+
+        ProposalResponse result =
+                proposalService.rejectCurrentClientProposal("proposal001", decisionRequest);
+
+        assertEquals(ProposalStatus.REJECTED, result.getStatus());
+        assertEquals("Budget too high", result.getRejectionReason());
     }
 }

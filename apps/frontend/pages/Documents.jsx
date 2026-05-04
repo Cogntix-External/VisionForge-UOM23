@@ -70,10 +70,19 @@ const Documents = () => {
       let downloadFileName = prdData.fileName || "prd-document";
 
       if (contentDisposition) {
-        const match = contentDisposition.match(
-          /filename[^;=\n]*=(['\"]?)([^'\"\n;]*)/i
-        );
-        if (match && match[2]) downloadFileName = match[2];
+        // Try to match filename="..."
+        const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/i);
+        if (filenameMatch && filenameMatch[1]) {
+          downloadFileName = filenameMatch[1];
+        } else {
+          // Try to match filename*=UTF-8''...
+          const filenameStarMatch = contentDisposition.match(
+            /filename\*=UTF-8''([^;\n]+)/i
+          );
+          if (filenameStarMatch && filenameStarMatch[1]) {
+            downloadFileName = decodeURIComponent(filenameStarMatch[1]);
+          }
+        }
       }
 
       if (!downloadFileName.includes(".")) {

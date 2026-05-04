@@ -1,5 +1,39 @@
 package com.visionforge.crms.prd.service;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.AreaBreak;
+import com.itextpdf.layout.properties.TextAlignment;
+import com.itextpdf.layout.properties.UnitValue;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.io.font.constants.StandardFonts;
+import com.itextpdf.kernel.colors.ColorConstants;
+import com.itextpdf.layout.element.LineSeparator;
+import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
+import com.itextpdf.layout.borders.Border;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
 import com.visionforge.crms.changerequest.service.ChangeRequestService;
 import com.visionforge.crms.email.EmailService;
 import com.visionforge.crms.notification.model.NotificationType;
@@ -13,23 +47,14 @@ import com.visionforge.crms.project.model.Project;
 import com.visionforge.crms.project.repository.ProjectRepository;
 import com.visionforge.crms.user.User;
 import com.visionforge.crms.user.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class PrdService {
 
+    private static final Logger log = LoggerFactory.getLogger(PrdService.class);
     private static final Pattern PID_TRAILING_NUMBER = Pattern.compile("(\\d+)$");
 
     private final PrdRepository prdRepository;
@@ -321,77 +346,167 @@ public class PrdService {
     }
 
     public byte[] generatePrdDocument(String prdId) {
+        log.info("Starting PDF generation for PRD ID: {}", prdId);
         Prd prd = findPrd(prdId);
 
-        StringBuilder content = new StringBuilder();
-        content.append("================================================================================\n");
-        content.append("PRODUCT REQUIREMENTS DOCUMENT (PRD)\n");
-        content.append("================================================================================\n\n");
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            log.debug("Creating PdfWriter and PdfDocument");
+            PdfWriter writer = new PdfWriter(baos);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf);
 
-        content.append("PROJECT INFORMATION\n");
-        content.append("-------------------\n");
-        content.append("PRD ID: ").append(nvl(prd.getPid())).append("\n");
-        content.append("Project Name: ").append(nvl(prd.getProjectName())).append("\n");
-        content.append("Project ID: ").append(nvl(prd.getProjectId())).append("\n");
-        content.append("Title: ").append(nvl(prd.getTitle())).append("\n");
-        content.append("Version: ").append(nvl(prd.getVersion())).append("\n");
-        content.append("Status: ").append(nvl(prd.getStatus())).append("\n");
-        content.append("Author: ").append(nvl(prd.getAuthor())).append("\n");
-        content.append("Date Submitted: ").append(nvl(prd.getDateSubmitted())).append("\n");
-        content.append("Reviewer: ").append(nvl(prd.getReviewerName())).append("\n\n");
+            log.debug("Creating fonts");
+            PdfFont bold = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD);
+            PdfFont normal = PdfFontFactory.createFont(StandardFonts.HELVETICA);
 
-        content.append("PURPOSE & GOALS\n");
-        content.append("---------------\n");
-        content.append("Purpose: ").append(nvl(prd.getPurpose())).append("\n");
-        content.append("Problem to Solve: ").append(nvl(prd.getProblemToSolve())).append("\n");
-        content.append("Project Goal: ").append(nvl(prd.getProjectGoal())).append("\n\n");
+            // Title
+            log.debug("Adding title");
+            Paragraph title = new Paragraph("PRODUCT REQUIREMENTS DOCUMENT (PRD)")
+                    .setFont(bold)
+                    .setFontSize(20)
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setMarginBottom(20);
+            document.add(title);
 
-        content.append("STAKEHOLDERS\n");
-        content.append("------------\n");
-        if (prd.getStakeholders() == null || prd.getStakeholders().isEmpty()) {
-            content.append("-\n\n");
-        } else {
-            for (Prd.Stakeholder stakeholder : prd.getStakeholders()) {
-                content.append("Role: ").append(nvl(stakeholder.getRole())).append("\n");
-                content.append("Name: ").append(nvl(stakeholder.getName())).append("\n");
-                content.append("Responsibility: ").append(nvl(stakeholder.getResponsibility())).append("\n\n");
+            document.add(new LineSeparator(new SolidLine()));
+
+            // Project Information
+            log.debug("Adding project information");
+            document.add(new Paragraph("PROJECT INFORMATION")
+                    .setFont(bold)
+                    .setFontSize(14)
+                    .setMarginTop(20));
+
+            Table infoTable = new Table(UnitValue.createPercentArray(new float[]{30, 70}))
+                    .useAllAvailableWidth()
+                    .setMarginBottom(20);
+
+            addTableRow(infoTable, "PRD ID:", nvl(prd.getPid()), bold, normal);
+            addTableRow(infoTable, "Project Name:", nvl(prd.getProjectName()), bold, normal);
+            addTableRow(infoTable, "Project ID:", nvl(prd.getProjectId()), bold, normal);
+            addTableRow(infoTable, "Title:", nvl(prd.getTitle()), bold, normal);
+            addTableRow(infoTable, "Version:", nvl(prd.getVersion()), bold, normal);
+            addTableRow(infoTable, "Status:", nvl(prd.getStatus()), bold, normal);
+            addTableRow(infoTable, "Author:", nvl(prd.getAuthor()), bold, normal);
+            addTableRow(infoTable, "Date Submitted:", nvl(prd.getDateSubmitted()), bold, normal);
+            addTableRow(infoTable, "Reviewer:", nvl(prd.getReviewerName()), bold, normal);
+            document.add(infoTable);
+
+            // Purpose & Goals
+            log.debug("Adding purpose and goals");
+            document.add(new Paragraph("PURPOSE & GOALS")
+                    .setFont(bold)
+                    .setFontSize(14));
+            document.add(new Paragraph("Purpose:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getPurpose())).setFont(normal).setMarginBottom(10));
+            document.add(new Paragraph("Problem to Solve:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getProblemToSolve())).setFont(normal).setMarginBottom(10));
+            document.add(new Paragraph("Project Goal:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getProjectGoal())).setFont(normal).setMarginBottom(20));
+
+            // Stakeholders
+            log.debug("Adding stakeholders");
+            document.add(new Paragraph("STAKEHOLDERS")
+                    .setFont(bold)
+                    .setFontSize(14));
+            if (prd.getStakeholders() == null || prd.getStakeholders().isEmpty()) {
+                document.add(new Paragraph("-").setFont(normal).setMarginBottom(20));
+            } else {
+                Table stTable = new Table(UnitValue.createPercentArray(new float[]{30, 30, 40}))
+                        .useAllAvailableWidth()
+                        .setMarginBottom(20);
+                stTable.addHeaderCell(new Cell().add(new Paragraph("Role").setFont(bold)));
+                stTable.addHeaderCell(new Cell().add(new Paragraph("Name").setFont(bold)));
+                stTable.addHeaderCell(new Cell().add(new Paragraph("Responsibility").setFont(bold)));
+
+                for (Prd.Stakeholder stakeholder : prd.getStakeholders()) {
+                    if (stakeholder == null) continue;
+                    stTable.addCell(new Cell().add(new Paragraph(nvl(stakeholder.getRole())).setFont(normal)));
+                    stTable.addCell(new Cell().add(new Paragraph(nvl(stakeholder.getName())).setFont(normal)));
+                    stTable.addCell(new Cell().add(new Paragraph(nvl(stakeholder.getResponsibility())).setFont(normal)));
+                }
+                document.add(stTable);
             }
-        }
 
-        content.append("SCOPE\n");
-        content.append("-----\n");
-        content.append("In Scope:\n").append(nvl(prd.getInScope())).append("\n\n");
-        content.append("Out of Scope:\n").append(nvl(prd.getOutOfScope())).append("\n\n");
+            // Scope
+            log.debug("Adding scope");
+            document.add(new Paragraph("SCOPE")
+                    .setFont(bold)
+                    .setFontSize(14));
+            document.add(new Paragraph("In Scope:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getInScope())).setFont(normal).setMarginBottom(10));
+            document.add(new Paragraph("Out of Scope:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getOutOfScope())).setFont(normal).setMarginBottom(20));
 
-        content.append("FEATURES & REQUIREMENTS\n");
-        content.append("-----------------------\n");
-        content.append("Main Features:\n").append(nvl(prd.getMainFeatures())).append("\n\n");
-        content.append("Functional Requirements:\n").append(nvl(prd.getFunctionalRequirement())).append("\n\n");
-        content.append("Non-Functional Requirements:\n").append(nvl(prd.getNonFunctionalRequirement())).append("\n\n");
+            // Features & Requirements
+            log.debug("Adding features and requirements");
+            document.add(new Paragraph("FEATURES & REQUIREMENTS")
+                    .setFont(bold)
+                    .setFontSize(14));
+            document.add(new Paragraph("Main Features:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getMainFeatures())).setFont(normal).setMarginBottom(10));
+            document.add(new Paragraph("Functional Requirements:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getFunctionalRequirement())).setFont(normal).setMarginBottom(10));
+            document.add(new Paragraph("Non-Functional Requirements:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getNonFunctionalRequirement())).setFont(normal).setMarginBottom(20));
 
-        content.append("USER ROLES & RISKS\n");
-        content.append("------------------\n");
-        content.append("User Roles:\n").append(nvl(prd.getUserRoles())).append("\n\n");
-        content.append("Risks & Dependencies:\n").append(nvl(prd.getRisksDependencies())).append("\n\n");
+            // User Roles & Risks
+            log.debug("Adding user roles and risks");
+            document.add(new Paragraph("USER ROLES & RISKS")
+                    .setFont(bold)
+                    .setFontSize(14));
+            document.add(new Paragraph("User Roles:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getUserRoles())).setFont(normal).setMarginBottom(10));
+            document.add(new Paragraph("Risks & Dependencies:").setFont(bold));
+            document.add(new Paragraph(nvl(prd.getRisksDependencies())).setFont(normal).setMarginBottom(20));
 
-        content.append("MILESTONES\n");
-        content.append("----------\n");
-        if (prd.getMilestones() == null || prd.getMilestones().isEmpty()) {
-            content.append("-\n\n");
-        } else {
-            for (Prd.Milestone milestone : prd.getMilestones()) {
-                content.append("Phase: ").append(nvl(milestone.getPhase())).append("\n");
-                content.append("Task: ").append(nvl(milestone.getTask())).append("\n");
-                content.append("Duration: ").append(nvl(milestone.getDuration())).append("\n");
-                content.append("Responsibility: ").append(nvl(milestone.getResponsibility())).append("\n\n");
+            // Milestones
+            log.debug("Adding milestones");
+            document.add(new Paragraph("MILESTONES")
+                    .setFont(bold)
+                    .setFontSize(14));
+            if (prd.getMilestones() == null || prd.getMilestones().isEmpty()) {
+                document.add(new Paragraph("-").setFont(normal).setMarginBottom(20));
+            } else {
+                Table msTable = new Table(UnitValue.createPercentArray(new float[]{20, 40, 20, 20}))
+                        .useAllAvailableWidth()
+                        .setMarginBottom(20);
+                msTable.addHeaderCell(new Cell().add(new Paragraph("Phase").setFont(bold)));
+                msTable.addHeaderCell(new Cell().add(new Paragraph("Task").setFont(bold)));
+                msTable.addHeaderCell(new Cell().add(new Paragraph("Duration").setFont(bold)));
+                msTable.addHeaderCell(new Cell().add(new Paragraph("Resp.").setFont(bold)));
+
+                for (Prd.Milestone milestone : prd.getMilestones()) {
+                    if (milestone == null) continue;
+                    msTable.addCell(new Cell().add(new Paragraph(nvl(milestone.getPhase())).setFont(normal)));
+                    msTable.addCell(new Cell().add(new Paragraph(nvl(milestone.getTask())).setFont(normal)));
+                    msTable.addCell(new Cell().add(new Paragraph(nvl(milestone.getDuration())).setFont(normal)));
+                    msTable.addCell(new Cell().add(new Paragraph(nvl(milestone.getResponsibility())).setFont(normal)));
+                }
+                document.add(msTable);
             }
+
+            document.add(new LineSeparator(new SolidLine()));
+            document.add(new Paragraph("Document Generated: " + Instant.now())
+                    .setFont(normal)
+                    .setFontSize(10)
+                    .setTextAlignment(TextAlignment.RIGHT)
+                    .setMarginTop(10));
+
+            log.debug("Closing document");
+            document.close();
+            log.info("PDF generation completed successfully for PRD ID: {}", prdId);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            log.error("Failed to generate PDF for PRD ID: {}. Error: {}", prdId, e.getMessage(), e);
+            if (e instanceof ResponseStatusException) throw (ResponseStatusException) e;
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate PDF document: " + e.getMessage());
         }
+    }
 
-        content.append("================================================================================\n");
-        content.append("Document Generated: ").append(Instant.now()).append("\n");
-        content.append("================================================================================\n");
-
-        return content.toString().getBytes(StandardCharsets.UTF_8);
+    private void addTableRow(Table table, String label, String value, PdfFont labelFont, PdfFont valueFont) {
+        table.addCell(new Cell().add(new Paragraph(label).setFont(labelFont)).setBorder(Border.NO_BORDER));
+        table.addCell(new Cell().add(new Paragraph(value).setFont(valueFont)).setBorder(Border.NO_BORDER));
     }
 
     private Prd findPrd(String id) {
