@@ -1,5 +1,9 @@
 package com.visionforge.crms.auth.service;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.visionforge.crms.auth.config.JwtService;
 import com.visionforge.crms.auth.dto.*;
 import com.visionforge.crms.user.Role;
@@ -28,7 +32,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
-    @Value("${google.client-id}")
+    @Value("${google.client-id:}")
     private String googleClientId;
 
     private String normalizeEmail(String email) {
@@ -188,4 +192,88 @@ public class AuthService {
 
         return "Password reset successful";
     }
-}
+
+    public java.util.Map<String, Object> loginWithGoogle(String idTokenString, String roleStr) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(idTokenString);
+            if (idToken == null) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid ID token.");
+            }
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = normalizeEmail(payload.getEmail());
+            String googleName = (String) payload.get("name");
+            String googleSubjectId = payload.getSubject();
+
+            // Check if user already exists
+            java.util.Optional<User> existingUser = userRepository.findByEmail(email);
+
+            if (existingUser.isPresent()) {
+                // ── EXISTING USER → direct login, no role prompt ──────────────
+                User user = existingUser.get();
+                // Link googleId if not already linked
+                if (user.getGoogleId() == null) {
+                    user.setGoogleId(googleSubjectId);
+                    user.setEmailVerified(true);
+                    userRepository.save(user);
+                }
+                String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
+                java.util.Map<String, Object> res = new java.util.LinkedHashMap<>();
+                res.put("newUser", false);
+                res.put("token", token);
+                res.put("id", user.getId());
+                res.put("name", user.getName());
+                res.put("email", user.getEmail());
+                res.put("role", user.getRole());
+                return res;
+
+            } else {
+                // ── NEW USER ──────────────────────────────────────────────────
+                if (roleStr == null || roleStr.trim().isEmpty()) {
+                    // Role not provided yet → tell frontend to show role picker
+                    java.util.Map<String, Object> res = new java.util.LinkedHashMap<>();
+                    res.put("newUser", true);
+                    res.put("googleEmail", email);
+                    res.put("googleName", googleName != null ? googleName : email.split("@")[0]);
+                    return res;
+                }
+
+                // Role provided → create user
+                Role role;
+                try {
+                    role = Role.valueOf(roleStr.trim().toUpperCase());
+                } catch (Exception e) {
+                    role = Role.CLIENT;
+                }
+
+                User newUser = User.builder()
+                        .email(email)
+                        .name(googleName != null ? googleName : email.split("@")[0])
+                        .role(role)
+                        .emailVerified(true)
+                        .googleId(googleSubjectId)
+                        .build();
+                userRepository.save(newUser);
+
+                String token = jwtService.generateToken(newUser.getEmail(), newUser.getRole().name());
+                java.util.Map<String, Object> res = new java.util.LinkedHashMap<>();
+                res.put("newUser", false);
+                res.put("token", token);
+                res.put("id", newUser.getId());
+                res.put("name", newUser.getName());
+                res.put("email", newUser.getEmail());
+                res.put("role", newUser.getRole());
+                return res;
+            }
+
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google authentication failed: " + e.getMessage(), e);
+        }
+    }
+}

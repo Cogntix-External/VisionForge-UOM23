@@ -89,7 +89,7 @@ public class AuthController {
     @PostMapping("/google")
     public ResponseEntity<?> googleLogin(@RequestBody GoogleTokenRequest request) {
         try {
-            return ResponseEntity.ok(authService.loginWithGoogle(request.getIdToken()));
+            return ResponseEntity.ok(authService.loginWithGoogle(request.getIdToken(), request.getRole()));
         } catch (ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode())
                     .body(Map.of("message", e.getReason() != null ? e.getReason() : "Google login failed"));
