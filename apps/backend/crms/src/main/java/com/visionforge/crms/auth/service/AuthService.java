@@ -1,9 +1,5 @@
 package com.visionforge.crms.auth.service;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 import com.visionforge.crms.auth.config.JwtService;
 import com.visionforge.crms.auth.dto.*;
 import com.visionforge.crms.user.Role;
@@ -73,8 +69,7 @@ public class AuthService {
         Role role;
         try {
             role = Role.valueOf(
-                    request.getRole() != null ? request.getRole().trim().toUpperCase() : "CLIENT"
-            );
+                    request.getRole() != null ? request.getRole().trim().toUpperCase() : "CLIENT");
         } catch (Exception e) {
             role = Role.CLIENT;
         }
@@ -145,9 +140,7 @@ public class AuthService {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         email,
-                        request.getPassword()
-                )
-        );
+                        request.getPassword()));
 
         String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
 
@@ -175,75 +168,6 @@ public class AuthService {
         userRepository.save(user);
 
         return "Password reset token generated successfully";
-    }
-
-    // GOOGLE OAUTH LOGIN
-    public LoginResponse loginWithGoogle(String idToken) {
-        try {
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
-                    new NetHttpTransport(), GsonFactory.getDefaultInstance())
-                    .setAudience(Collections.singletonList(googleClientId))
-                    .build();
-
-            GoogleIdToken googleIdToken = verifier.verify(idToken);
-            if (googleIdToken == null) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google token");
-            }
-
-            GoogleIdToken.Payload payload = googleIdToken.getPayload();
-            String email = normalizeEmail(payload.getEmail());
-            String name = (String) payload.get("name");
-            String googleId = payload.getSubject();
-
-            if (name == null || name.isBlank()) {
-                name = email.split("@")[0];
-            }
-
-            // Find existing user or auto-create one
-            User user = userRepository.findByEmail(email).orElse(null);
-
-            if (user == null) {
-                // New user — create with CLIENT role, skip OTP
-                user = User.builder()
-                        .name(name)
-                        .email(email)
-                        .password("") // No password for Google users
-                        .role(Role.CLIENT)
-                        .emailVerified(true)
-                        .googleId(googleId)
-                        .build();
-                userRepository.save(user);
-            } else {
-                // Existing user — update googleId if not set
-                boolean changed = false;
-                if (user.getGoogleId() == null || user.getGoogleId().isBlank()) {
-                    user.setGoogleId(googleId);
-                    changed = true;
-                }
-                if (!user.isEmailVerified()) {
-                    user.setEmailVerified(true);
-                    changed = true;
-                }
-                if (changed) {
-                    userRepository.save(user);
-                }
-            }
-
-            String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
-
-            return LoginResponse.builder()
-                    .token(token)
-                    .id(user.getId())
-                    .name(user.getName())
-                    .email(user.getEmail())
-                    .role(user.getRole())
-                    .build();
-
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google authentication failed: " + e.getMessage());
-        }
     }
 
     // RESET PASSWORD

@@ -1,12 +1,12 @@
 package com.visionforge.crms.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.visionforge.crms.auth.AuthController;
-import com.visionforge.crms.auth.AuthService;
-import com.visionforge.crms.auth.LoginResponse;
-import com.visionforge.crms.config.JwtService;
-import com.visionforge.crms.security.JwtFilter;
-import com.visionforge.crms.security.JwtUtil;
+import com.visionforge.crms.auth.controller.AuthController;
+import com.visionforge.crms.auth.service.AuthService;
+import com.visionforge.crms.auth.dto.LoginResponse;
+import com.visionforge.crms.auth.config.JwtService;
+import com.visionforge.crms.auth.config.JwtFilter;
+import com.visionforge.crms.auth.config.JwtUtil;
 import com.visionforge.crms.user.CustomerUserDetailsService;
 import com.visionforge.crms.user.Role;
 import org.junit.jupiter.api.Test;

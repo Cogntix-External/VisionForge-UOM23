@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.visionforge.crms.model.User;
 import com.visionforge.crms.service.ClientService;
-import com.visionforge.crms.security.JwtUtil; // 1. Import JwtUtil
+import com.visionforge.crms.auth.config.JwtUtil; // 1. Import JwtUtil
 
 import java.util.HashMap;
 import java.util.List;

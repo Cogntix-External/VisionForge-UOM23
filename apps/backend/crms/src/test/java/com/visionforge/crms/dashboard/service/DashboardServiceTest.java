@@ -23,6 +23,7 @@ import com.visionforge.crms.project.repository.ProjectRepository;
 import com.visionforge.crms.proposal.model.Proposal;
 import com.visionforge.crms.proposal.model.ProposalStatus;
 import com.visionforge.crms.proposal.repository.ProposalRepository;
+import com.visionforge.crms.kanban.repository.KanbanTaskRepository;
 import com.visionforge.crms.user.User;
 import com.visionforge.crms.user.UserRepository;
 
@@ -36,6 +37,8 @@ class DashboardServiceTest {
     private ProjectRepository projectRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private KanbanTaskRepository kanbanTaskRepository;
 
     @InjectMocks
     private DashboardService dashboardService;

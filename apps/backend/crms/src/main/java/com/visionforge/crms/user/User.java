@@ -31,4 +31,7 @@ public class User {
     //  Forgot Password fields
     private String resetToken;
     private LocalDateTime resetTokenExpiry;
+
+    // Google OAuth fields
+    private String googleId;
 }

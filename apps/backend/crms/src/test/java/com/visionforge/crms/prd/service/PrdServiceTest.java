@@ -59,6 +59,7 @@ class PrdServiceTest {
     void getAllPrdsMapsResponses() {
         Prd prd = samplePrd();
 
+        when(prdRepository.findAll()).thenReturn(List.of());
         when(prdRepository.findAll(any(Sort.class))).thenReturn(List.of(prd));
 
         List<PrdResponse> result = prdService.getAllPrds();

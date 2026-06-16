@@ -1,10 +1,8 @@
 package com.visionforge.crms.auth.service;
 
-import com.visionforge.crms.auth.EmailService;
-import com.visionforge.crms.auth.LoginResponse;
-import com.visionforge.crms.auth.AuthService;
-import com.visionforge.crms.auth.LoginRequest;
-import com.visionforge.crms.config.JwtService;
+import com.visionforge.crms.auth.dto.LoginResponse;
+import com.visionforge.crms.auth.dto.LoginRequest;
+import com.visionforge.crms.auth.config.JwtService;
 import com.visionforge.crms.user.Role;
 import com.visionforge.crms.user.User;
 import com.visionforge.crms.user.UserRepository;
