@@ -297,8 +297,8 @@ const App = () => {
     };
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-slate-950">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.28),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.22),_transparent_35%)]" />
+    <div className="relative flex h-screen overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.10),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.08),_transparent_35%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.28),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.22),_transparent_35%)]" />
 
       <Sidebar
         activePage={activePage}
@@ -324,21 +324,21 @@ const App = () => {
           role={currentRole}
         />
 
-        <main className="flex-1 overflow-y-auto bg-slate-50/95 p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto bg-slate-50/95 p-6 md:p-8 dark:bg-slate-950/95">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-8 rounded-[2rem] border border-white/80 bg-white/90 p-7 shadow-[0_24px_70px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-              <p className="mb-2 text-sm font-bold uppercase tracking-[0.28em] text-indigo-600">
+            <div className="mb-8 rounded-[2rem] border border-slate-200 bg-white/90 p-7 shadow-[0_24px_70px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+              <p className="mb-2 text-sm font-bold uppercase tracking-[0.28em] text-indigo-600 dark:text-indigo-300">
                 {currentRole === ROLE.CLIENT ? "Client Portal" : "Company Portal"}
               </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+              <h1 className="text-3xl font-black tracking-tight text-slate-950 md:text-4xl dark:text-white">
                 {pageInfo.title}
               </h1>
-              <p className="mt-3 max-w-2xl text-base font-medium text-slate-500">
+              <p className="mt-3 max-w-2xl text-base font-medium text-slate-500 dark:text-slate-300">
                 {pageInfo.subtitle}
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-white bg-white/80 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl md:p-7">
+            <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur-xl md:p-7 dark:border-slate-800 dark:bg-slate-900/70">
               {renderPage()}
             </div>
           </div>

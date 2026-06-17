@@ -85,13 +85,16 @@ async function request(path, options = {}) {
   const baseCandidates =
     baseUrl === API_BASE ? buildApiBaseCandidates() : [baseUrl];
   let lastError = null;
+  const isFormDataBody =
+    typeof FormData !== "undefined" && rest.body instanceof FormData;
 
   for (const candidateBase of baseCandidates) {
     try {
       const response = await fetch(`${candidateBase}${path}`, {
         ...rest,
+        ...(isFormDataBody ? {} : { body: rest.body }),
         headers: {
-          "Content-Type": "application/json",
+          ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...customHeaders,
         },
@@ -528,6 +531,34 @@ export async function downloadDocument(documentId) {
 
 // CHANGE REQUESTS - CLIENT
 export function createClientChangeRequest(projectId, payload) {
+  const hasAttachment =
+    typeof File !== "undefined" && payload?.attachmentFile instanceof File;
+
+  if (hasAttachment) {
+    const formData = new FormData();
+
+    if (payload.prdId) formData.append("prdId", payload.prdId);
+    formData.append("title", payload.title);
+    formData.append("description", payload.description);
+
+    if (
+      payload.budget !== null &&
+      payload.budget !== undefined &&
+      payload.budget !== ""
+    ) {
+      formData.append("budget", String(payload.budget));
+    }
+
+    if (payload.timeline) formData.append("timeline", payload.timeline);
+    if (payload.priority) formData.append("priority", payload.priority);
+    formData.append("attachment", payload.attachmentFile);
+
+    return request(`/client/projects/${projectId}/change-requests`, {
+      method: "POST",
+      body: formData,
+    });
+  }
+
   return request(`/client/projects/${projectId}/change-requests`, {
     method: "POST",
     body: JSON.stringify(payload),
@@ -538,6 +569,54 @@ export function getClientChangeRequests() {
   return request("/client/change-requests", {
     method: "GET",
   });
+}
+
+export async function downloadClientChangeRequestAttachment(
+  changeRequestId,
+  fileName,
+) {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("crms_token") : null;
+  const downloadUrl = `${API_BASE}/client/change-requests/${encodeURIComponent(
+    changeRequestId,
+  )}/attachment`;
+
+  const response = await fetch(downloadUrl, {
+    method: "GET",
+    cache: "no-store",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return false;
+    }
+
+    throw new Error(`Request failed with status code ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const contentDisposition = response.headers.get("content-disposition") || "";
+  const matchedFileName = contentDisposition.match(
+    /filename\*?=(?:UTF-8'')?["']?([^;"']+)["']?/i,
+  );
+  const resolvedFileName =
+    fileName ||
+    (matchedFileName?.[1] ? decodeURIComponent(matchedFileName[1]) : "") ||
+    "attachment";
+  const objectUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = objectUrl;
+  link.download = resolvedFileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  window.URL.revokeObjectURL(objectUrl);
+  return true;
 }
 
 // CHANGE REQUESTS - COMPANY

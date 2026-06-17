@@ -9,11 +9,13 @@ import com.visionforge.crms.changerequest.dto.VersionHistoryTableRowResponse;
 import com.visionforge.crms.changerequest.service.ChangeRequestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -32,6 +34,16 @@ public class ChangeRequestController {
             @Valid @RequestBody CreateChangeRequestRequest request
     ) {
         ChangeRequestResponse response = changeRequestService.createChangeRequest(projectId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping(value = "/client/projects/{projectId}/change-requests", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ChangeRequestResponse> createChangeRequestWithAttachment(
+            @PathVariable String projectId,
+            @Valid @ModelAttribute CreateChangeRequestRequest request,
+            @RequestParam(value = "attachment", required = false) MultipartFile attachment
+    ) {
+        ChangeRequestResponse response = changeRequestService.createChangeRequest(projectId, request, attachment);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -109,6 +121,11 @@ public class ChangeRequestController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=change-request-" + id + ".txt")
                 .body(content);
+    }
+
+    @GetMapping({"/client/change-requests/{id}/attachment", "/company/change-requests/{id}/attachment"})
+    public ResponseEntity<Resource> downloadChangeRequestAttachment(@PathVariable String id) {
+        return changeRequestService.downloadChangeRequestAttachment(id);
     }
 
     // company version-history table rows (projectId, prdId, clientId)

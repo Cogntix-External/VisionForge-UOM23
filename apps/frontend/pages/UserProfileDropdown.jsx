@@ -71,17 +71,15 @@ const UserProfileDropdown = ({ section = "company" }) => {
     localStorage.setItem("crms_theme", selected);
 
     const root = document.documentElement;
+    const body = document.body;
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const isDarkTheme =
+      selected === "dark" || (selected === "system" && prefersDark);
 
-    if (selected === "dark") {
-      root.classList.add("dark");
-    } else if (selected === "light") {
-      root.classList.remove("dark");
-    } else {
-      const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches;
-      root.classList.toggle("dark", prefersDark);
-    }
+    root.classList.toggle("dark", isDarkTheme);
+    body.classList.toggle("dark", isDarkTheme);
+    root.dataset.theme = selected;
+    body.dataset.theme = selected;
 
     if (showToast) {
       const label =
@@ -225,7 +223,10 @@ const UserProfileDropdown = ({ section = "company" }) => {
                       <button
                         key={option.id}
                         type="button"
-                        onClick={() => applyTheme(option.id)}
+                        onClick={() => {
+                          applyTheme(option.id);
+                          setActivePanel(null);
+                        }}
                         className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition ${
                           isSelected
                             ? "bg-blue-50 dark:bg-blue-950/40"
@@ -292,6 +293,7 @@ const UserProfileDropdown = ({ section = "company" }) => {
 
               <div className="mt-4 space-y-1">
                 <button
+                  type="button"
                   onClick={() => {
                     setIsEditOpen(true);
                     setIsOpen(false);
@@ -307,6 +309,7 @@ const UserProfileDropdown = ({ section = "company" }) => {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setIsOpen(false);
                     setActivePanel(null);
@@ -322,6 +325,7 @@ const UserProfileDropdown = ({ section = "company" }) => {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() =>
                     setActivePanel((prev) => (prev === "theme" ? null : "theme"))
                   }
@@ -341,6 +345,7 @@ const UserProfileDropdown = ({ section = "company" }) => {
 
               <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[15px] font-medium text-slate-900 transition hover:bg-rose-50 hover:text-rose-700 dark:text-slate-200 dark:hover:bg-rose-950/30"
                 >

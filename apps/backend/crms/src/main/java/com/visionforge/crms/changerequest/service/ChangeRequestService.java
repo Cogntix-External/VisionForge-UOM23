@@ -20,9 +20,23 @@ import com.visionforge.crms.user.CurrentUserService;
 import com.visionforge.crms.user.Role;
 import com.visionforge.crms.user.User;
 import com.visionforge.crms.user.UserRepository;
+import com.mongodb.client.gridfs.model.GridFSFile;
 import lombok.RequiredArgsConstructor;
+import org.bson.Document;
+import org.bson.types.ObjectId;
+import org.springframework.core.io.Resource;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.gridfs.GridFsTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -42,9 +56,18 @@ public class ChangeRequestService {
     private final NotificationService notificationService;
     private final EmailService emailService;
     private final UserRepository userRepository;
+    private final GridFsTemplate gridFsTemplate;
 
     // client creates change request
     public ChangeRequestResponse createChangeRequest(String projectId, CreateChangeRequestRequest request) {
+        return createChangeRequest(projectId, request, null);
+    }
+
+    public ChangeRequestResponse createChangeRequest(
+            String projectId,
+            CreateChangeRequestRequest request,
+            MultipartFile attachment
+    ) {
         if (currentUserService.getCurrentUserRole() != Role.CLIENT) {
             throw new RuntimeException("Only client can create change requests");
         }
@@ -83,6 +106,10 @@ public class ChangeRequestService {
                 .build();
 
         ChangeRequest saved = changeRequestRepository.save(changeRequest);
+
+            if (attachment != null && !attachment.isEmpty()) {
+                saved = attachFileToChangeRequest(saved, attachment);
+            }
 
         // optional: notify company that a new CR was raised
         notifyCompanyNewChangeRequest(saved);
@@ -328,8 +355,49 @@ public class ChangeRequestService {
         content.append("Budget: ").append(changeRequest.getBudget() == null ? "-" : changeRequest.getBudget()).append("\n");
         content.append("Timeline: ").append(nvl(changeRequest.getTimeline())).append("\n");
         content.append("Priority: ").append(nvl(changeRequest.getPriority())).append("\n");
+        content.append("Attachment: ").append(nvl(changeRequest.getAttachmentName())).append("\n");
 
         return content.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    public ResponseEntity<Resource> downloadChangeRequestAttachment(String changeRequestId) {
+        ChangeRequest changeRequest = findAuthorizedChangeRequest(changeRequestId);
+
+        if (changeRequest.getAttachmentId() == null || changeRequest.getAttachmentId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found");
+        }
+
+        Resource resource = getAttachmentResourceIfPresent(changeRequest.getAttachmentId());
+        if (resource == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Stored attachment not found");
+        }
+
+        MediaType mediaType = resolveAttachmentMediaType(changeRequest.getAttachmentContentType());
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + resolveAttachmentFileName(changeRequest.getAttachmentName()) + "\""
+                );
+
+        Long attachmentSize = changeRequest.getAttachmentSize();
+        long contentLength = attachmentSize != null && attachmentSize > 0
+            ? attachmentSize
+            : -1L;
+
+        try {
+            if (contentLength <= 0) {
+                contentLength = resource.contentLength();
+            }
+        } catch (IOException ignored) {
+            contentLength = -1L;
+        }
+
+        if (contentLength > 0) {
+            response.contentLength(contentLength);
+        }
+
+        return response.body(resource);
     }
 
     // company version-history table rows (projectId, prdId, clientId)
@@ -555,6 +623,135 @@ public class ChangeRequestService {
         return value == null || value.isBlank() ? "-" : value;
     }
 
+    private ChangeRequest attachFileToChangeRequest(ChangeRequest changeRequest, MultipartFile attachment) {
+        String storedAttachmentId = null;
+
+        try {
+            storedAttachmentId = storeAttachmentInMongo(changeRequest, attachment);
+
+            changeRequest.setAttachmentId(storedAttachmentId);
+            changeRequest.setAttachmentName(resolveFileName(attachment.getOriginalFilename()));
+            changeRequest.setAttachmentContentType(
+                    attachment.getContentType() == null || attachment.getContentType().isBlank()
+                            ? MediaType.APPLICATION_OCTET_STREAM_VALUE
+                            : attachment.getContentType()
+            );
+            changeRequest.setAttachmentSize(attachment.getSize());
+            changeRequest.setAttachmentUploadedAt(LocalDateTime.now());
+            changeRequest.setUpdatedAt(LocalDateTime.now());
+
+            return changeRequestRepository.save(changeRequest);
+        } catch (IOException | RuntimeException error) {
+            if (storedAttachmentId != null) {
+                deleteStoredAttachmentIfPresent(storedAttachmentId);
+            }
+
+            if (changeRequest.getId() != null && !changeRequest.getId().isBlank()) {
+                changeRequestRepository.deleteById(changeRequest.getId());
+            }
+
+            throw new RuntimeException("Failed to store change request attachment", error);
+        }
+    }
+
+    private ChangeRequest findAuthorizedChangeRequest(String changeRequestId) {
+        Role role = currentUserService.getCurrentUserRole();
+
+        if (role == Role.CLIENT) {
+            String clientId = currentUserService.getCurrentUserId();
+            return changeRequestRepository.findByIdAndClientId(changeRequestId, clientId)
+                    .orElseThrow(() -> new RuntimeException("Change request not found for this client"));
+        }
+
+        if (role == Role.COMPANY) {
+            String companyId = currentUserService.getCurrentUserId();
+            return changeRequestRepository.findByIdAndCompanyId(changeRequestId, companyId)
+                    .orElseThrow(() -> new RuntimeException("Change request not found for this company"));
+        }
+
+        throw new RuntimeException("Unauthorized role for attachment download");
+    }
+
+    private String storeAttachmentInMongo(ChangeRequest changeRequest, MultipartFile file) throws IOException {
+        Document metadata = new Document()
+                .append("changeRequestId", changeRequest.getId())
+                .append("projectId", changeRequest.getProjectId())
+                .append("clientId", changeRequest.getClientId())
+                .append("companyId", changeRequest.getCompanyId())
+                .append("uploadedAt", LocalDateTime.now().toString());
+
+        String fileName = resolveFileName(file.getOriginalFilename());
+
+        try (var inputStream = file.getInputStream()) {
+            ObjectId gridFsId = gridFsTemplate.store(
+                    inputStream,
+                    fileName,
+                    file.getContentType(),
+                    metadata
+            );
+
+            return gridFsId.toHexString();
+        }
+    }
+
+    private void deleteStoredAttachmentIfPresent(String attachmentId) {
+        if (attachmentId == null || attachmentId.isBlank()) {
+            return;
+        }
+
+        try {
+            gridFsTemplate.delete(new Query(Criteria.where("_id").is(new ObjectId(attachmentId))));
+        } catch (IllegalArgumentException ignored) {
+        }
+    }
+
+    private Resource getAttachmentResourceIfPresent(String attachmentId) {
+        if (attachmentId == null || attachmentId.isBlank() || !ObjectId.isValid(attachmentId)) {
+            return null;
+        }
+
+        GridFSFile gridFile = gridFsTemplate.findOne(
+                new Query(Criteria.where("_id").is(new ObjectId(attachmentId)))
+        );
+
+        if (gridFile == null) {
+            return null;
+        }
+
+        return gridFsTemplate.getResource(gridFile);
+    }
+
+    private MediaType resolveAttachmentMediaType(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (Exception ignored) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+    }
+
+    private String resolveAttachmentFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return "attachment";
+        }
+
+        return fileName.replace("\"", "");
+    }
+
+    private String resolveFileName(String originalFileName) {
+        if (originalFileName == null || originalFileName.isBlank()) {
+            return "attachment";
+        }
+
+        String sanitized = originalFileName.replace("\\", "/");
+        int slashIndex = sanitized.lastIndexOf('/');
+        String resolved = slashIndex >= 0 ? sanitized.substring(slashIndex + 1) : sanitized;
+        return resolved.isBlank() ? "attachment" : resolved.replace("\"", "");
+    }
+
     private ChangeRequestResponse mapToResponse(ChangeRequest changeRequest) {
         return ChangeRequestResponse.builder()
                 .id(changeRequest.getId())
@@ -567,6 +764,11 @@ public class ChangeRequestService {
                 .budget(changeRequest.getBudget())
                 .timeline(changeRequest.getTimeline())
                 .priority(changeRequest.getPriority())
+                .attachmentId(changeRequest.getAttachmentId())
+                .attachmentName(changeRequest.getAttachmentName())
+                .attachmentContentType(changeRequest.getAttachmentContentType())
+                .attachmentSize(changeRequest.getAttachmentSize())
+                .attachmentUploadedAt(changeRequest.getAttachmentUploadedAt())
                 .status(changeRequest.getStatus())
                 .decisionReason(changeRequest.getDecisionReason())
                 .decidedAt(changeRequest.getDecidedAt())
