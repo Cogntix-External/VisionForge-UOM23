@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileEdit,
@@ -43,7 +43,18 @@ const createEmptyForm = () => ({
   milestones: [emptyMilestone()],
 });
 
-const hasText = (value) => String(value || "").trim().length > 0;
+const stripHtml = (value) =>
+  String(value || "")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .trim();
+
+const hasText = (value) => stripHtml(value).length > 0;
 
 const editorFieldClass = (value, extraClassName = "") =>
   cn(
@@ -53,67 +64,6 @@ const editorFieldClass = (value, extraClassName = "") =>
   );
 
 const countFilledValues = (values) => values.filter(hasText).length;
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function renderMarkdown(text) {
-  if (!text) return "";
-  const escaped = escapeHtml(text);
-  const lines = escaped.split(/\r?\n/);
-  let html = "";
-  let inList = false;
-  let para = "";
-
-  for (let rawLine of lines) {
-    const line = rawLine.trim();
-
-    if (line.startsWith("- ")) {
-      if (para) {
-        html += `<p>${para}</p>`;
-        para = "";
-      }
-
-      if (!inList) {
-        inList = true;
-        html += "<ul>";
-      }
-
-      const item = line.slice(2);
-      html += `<li>${item}</li>`;
-    } else if (line === "") {
-      if (para) {
-        html += `<p>${para}</p>`;
-        para = "";
-      }
-      if (inList) {
-        html += "</ul>";
-        inList = false;
-      }
-    } else {
-      if (inList) {
-        html += "</ul>";
-        inList = false;
-      }
-      para = para ? para + " " + line : line;
-    }
-  }
-
-  if (inList) html += "</ul>";
-  if (para) html += `<p>${para}</p>`;
-
-  // simple inline formatting: **bold** and *italic*
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-
-  return html;
-}
 
 const getProjectId = (project) => project?.id || project?._id || "";
 
@@ -947,26 +897,26 @@ export default function CompanyPrdRepositorySection() {
                   Project Overview
                 </h3>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <input
-                    className={editorFieldClass(form.purpose)}
+                <div className="grid grid-cols-1 gap-4">
+                  <RichTextField
                     placeholder="Purpose"
                     value={form.purpose}
                     onChange={updateField("purpose")}
+                    compact
                   />
 
-                  <input
-                    className={editorFieldClass(form.problemToSolve)}
+                  <RichTextField
                     placeholder="Problem to solve"
                     value={form.problemToSolve}
                     onChange={updateField("problemToSolve")}
+                    compact
                   />
 
-                  <input
-                    className={editorFieldClass(form.projectGoal)}
+                  <RichTextField
                     placeholder="Project Goal"
                     value={form.projectGoal}
                     onChange={updateField("projectGoal")}
+                    compact
                   />
                 </div>
               </section>
@@ -992,20 +942,14 @@ export default function CompanyPrdRepositorySection() {
                     className="grid grid-cols-1 items-center gap-3 md:grid-cols-12"
                   >
                     <input
-                      className={editorFieldClass(
-                        item.role,
-                        "md:col-span-3"
-                      )}
+                      className={editorFieldClass(item.role, "md:col-span-3")}
                       placeholder="Role"
                       value={item.role}
                       onChange={updateStakeholder(index, "role")}
                     />
 
                     <input
-                      className={editorFieldClass(
-                        item.name,
-                        "md:col-span-3"
-                      )}
+                      className={editorFieldClass(item.name, "md:col-span-3")}
                       placeholder="Name"
                       value={item.name}
                       onChange={updateStakeholder(index, "name")}
@@ -1034,21 +978,19 @@ export default function CompanyPrdRepositorySection() {
                 ))}
               </section>
 
-              <section id="section-scope" className="space-y-3 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+              <section id="section-scope" className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
                 <h3 id="section-Scope" className="border-b border-slate-400 pb-2 text-lg font-bold text-slate-800">
                   Scope
                 </h3>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <textarea
-                    className={editorFieldClass(form.inScope, "min-h-24")}
+                <div className="grid grid-cols-1 gap-5">
+                  <RichTextField
                     placeholder="In Scope"
                     value={form.inScope}
                     onChange={updateField("inScope")}
                   />
 
-                  <textarea
-                    className={editorFieldClass(form.outOfScope, "min-h-24")}
+                  <RichTextField
                     placeholder="Out of Scope"
                     value={form.outOfScope}
                     onChange={updateField("outOfScope")}
@@ -1056,35 +998,35 @@ export default function CompanyPrdRepositorySection() {
                 </div>
               </section>
 
-              <TextareaSection
+              <RichTextField
                 title="Main Features"
                 value={form.mainFeatures}
                 onChange={updateField("mainFeatures")}
                 helperText="List the core features the PRD must include."
               />
 
-              <TextareaSection
+              <RichTextField
                 title="Functional Requirement"
                 value={form.functionalRequirement}
                 onChange={updateField("functionalRequirement")}
                 helperText="Capture what the system should do in clear statements."
               />
 
-              <TextareaSection
+              <RichTextField
                 title="Non Functional Requirement"
                 value={form.nonFunctionalRequirement}
                 onChange={updateField("nonFunctionalRequirement")}
                 helperText="Add performance, security, usability, or reliability needs."
               />
 
-              <TextareaSection
+              <RichTextField
                 title="User Roles"
                 value={form.userRoles}
                 onChange={updateField("userRoles")}
                 helperText="Mention every role that interacts with the project."
               />
 
-              <TextareaSection
+              <RichTextField
                 title="Risk / Dependencies"
                 value={form.risksDependencies}
                 onChange={updateField("risksDependencies")}
@@ -1112,10 +1054,7 @@ export default function CompanyPrdRepositorySection() {
                     className="grid grid-cols-1 items-center gap-3 md:grid-cols-12"
                   >
                     <input
-                      className={editorFieldClass(
-                        item.phase,
-                        "md:col-span-2"
-                      )}
+                      className={editorFieldClass(item.phase, "md:col-span-2")}
                       placeholder="Phase"
                       value={item.phase}
                       onChange={updateMilestone(index, "phase")}
@@ -1129,10 +1068,7 @@ export default function CompanyPrdRepositorySection() {
                     />
 
                     <input
-                      className={editorFieldClass(
-                        item.duration,
-                        "md:col-span-2"
-                      )}
+                      className={editorFieldClass(item.duration, "md:col-span-2")}
                       placeholder="Duration"
                       value={item.duration}
                       onChange={updateMilestone(index, "duration")}
@@ -1192,6 +1128,202 @@ export default function CompanyPrdRepositorySection() {
       )}
 
       <style jsx global>{`
+        .rich-editor-shell {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          border-radius: 1.5rem;
+          border: 1px solid rgba(226, 232, 240, 0.95);
+          background: rgba(255, 255, 255, 0.92);
+          padding: 1rem;
+          box-shadow: 0 8px 26px rgba(15, 23, 42, 0.05);
+        }
+
+        .rich-editor-shell--compact {
+          gap: 0.45rem;
+          padding: 0.75rem;
+          border-radius: 1.15rem;
+        }
+
+        .rich-editor-heading {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: end;
+          justify-content: space-between;
+          gap: 0.5rem;
+        }
+
+        .rich-editor-title {
+          font-size: 0.92rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #475569;
+        }
+
+        .rich-editor-helper {
+          font-size: 0.9rem;
+          color: #64748b;
+        }
+
+        .rich-editor-toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.5rem;
+          border-radius: 1rem;
+          background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+          padding: 0.65rem;
+          border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+
+        .rich-editor-toolbar--compact {
+          gap: 0.35rem;
+          padding: 0.5rem;
+        }
+
+        .rich-editor-group {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.45rem;
+        }
+
+        .rich-editor-group--compact {
+          gap: 0.3rem;
+        }
+
+        .rich-editor-select {
+          min-width: 10rem;
+          border-radius: 0.8rem;
+          border: 1px solid rgba(148, 163, 184, 0.2);
+          background: white;
+          padding: 0.52rem 0.75rem;
+          font-size: 0.9rem;
+          color: #334155;
+        }
+
+        .rich-editor-select--compact {
+          display: none;
+        }
+
+        .rich-editor-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.35rem;
+          border-radius: 0.75rem;
+          border: 1px solid rgba(148, 163, 184, 0.16);
+          background: #fff;
+          padding: 0.55rem 0.7rem;
+          min-width: 2.6rem;
+          font-weight: 700;
+          color: #1e293b;
+          transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .rich-editor-button--compact {
+          min-width: 2.2rem;
+          padding: 0.46rem 0.6rem;
+          border-radius: 0.65rem;
+        }
+
+        .rich-editor-button:hover {
+          background: #eaf1ff;
+          transform: translateY(-1px);
+          box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+        }
+
+        .rich-editor-button span {
+          line-height: 1;
+        }
+
+        .rich-editor-action {
+          margin-left: auto;
+          border-radius: 0.8rem;
+          border: 1px solid rgba(26, 26, 64, 0.12);
+          background: #1a1a40;
+          color: white;
+          padding: 0.55rem 0.9rem;
+          font-weight: 700;
+          transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        .rich-editor-action--compact {
+          display: none;
+        }
+
+        .rich-editor-action:hover {
+          transform: translateY(-1px);
+          opacity: 0.95;
+        }
+
+        .rich-editor-content {
+          min-height: 8rem;
+          border-radius: 1rem;
+          border: 1px solid rgba(203, 213, 225, 0.9);
+          background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+          padding: 0.95rem 1rem;
+          color: #0f172a;
+          line-height: 1.65;
+          outline: none;
+          white-space: pre-wrap;
+          word-break: break-word;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        }
+
+        .rich-editor-content--compact {
+          min-height: 3.1rem;
+          padding: 0.68rem 0.8rem;
+          border-radius: 0.85rem;
+        }
+
+        .rich-editor-content:focus {
+          border-color: #1a1a40;
+          box-shadow: 0 0 0 2px rgba(26, 26, 64, 0.12);
+        }
+
+        .rich-editor-content:empty:before {
+          content: attr(data-placeholder);
+          color: #94a3b8;
+          font-weight: 500;
+        }
+
+        .rich-editor-content p {
+          margin: 0 0 0.7rem 0;
+        }
+
+        .rich-editor-content ul,
+        .rich-editor-content ol {
+          margin: 0.35rem 0 0.8rem 1.15rem;
+          padding-left: 0.9rem;
+        }
+
+        .rich-editor-content li {
+          margin: 0.2rem 0;
+        }
+
+        .rich-editor-content blockquote {
+          margin: 0.4rem 0;
+          padding-left: 0.9rem;
+          border-left: 3px solid #cbd5e1;
+          color: #475569;
+        }
+
+        .rich-editor-content pre {
+          margin: 0.4rem 0;
+          padding: 0.75rem 0.9rem;
+          border-radius: 0.75rem;
+          background: #0f172a;
+          color: #e2e8f0;
+          white-space: pre-wrap;
+        }
+
+        .rich-editor-content--empty {
+          border-style: dashed;
+          background: linear-gradient(180deg, #fffaf1 0%, #f8fbff 100%);
+        }
+
         .prd-editor-input {
           width: 100%;
           border: 1px solid transparent;
@@ -1229,181 +1361,122 @@ export default function CompanyPrdRepositorySection() {
           font-weight: 500;
         }
 
-        .prd-editor-textarea {
-          min-height: 6.5rem;
-          line-height: 1.6;
-          resize: vertical;
-        }
-
-        .prd-preview {
-          min-height: 3.5rem;
-          max-height: 12rem;
-          overflow: auto;
-          white-space: pre-wrap;
-        }
-
-        .prd-preview p {
-          margin: 0 0 0.6rem 0;
-        }
-
-        .prd-preview ul {
-          list-style: disc;
-          list-style-position: outside;
-          margin: 0.2rem 0 0.6rem 1.2rem;
-          padding-left: 1rem;
-        }
-        .prd-preview li {
-          margin: 0.15rem 0;
-        }
-
-        .toolbar-btn {
-          display: inline-flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 2px;
-          border-radius: 10px;
-          background: #f1f5f9;
-          padding: 8px 12px;
-          font-weight: 700;
-          border: 1px solid rgba(15, 23, 42, 0.04);
-          cursor: pointer;
-          min-width: 126px;
-          text-align: left;
-          transition:
-            background 0.2s ease,
-            transform 0.2s ease,
-            box-shadow 0.2s ease;
-        }
-
-        .toolbar-btn:hover {
-          background: #e6eefb;
-          transform: translateY(-1px);
-          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
-        }
-
-        .toolbar-label {
-          font-size: 0.92rem;
-          line-height: 1.1;
-          color: #0f172a;
-        }
-
-        .toolbar-hint {
-          font-size: 0.72rem;
-          font-weight: 500;
-          color: #64748b;
-        }
       `}</style>
     </>
   );
 }
 
-function TextareaSection({ title, value, onChange, helperText = "" }) {
-  const ref = (0, require("react").useRef)(null);
+function RichTextField({
+  title = "",
+  value,
+  onChange,
+  helperText = "",
+  placeholder = "Enter text",
+  compact = false,
+  className = "",
+}) {
+  const editorRef = useRef(null);
 
-  const applyWrap = (before, after = before) => {
-    const el = ref.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const text = el.value || "";
-    const selected = text.slice(start, end) || "";
-    const newText = text.slice(0, start) + before + selected + after + text.slice(end);
-    onChange({ target: { value: newText } });
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
 
-    // restore selection after update
-    requestAnimationFrame(() => {
-      el.focus();
-      el.selectionStart = start + before.length;
-      el.selectionEnd = start + before.length + selected.length;
-    });
-  };
-
-  const applyBullet = () => {
-    const el = ref.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const text = el.value || "";
-    const selected = text.slice(start, end) || "";
-
-    if (!selected) {
-      const newText = `${text.slice(0, start)}- ${text.slice(end)}`;
-      onChange({ target: { value: newText } });
-
-      requestAnimationFrame(() => {
-        el.focus();
-        el.selectionStart = start + 2;
-        el.selectionEnd = start + 2;
-      });
-      return;
+    const nextValue = String(value || "");
+    if (editor.innerHTML !== nextValue) {
+      editor.innerHTML = nextValue;
     }
+  }, [value]);
 
-    const lines = selected.split(/\r?\n/).map((l) => (l.trim() ? `- ${l}` : l));
-    const newSelected = lines.join("\n");
-    const newText = text.slice(0, start) + newSelected + text.slice(end);
-    onChange({ target: { value: newText } });
-
-    requestAnimationFrame(() => {
-      el.focus();
-      el.selectionStart = start;
-      el.selectionEnd = start + newSelected.length;
-    });
+  const updateValue = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    onChange({ target: { value: editor.innerHTML } });
   };
+
+  const runCommand = (command, argument = null) => {
+    const editor = editorRef.current;
+    if (!editor || typeof document === "undefined") return;
+
+    editor.focus();
+    document.execCommand(command, false, argument);
+    updateValue();
+  };
+
+  const insertLink = () => {
+    if (typeof window === "undefined") return;
+    const url = window.prompt("Enter link URL");
+    if (!url) return;
+    runCommand("createLink", url);
+  };
+
+  const editorClasses = cn(
+    "rich-editor-content",
+    compact && "rich-editor-content--compact",
+    !hasText(value) && "rich-editor-content--empty"
+  );
 
   return (
-    <section className="space-y-3 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-      <h3 className="text-sm font-extrabold uppercase text-slate-600">{title}</h3>
-      {helperText && <p className="text-sm text-slate-500">{helperText}</p>}
+    <div className={cn("rich-editor-shell", compact && "rich-editor-shell--compact", className)}>
+      {(title || helperText) && (
+        <div className="rich-editor-heading">
+          <div>
+            {title && <h3 className="rich-editor-title">{title}</h3>}
+            {helperText && <p className="rich-editor-helper">{helperText}</p>}
+          </div>
+        </div>
+      )}
 
-      <div className="prd-toolbar mb-2 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => applyWrap("**", "**")}
-          className="toolbar-btn"
-          title="Bold selected text"
-          aria-label="Bold selected text"
-        >
-          <span className="toolbar-label">Bold</span>
-          <span className="toolbar-hint">Make text strong</span>
-        </button>
+      <div className={cn("rich-editor-toolbar", compact && "rich-editor-toolbar--compact") }>
+        <div className={cn("rich-editor-group", compact && "rich-editor-group--compact") }>
+          <select className={cn("rich-editor-select", compact && "rich-editor-select--compact")} defaultValue="normal" aria-label="Text style">
+            <option value="normal">Normal Text</option>
+            <option value="quote">Quote</option>
+            <option value="code">Code</option>
+          </select>
 
-        <button
-          type="button"
-          onClick={() => applyWrap("*", "*")}
-          className="toolbar-btn"
-          title="Italic selected text"
-          aria-label="Italic selected text"
-        >
-          <span className="toolbar-label">Italic</span>
-          <span className="toolbar-hint">Add emphasis</span>
-        </button>
+          <button type="button" className={cn("rich-editor-button", compact && "rich-editor-button--compact")} onClick={() => runCommand("bold")} aria-label="Bold">
+            <span>B</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={applyBullet}
-          className="toolbar-btn"
-          title="Add bullet list"
-          aria-label="Add bullet list"
-        >
-          <span className="toolbar-label">Bullet List</span>
-          <span className="toolbar-hint">Turn lines into bullets</span>
+          <button type="button" className={cn("rich-editor-button", compact && "rich-editor-button--compact")} onClick={() => runCommand("italic")} aria-label="Italic">
+            <span>I</span>
+          </button>
+
+          <button type="button" className={cn("rich-editor-button", compact && "rich-editor-button--compact")} onClick={() => runCommand("underline")} aria-label="Underline">
+            <span>U</span>
+          </button>
+
+          <button type="button" className={cn("rich-editor-button", compact && "rich-editor-button--compact")} onClick={() => runCommand("insertUnorderedList")} aria-label="Bulleted list">
+            <span>•</span>
+          </button>
+
+          <button type="button" className={cn("rich-editor-button", compact && "rich-editor-button--compact")} onClick={() => runCommand("insertOrderedList")} aria-label="Numbered list">
+            <span>1.</span>
+          </button>
+
+          <button type="button" className={cn("rich-editor-button", compact && "rich-editor-button--compact")} onClick={() => runCommand("formatBlock", "blockquote")} aria-label="Quote block">
+            <span>“”</span>
+          </button>
+
+          <button type="button" className={cn("rich-editor-button", compact && "rich-editor-button--compact")} onClick={insertLink} aria-label="Insert link">
+            <span>🔗</span>
+          </button>
+        </div>
+
+        <button type="button" className={cn("rich-editor-action", compact && "rich-editor-action--compact")} onClick={() => runCommand("insertHorizontalRule")}>
+          Embed block entry
         </button>
       </div>
 
-      <textarea
-        ref={ref}
-        className={editorFieldClass(value, "prd-editor-textarea")}
-        value={value}
-        onChange={onChange}
+      <div
+        ref={editorRef}
+        className={editorClasses}
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder={placeholder || title || "Enter text"}
+        onInput={updateValue}
+        onBlur={updateValue}
       />
-
-      <div className="mt-3">
-        <p className="text-xs font-semibold text-slate-500 mb-2">Preview</p>
-        <div
-          className="prd-preview rounded-md border border-slate-100 bg-[#fbfdff] p-4 text-slate-800"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(value) }}
-        />
-      </div>
-    </section>
+    </div>
   );
 }
