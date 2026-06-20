@@ -30,6 +30,12 @@ public class ChangeRequest {
     private String timeline;
     private String priority;
 
+    private String attachmentId;
+    private String attachmentName;
+    private String attachmentContentType;
+    private Long attachmentSize;
+    private LocalDateTime attachmentUploadedAt;
+
     private ChangeRequestStatus status;
     private String decisionReason;
     private LocalDateTime decidedAt;

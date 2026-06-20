@@ -31,7 +31,7 @@ const Header = ({
   };
 
   return (
-    <header className="relative z-20 border-b border-white/20 bg-white/70 backdrop-blur-xl shadow-[0_10px_40px_rgba(15,23,42,0.08)]">
+    <header className="relative z-20 border-b border-slate-200 bg-white/85 backdrop-blur-xl shadow-[0_10px_40px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75 dark:text-white">
       <div className="flex items-center justify-between px-6 py-5 md:px-10">
         
         {/* LEFT SECTION */}
@@ -41,10 +41,10 @@ const Header = ({
           </div>
 
           <div>
-            <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-xl font-black tracking-tight text-slate-900 md:text-2xl dark:text-white">
               {title}
             </h2>
-            <p className="text-sm text-slate-500 font-medium">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-300">
               {subtitle}
             </p>
           </div>
@@ -56,7 +56,7 @@ const Header = ({
           {/* SETTINGS */}
           <button
             onClick={onNavigateSettings}
-            className="group flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg hover:-translate-y-0.5"
+            className="group flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
           >
             <div className="transition-transform group-hover:rotate-45">
               <Icons.Settings />
@@ -67,7 +67,9 @@ const Header = ({
           <button
             onClick={onToggleNotifications}
             className={`relative flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg hover:-translate-y-0.5 ${
-              showNotifications ? "bg-indigo-50" : ""
+              showNotifications
+                ? "bg-indigo-50 dark:bg-indigo-950/40"
+                : "dark:bg-slate-900"
             }`}
           >
             <Icons.Notification />
@@ -83,18 +85,18 @@ const Header = ({
           {/* USER PROFILE */}
           <button
             onClick={onProfileClick}
-            className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:shadow-lg hover:-translate-y-0.5"
+            className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"
             title="Profile"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-bold">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 font-bold text-white">
               {user?.name?.charAt(0) || "U"}
             </div>
 
-            <div className="hidden md:flex flex-col text-left">
-              <span className="text-sm font-bold text-slate-900">
+            <div className="hidden flex-col text-left md:flex">
+              <span className="text-sm font-bold text-slate-900 dark:text-white">
                 {user?.name || "User"}
               </span>
-              <span className="text-xs text-slate-400">{role}</span>
+              <span className="text-xs text-slate-400 dark:text-slate-300">{role}</span>
             </div>
           </button>
 
