@@ -241,6 +241,9 @@ const CRViewerModal = ({ cr, onClose }) => {
   );
 };
 
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 const AddCRModal = ({ projects, onClose, onAdd, isSubmitting, error }) => {
   const [formData, setFormData] = useState({
     projectId: "",
@@ -251,6 +254,7 @@ const AddCRModal = ({ projects, onClose, onAdd, isSubmitting, error }) => {
     priority: "Medium",
     attachmentFile: null,
   });
+  const [fileError, setFileError] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -262,6 +266,13 @@ const AddCRModal = ({ projects, onClose, onAdd, isSubmitting, error }) => {
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0] || null;
+    setFileError("");
+
+    if (file && file.size > MAX_FILE_SIZE_BYTES) {
+      setFileError(`Attached file must be less than ${MAX_FILE_SIZE_MB}MB. Selected file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
+      e.target.value = "";
+      return;
+    }
 
     setFormData((prev) => ({
       ...prev,
@@ -270,6 +281,7 @@ const AddCRModal = ({ projects, onClose, onAdd, isSubmitting, error }) => {
   };
 
   const clearAttachment = () => {
+    setFileError("");
     setFormData((prev) => ({
       ...prev,
       attachmentFile: null,
@@ -397,8 +409,8 @@ const AddCRModal = ({ projects, onClose, onAdd, isSubmitting, error }) => {
                 </FormField>
               </div>
 
-              <FormField label="Attachment">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <FormField label={`Attachment (max ${MAX_FILE_SIZE_MB}MB)`}>
+                <div className={`rounded-2xl border bg-white p-4 shadow-sm transition ${fileError ? "border-amber-300" : "border-slate-200"}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <label className="inline-flex cursor-pointer items-center justify-center rounded-full bg-slate-950 px-4 py-2.5 text-xs font-black text-white transition hover:bg-violet-700">
                       Choose file
@@ -431,6 +443,13 @@ const AddCRModal = ({ projects, onClose, onAdd, isSubmitting, error }) => {
                       </span>
                     )}
                   </div>
+
+                  {fileError && (
+                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                      <span className="mt-0.5 text-amber-500">⚠</span>
+                      <p className="text-xs font-bold text-amber-700">{fileError}</p>
+                    </div>
+                  )}
                 </div>
               </FormField>
 
@@ -527,7 +546,12 @@ const ChangeRequests = () => {
       return true;
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to create change request");
+      const raw = err.message || "";
+      if (raw.includes("413") || raw.toLowerCase().includes("too large") || raw.toLowerCase().includes("entity")) {
+        setError(`File is too large. Please attach a file smaller than ${MAX_FILE_SIZE_MB}MB.`);
+      } else {
+        setError("Failed to submit change request. Please try again.");
+      }
       return false;
     } finally {
       setIsSubmitting(false);
