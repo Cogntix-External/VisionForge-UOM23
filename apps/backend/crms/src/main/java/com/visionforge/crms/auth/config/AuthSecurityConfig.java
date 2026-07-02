@@ -85,14 +85,9 @@ public class AuthSecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOriginPatterns(List.of(
-                "http://localhost:*",
-                "http://127.0.0.1:*",
-                "https://localhost:*",
-                "https://127.0.0.1:*",
-                "http://10.208.190.32:*",
-                "https://10.208.190.32:*"
-        ));
+        // Allow ALL origins — backend is protected by JWT Bearer tokens,
+        // not cookies, so credentials=false is safe here.
+        config.addAllowedOriginPattern("*");
 
         config.setAllowedMethods(List.of(
                 "GET",
@@ -108,7 +103,7 @@ public class AuthSecurityConfig {
                 "Authorization",
                 "Content-Disposition"
         ));
-        config.setAllowCredentials(true);
+        config.setAllowCredentials(false);
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
